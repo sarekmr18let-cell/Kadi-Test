@@ -104,7 +104,7 @@ async def moogold_callback(
     if fulfillment:
         fulfillment.status = local_status
         fulfillment.response_payload = str(payload_raw)[:4000]
-        fulfillment.updated_at = datetime.now(timezone.utc)
+        fulfillment.updated_at = datetime.utcnow()
 
     # If the order has multiple MooGold fulfillments, complete the local order
     # only after all MooGold parts are completed.
@@ -144,7 +144,7 @@ async def moogold_callback(
         details_str = str(payload.account_details)
         order.payment_receipt = details_str[:1000]
 
-    order.updated_at = datetime.now(timezone.utc)
+    order.updated_at = datetime.utcnow()
     await db.commit()
 
     # Notify user/admin

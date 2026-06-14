@@ -65,13 +65,13 @@ app.include_router(products, prefix="/api/products", tags=["Products"])
 app.include_router(orders, prefix="/api/orders", tags=["Orders"])
 app.include_router(payments, prefix="/api/payments", tags=["Payments"])
 app.include_router(users, prefix="/api/users", tags=["Users"])
-app.include_router(bot_internal, prefix="/api/bot", tags=["Bot Internal"])
+app.include_router(bot_internal.router, prefix="/api/bot", tags=["Bot Internal"])
 app.include_router(admin, prefix="/api/admin", tags=["Admin"])
 app.include_router(moogold_proxy, prefix="/api/moogold", tags=["MooGold Proxy"])
 app.include_router(webhook, prefix="/api/webhook", tags=["Webhooks"])
 
 # Static files (Mini App)
-app.mount("/", StaticFiles(directory="app/webapp_static", html=True), name="static")
+# Static files are served by nginx in Docker
 
 
 @app.get("/api/health")

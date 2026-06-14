@@ -43,7 +43,7 @@ async def load_order_for_response(db: AsyncSession, order_id: int, user_id: int 
     return order
 
 def generate_order_number() -> str:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"ORD-{timestamp}-{random_suffix}"
 
@@ -127,7 +127,7 @@ async def create_order(
         promo = result.scalar_one_or_none()
 
         if promo:
-            now = datetime.now(timezone.utc)
+            now = datetime.utcnow()
             if promo.valid_from and promo.valid_from > now:
                 promo_error = "Promo code not yet active"
             elif promo.valid_until and promo.valid_until < now:
@@ -200,7 +200,7 @@ async def create_order(
         currency="UZS",
         payment_method="wallet_balance",
         payment_amount=final_total,
-        paid_at=datetime.now(timezone.utc),
+        paid_at=datetime.utcnow(),
         target_id=(request.target_id or None),
         target_server=(request.target_server or None),
         target_region=(request.target_region or None),
@@ -307,7 +307,7 @@ async def submit_payment(
     order.payment_method = request.payment_method
     order.payment_amount = request.payment_amount
     order.payment_receipt = request.payment_receipt
-    order.updated_at = datetime.now(timezone.utc)
+    order.updated_at = datetime.utcnow()
 
     await db.commit()
     await db.refresh(order)
@@ -341,7 +341,7 @@ async def apply_promo(
             message="Invalid promo code"
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     if promo.valid_from and promo.valid_from > now:
         return PromoResponse(code=promo.code, type=promo.type, value=promo.value, discount_amount=0, is_valid=False, message="Promo code not yet active")

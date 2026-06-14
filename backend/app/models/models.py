@@ -16,8 +16,8 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     is_blocked = Column(Boolean, default=False)
     balance = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
     
     # Referral
     referrer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -122,8 +122,8 @@ class Order(Base):
     discount_amount = Column(Float, default=0.0)
     promo_usage_counted = Column(Boolean, default=False)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
     
     # Constraints
     __table_args__ = (
@@ -172,7 +172,7 @@ class Transaction(Base):
     currency = Column(String(10), default="USD")
     status = Column(String(20), default="completed")
     description = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
     
     # Constraints
     __table_args__ = (
@@ -235,8 +235,8 @@ class P2PCard(Base):
     daily_limit = Column(Float, nullable=True)
     is_active = Column(Boolean, default=True, index=True)
     sort_order = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
 
     sessions = relationship("P2PPaymentSession", back_populates="card")
     balance_topups = relationship("BalanceTopUp", back_populates="card")
@@ -260,8 +260,8 @@ class P2PPaymentSession(Base):
     assigned_amount = Column(Float, nullable=False, index=True)
     status = Column(String(20), default="active", index=True)  # active, paid, expired, cancelled
     expires_at = Column(DateTime, nullable=False, index=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
     paid_at = Column(DateTime, nullable=True)
     incoming_payment_id = Column(Integer, ForeignKey("p2p_incoming_payments.id"), nullable=True)
     note = Column(Text, nullable=True)
@@ -296,7 +296,7 @@ class P2PIncomingPayment(Base):
     matched_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     status = Column(String(20), default="new", index=True)  # new, matched, duplicate, unmatched, ignored, error, needs_review
     parser_data = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
 
     matched_order = relationship("Order", foreign_keys=[matched_order_id])
     matched_session = relationship("P2PPaymentSession", foreign_keys=[matched_session_id])
@@ -319,8 +319,8 @@ class BalanceTopUp(Base):
     currency = Column(String(10), default="UZS")
     status = Column(String(20), default="pending", index=True)  # pending, paid, expired, needs_review, cancelled
     expires_at = Column(DateTime, nullable=False, index=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
     paid_at = Column(DateTime, nullable=True)
     incoming_payment_id = Column(Integer, ForeignKey("p2p_incoming_payments.id"), nullable=True)
     note = Column(Text, nullable=True)
@@ -341,7 +341,7 @@ class Settings(Base):
     id = Column(Integer, primary_key=True)
     key = Column(String(100), unique=True, nullable=False)
     value = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
 
 class MooGoldFulfillment(Base):
     """One MooGold order created for one local order item.
@@ -362,8 +362,8 @@ class MooGoldFulfillment(Base):
     response_payload = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
     attempts = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.utcnow())
+    updated_at = Column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
 
     order = relationship("Order", back_populates="moogold_fulfillments")
     order_item = relationship("OrderItem", back_populates="moogold_fulfillments")

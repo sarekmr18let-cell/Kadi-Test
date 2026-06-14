@@ -44,7 +44,7 @@ _TIME_PATTERN = re.compile(r"(\d{1,2}:\d{2})\s+(\d{2}\.\d{2}\.\d{4})")
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.utcnow()
 
 
 def clean_card_number(card_number: str) -> str:

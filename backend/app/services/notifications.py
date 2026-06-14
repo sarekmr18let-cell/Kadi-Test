@@ -100,7 +100,7 @@ def cancel_expired_orders():
     from datetime import datetime, timezone, timedelta
 
     with SyncSessionLocal() as db:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
+        cutoff = datetime.utcnow() - timedelta(hours=2)
 
         result = db.execute(
             select(Order).where(
@@ -127,7 +127,7 @@ def expire_p2p_payment_sessions():
     from sqlalchemy import select
     from datetime import datetime, timezone
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     with SyncSessionLocal() as db:
         result = db.execute(
             select(P2PPaymentSession).where(
@@ -150,7 +150,7 @@ def expire_balance_topups():
     from sqlalchemy import select
     from datetime import datetime, timezone
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     with SyncSessionLocal() as db:
         result = db.execute(
             select(BalanceTopUp).where(

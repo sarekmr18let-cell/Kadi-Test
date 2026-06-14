@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 revision = "005_product_requirements_regions"
-down_revision = "004_wallet_balance_topups"
+down_revision = "004"
 branch_labels = None
 depends_on = None
 

@@ -60,7 +60,7 @@ async def dashboard(
     total_revenue = result.scalar() or 0.0
 
     # Today
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     result = await db.execute(
         select(func.count(Order.id)).where(Order.created_at >= today_start)
     )
@@ -266,9 +266,9 @@ async def update_order_status(
 
     previous_status = order.status
     order.status = status_update.status
-    order.updated_at = datetime.now(timezone.utc)
+    order.updated_at = datetime.utcnow()
     if status_update.status in {"paid", "processing", "completed"} and previous_status not in {"paid", "processing", "completed"}:
-        order.paid_at = order.paid_at or datetime.now(timezone.utc)
+        order.paid_at = order.paid_at or datetime.utcnow()
         await count_promo_usage_if_needed(db, order)
 
     # If completed, create transaction once
@@ -372,7 +372,7 @@ async def update_product(
     for key, value in product_payload_for_db(product).items():
         setattr(existing, key, value)
 
-    existing.updated_at = datetime.now(timezone.utc)
+    existing.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(existing)
     return existing
@@ -653,7 +653,7 @@ async def update_p2p_card(
     data["last4"] = card_last4(data["card_number"])
     for key, value in data.items():
         setattr(existing, key, value)
-    existing.updated_at = datetime.now(timezone.utc)
+    existing.updated_at = datetime.utcnow()
 
     await db.commit()
     await db.refresh(existing)
@@ -671,7 +671,7 @@ async def deactivate_p2p_card(
     if not card:
         raise HTTPException(status_code=404, detail="P2P card not found")
     card.is_active = False
-    card.updated_at = datetime.now(timezone.utc)
+    card.updated_at = datetime.utcnow()
     await db.commit()
     return {"status": "success", "message": "P2P card deactivated"}
 
@@ -759,7 +759,7 @@ async def review_balance_topup(
             raise HTTPException(status_code=400, detail="Cannot reject a paid top-up")
         topup.status = "cancelled"
         topup.note = ((topup.note or "") + "\n" + (payload.note or f"{action.title()}ed by admin")).strip()
-        topup.updated_at = datetime.now(timezone.utc)
+        topup.updated_at = datetime.utcnow()
     else:
         raise HTTPException(status_code=400, detail="action must be approve, reject, or cancel")
 
