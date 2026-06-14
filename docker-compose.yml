@@ -1,0 +1,152 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: tgbot_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tgbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tgbot_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-tgbot}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tgbot} -d ${POSTGRES_DB:-tgbot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tgbot_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tgbot_backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tgbot}:${POSTGRES_PASSWORD:-tgbot_secret}@postgres:5432/${POSTGRES_DB:-tgbot}
+      - REDIS_URL=redis://redis:6379/0
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_TG_ID=${ADMIN_TG_ID}
+      - INTERNAL_BOT_SECRET=${INTERNAL_BOT_SECRET}
+      - P2P_WEBHOOK_SECRET=${P2P_WEBHOOK_SECRET}
+      - P2P_TEST_MODE=${P2P_TEST_MODE:-false}
+      - P2P_PAYMENT_TTL_MINUTES=${P2P_PAYMENT_TTL_MINUTES:-5}
+      - WALLET_TOPUP_MIN_AMOUNT=${WALLET_TOPUP_MIN_AMOUNT:-1000}
+      - WALLET_TOPUP_MAX_AMOUNT=${WALLET_TOPUP_MAX_AMOUNT:-5000000}
+      - BOT_USERNAME=${BOT_USERNAME}
+      - JWT_SECRET=${JWT_SECRET:-change_me_32_chars_minimum_secret_key}
+      - MOOGOLD_PARTNER_ID=${MOOGOLD_PARTNER_ID}
+      - MOOGOLD_SECRET_KEY=${MOOGOLD_SECRET_KEY}
+      - MOOGOLD_BASE_URL=https://moogold.com/wp-json/v1/api
+      - MOOGOLD_AUTO_FULFILL_ENABLED=${MOOGOLD_AUTO_FULFILL_ENABLED:-true}
+      - MOOGOLD_DEFAULT_ORDER_CATEGORY=${MOOGOLD_DEFAULT_ORDER_CATEGORY:-1}
+      - MOOGOLD_TEST_MODE=${MOOGOLD_TEST_MODE:-false}
+      - CALLBACK_BASE_URL=${CALLBACK_BASE_URL:-http://localhost:8000}
+      - FRONTEND_URL=${FRONTEND_URL:-https://tgbot.example.com}
+      - SUPPORT_USERNAME=${SUPPORT_USERNAME}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL}
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads:/app/uploads
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: tgbot_bot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - BACKEND_URL=http://backend:8000
+      - ADMIN_TG_ID=${ADMIN_TG_ID}
+      - INTERNAL_BOT_SECRET=${INTERNAL_BOT_SECRET}
+      - P2P_WEBHOOK_SECRET=${P2P_WEBHOOK_SECRET}
+      - P2P_TEST_MODE=${P2P_TEST_MODE:-false}
+      - P2P_PAYMENT_TTL_MINUTES=${P2P_PAYMENT_TTL_MINUTES:-5}
+      - WALLET_TOPUP_MIN_AMOUNT=${WALLET_TOPUP_MIN_AMOUNT:-1000}
+      - WALLET_TOPUP_MAX_AMOUNT=${WALLET_TOPUP_MAX_AMOUNT:-5000000}
+      - WEBAPP_URL=${WEBAPP_URL:-https://tgbot.example.com}
+    depends_on:
+      - backend
+    command: python main.py
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tgbot_celery
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tgbot}:${POSTGRES_PASSWORD:-tgbot_secret}@postgres:5432/${POSTGRES_DB:-tgbot}
+      - REDIS_URL=redis://redis:6379/0
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_TG_ID=${ADMIN_TG_ID}
+      - JWT_SECRET=${JWT_SECRET:-change_me_32_chars_minimum_secret_key}
+      - MOOGOLD_PARTNER_ID=${MOOGOLD_PARTNER_ID}
+      - MOOGOLD_SECRET_KEY=${MOOGOLD_SECRET_KEY}
+      - MOOGOLD_BASE_URL=https://moogold.com/wp-json/v1/api
+      - MOOGOLD_AUTO_FULFILL_ENABLED=${MOOGOLD_AUTO_FULFILL_ENABLED:-true}
+      - MOOGOLD_DEFAULT_ORDER_CATEGORY=${MOOGOLD_DEFAULT_ORDER_CATEGORY:-1}
+      - MOOGOLD_TEST_MODE=${MOOGOLD_TEST_MODE:-false}
+    depends_on:
+      - redis
+      - postgres
+    command: celery -A app.celery_app worker --loglevel=info
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tgbot_beat
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tgbot}:${POSTGRES_PASSWORD:-tgbot_secret}@postgres:5432/${POSTGRES_DB:-tgbot}
+      - REDIS_URL=redis://redis:6379/0
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_TG_ID=${ADMIN_TG_ID}
+      - JWT_SECRET=${JWT_SECRET:-change_me_32_chars_minimum_secret_key}
+      - MOOGOLD_PARTNER_ID=${MOOGOLD_PARTNER_ID}
+      - MOOGOLD_SECRET_KEY=${MOOGOLD_SECRET_KEY}
+      - MOOGOLD_BASE_URL=https://moogold.com/wp-json/v1/api
+      - MOOGOLD_AUTO_FULFILL_ENABLED=${MOOGOLD_AUTO_FULFILL_ENABLED:-true}
+      - MOOGOLD_DEFAULT_ORDER_CATEGORY=${MOOGOLD_DEFAULT_ORDER_CATEGORY:-1}
+      - MOOGOLD_TEST_MODE=${MOOGOLD_TEST_MODE:-false}
+    depends_on:
+      - redis
+      - postgres
+    command: celery -A app.celery_app beat --loglevel=info
+
+  nginx:
+    image: nginx:alpine
+    container_name: tgbot_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./webapp:/usr/share/nginx/html
+      - uploads:/usr/share/nginx/html/uploads:ro
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:

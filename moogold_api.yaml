@@ -1,0 +1,366 @@
+openapi: 3.0.1
+info:
+  title: MooGold API
+  description: |
+    JSON API for connecting to MooGold's digital gift card & direct top-up inventory.
+    Base URL: https://moogold.com/wp-json/v1/api
+  version: '1.0'
+servers:
+  - url: https://moogold.com/wp-json/v1/api
+
+# Auth scheme used by ALL endpoints:
+# 1) Authorization: Basic base64(PARTNER_ID + ":" + SECRET_KEY)
+# 2) timestamp:   current UNIX timestamp (int)
+# 3) auth:        HMAC-SHA256( Payload + Timestamp + Path, SECRET_KEY )
+#    Payload = JSON body as compact string (no spaces)
+
+paths:
+  /order/create_order:
+    post:
+      tags: [Order]
+      summary: Create Order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, data]
+              properties:
+                path:
+                  type: string
+                  example: order/create_order
+                data:
+                  type: object
+                  required: [category, product-id, quantity]
+                  properties:
+                    category:
+                      type: integer
+                      description: 1 = Direct Top Up, 2 = eVouchers
+                      example: 1
+                    product-id:
+                      type: integer
+                      description: variation_id from product_detail
+                      example: 215570
+                    quantity:
+                      type: integer
+                      example: 1
+                    User ID:
+                      type: string
+                      example: '12314123'
+                    Server:
+                      type: string
+                      example: '3402'
+                partnerOrderId:
+                  type: string
+                  description: Your unique partner order id (deduplication)
+                  example: MG-12345
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Order has been created successfully
+                  account_details:
+                    type: object
+                    properties:
+                      player_id:
+                        type: string
+                      server_id:
+                        type: string
+                      order_id:
+                        type: string
+        '403':
+          description: unauthorized
+      callbacks:
+        orderInProgress:
+          '{Callback URL}':
+            post:
+              summary: Order status callback
+              description: |
+                Triggered on significant status changes (completed, refunded, incorrect-details).
+                Retry every minute up to 100 times until HTTP 200 JSON response.
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        status:      { type: string, example: refunded }
+                        message:     { type: string, example: Order has been refunded. }
+                        order_id:    { type: integer, example: 6287222 }
+                        total:       { type: string, example: '3.90' }
+                        account_details:
+                          type: object
+                          properties:
+                            Username: { type: string }
+                            User ID:  { type: string }
+
+  /order/order_detail:
+    post:
+      tags: [Order]
+      summary: Order Detail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, order_id]
+              properties:
+                path:     { type: string, example: order/order_detail }
+                order_id: { type: integer, example: 10111111 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order_id:     { type: integer }
+                  date_created: { type: string, example: '2021-12-28 16:09:39' }
+                  order_status: { type: string, example: processing }
+                  item:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        product:      { type: string }
+                        variation_id: { type: integer }
+                        quantity:     { type: integer }
+                        price:        { type: string }
+                        player_id:    { type: string }
+                        server_id:    { type: string }
+                        voucher_code:
+                          type: array
+                          items: { type: string }
+                  total: { type: string }
+
+  /order/order_detail_partner_id:
+    post:
+      tags: [Order]
+      summary: Order Details by Partner Order ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, partner_order_id]
+              properties:
+                path:             { type: string, example: order/order_detail_partner_id }
+                partner_order_id: { type: string, example: '12345' }
+      responses:
+        '200':
+          description: OK
+
+  /order/transaction_history:
+    post:
+      tags: [Order]
+      summary: Retrieve order transaction history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, start_date, end_date]
+              properties:
+                path:       { type: string, example: order/transaction_history }
+                start_date: { type: string, format: date, example: '2025-07-01' }
+                end_date:   { type: string, format: date, example: '2025-07-15' }
+                status:     { type: string, enum: [processing, completed, refunded] }
+                page:       { type: integer, example: 1 }
+                limit:      { type: integer, example: 20 }
+      responses:
+        '200':
+          description: OK
+        '434': { description: Limit exceeded (max 100) }
+        '435': { description: Invalid status }
+        '436': { description: Start date after end date }
+        '437': { description: Date range > 30 days }
+
+  /product/list_product:
+    post:
+      tags: [Product]
+      summary: List Products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, category_id]
+              properties:
+                path:        { type: string, example: product/list_product }
+                category_id: { type: integer, example: 50, description: 'MooGold category id' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    ID:         { type: string, example: '332' }
+                    post_title: { type: string, example: 'Ragnarok M: Eternal Love (SEA)' }
+
+  /product/product_detail:
+    post:
+      tags: [Product]
+      summary: Product Detail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, product_id]
+              properties:
+                path:       { type: string, example: product/product_detail }
+                product_id: { type: integer, example: 7847 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Product_Name: { type: string }
+                  Image_URL:    { type: string }
+                  Variation:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        variation_name:  { type: string }
+                        variation_id:    { type: integer }
+                        variation_price: { type: number, format: double }
+                        stock_status:    { type: string, enum: [instock, outofstock] }
+
+  /product/server_list:
+    post:
+      tags: [Product]
+      summary: Server List
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, product_id]
+              properties:
+                path:       { type: string, example: product/server_list }
+                product_id: { type: integer, example: 37007 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                  description: server_name -> server_id
+
+  /product/validate:
+    post:
+      tags: [Product]
+      summary: Validate Product / Account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, data]
+              properties:
+                path: { type: string, example: product/validate }
+                data:
+                  type: object
+                  required: [product-id]
+                  properties:
+                    product-id: { type: string, example: '428075' }
+                    User ID:    { type: string, example: '123123141' }
+                    Server:     { type: string, example: Asia }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:   { type: boolean, example: true }
+                  message:  { type: string, example: Account has been validated. }
+                  username: { type: string, example: MooGold }
+
+  /user/balance:
+    post:
+      tags: [User]
+      summary: Wallet Balance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string, example: user/balance }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currency: { type: string, example: USD }
+                  balance:  { type: string, example: '832.21' }
+
+  /user/reload_balance:
+    post:
+      tags: [User]
+      summary: Reload Balance (USDT-TRC20)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, payment_method, amount]
+              properties:
+                path:           { type: string, example: user/reload_balance }
+                payment_method: { type: string, example: usdt-trc20-payment-gateway }
+                amount:         { type: string, example: '1000.0' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order_id:        { type: integer }
+                  payment_address: { type: string }
+                  amount:          { type: string }
+                  wallet_currency: { type: string }
+
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic

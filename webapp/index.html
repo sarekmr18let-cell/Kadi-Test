@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>KADI — TOP UP. PLAY MORE.</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="loader-container">
+                <div class="loader-ring"></div>
+                <div class="loader-text">KADI</div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div id="main-content" class="hidden">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="logo kadi-logo-block">
+                    <span class="logo-mark">K</span>
+                    <span class="logo-copy">
+                        <span class="logo-text">KADI</span>
+                        <span class="logo-subtitle">TOP UP. PLAY MORE.</span>
+                    </span>
+                </div>
+                <div class="header-actions">
+                    <select id="language-select" class="language-select" aria-label="Language">
+                        <option value="ru">RU</option>
+                        <option value="en">EN</option>
+                        <option value="uz">UZ</option>
+                    </select>
+                    <button class="wallet-pill" id="header-wallet-btn" data-page="profile">
+                        <span class="wallet-pill-label" data-i18n="balance">Баланс</span>
+                        <span id="header-balance">0 UZS</span>
+                    </button>
+                    <button class="icon-btn" id="search-btn">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" id="cart-btn">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>
+                        </svg>
+                        <span class="badge" id="cart-badge">0</span>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Search Overlay -->
+            <div id="search-overlay" class="search-overlay hidden">
+                <div class="search-bar">
+                    <input type="text" id="search-input" placeholder="Поиск игр, Stars, Premium..." data-i18n-placeholder="search_placeholder">
+                    <button class="close-btn" id="close-search">✕</button>
+                </div>
+                <div id="search-results" class="search-results"></div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-page="home">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                    <span data-i18n="home">Главная</span>
+                </button>
+                <button class="nav-item" data-page="catalog">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    <span data-i18n="catalog">Каталог</span>
+                </button>
+                <button class="nav-item" data-page="orders">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>
+                    </svg>
+                    <span data-i18n="history">История</span>
+                </button>
+                <button class="nav-item" data-page="profile">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span data-i18n="profile">Профиль</span>
+                </button>
+            </nav>
+            
+            <!-- Pages Container -->
+            <main class="pages-container">
+                <!-- Home Page -->
+                <div id="page-home" class="page active">
+                    <div class="hero-section kadi-hero">
+                        <div class="hero-glow"></div>
+                        <div class="hero-content">
+                            <div class="hero-kicker" data-i18n="fast_topups">Быстрые игровые пополнения</div>
+                            <h1 class="hero-title" data-i18n="hero_title">Пополняй игры за пару кликов</h1>
+                            <p class="hero-subtitle" data-i18n="hero_subtitle">Баланс, автоплатежи HUMO и моментальная отправка поставщику.</p>
+                            <div class="hero-actions">
+                                <button class="hero-cta" id="hero-topup-btn" data-page="profile" data-i18n="topup_balance_plain">Пополнить баланс</button>
+                                <button class="hero-ghost" id="explore-btn" data-i18n="catalog">Каталог</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions kadi-quick-actions">
+                        <button class="quick-action" data-page="profile"><span>💳</span><b data-i18n="topup">Пополнить</b><small data-i18n="balance">Баланс</small></button>
+                        <button class="quick-action" data-page="orders"><span>🧾</span><b data-i18n="history">История</b><small data-i18n="orders">Заказы</small></button>
+                        <button class="quick-action" data-page="catalog"><span>⭐</span><b data-i18n="telegram_stars">Stars</b><small>Telegram</small></button>
+                        <button class="quick-action" id="quick-support-btn"><span>💬</span><b data-i18n="help">Помощь</b><small>24/7</small></button>
+                    </div>
+
+                    <div class="categories-section">
+                        <div class="section-header">
+                            <h2 data-i18n="categories">Категории</h2>
+                            <button class="see-all" data-page="catalog" data-i18n="see_all">Все →</button>
+                        </div>
+                        <div class="categories-grid" id="categories-grid">
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="popular-section">
+                        <div class="section-header">
+                            <h2 data-i18n="popular_now">🔥 Популярное</h2>
+                        </div>
+                        <div class="products-scroll" id="popular-products">
+                            <div class="skeleton-product"></div>
+                            <div class="skeleton-product"></div>
+                            <div class="skeleton-product"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="promo-banner">
+                        <div class="promo-glow"></div>
+                        <div class="promo-content">
+                            <span class="promo-tag">KADI</span>
+                            <h3>TOP UP. PLAY MORE.</h3>
+                            <p data-i18n="hero_subtitle">Баланс, автоплатежи HUMO и моментальная отправка поставщику.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Catalog Page -->
+                <div id="page-catalog" class="page">
+                    <div class="catalog-header">
+                        <h1 data-i18n="catalog">Каталог</h1>
+                        <div class="category-tabs" id="category-tabs">
+                            <button class="tab active" data-category="all" data-i18n="all">Все</button>
+                        </div>
+                    </div>
+                    <div class="products-grid" id="catalog-products">
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                    </div>
+                </div>
+                
+                <!-- Product Detail Page -->
+                <div id="page-product" class="page">
+                    <button class="back-btn" id="product-back">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m15 18-6-6 6-6"/>
+                        </svg>
+                        <span data-i18n="back">Назад</span>
+                    </button>
+                    <div id="product-detail-content">
+                        <div class="product-hero skeleton"></div>
+                        <div class="product-info skeleton-text"></div>
+                    </div>
+                </div>
+                
+                <!-- Cart Page -->
+                <div id="page-cart" class="page">
+                    <h1 data-i18n="cart">Корзина</h1>
+                    <div id="cart-items" class="cart-items">
+                        <div class="empty-cart">
+                            <div class="empty-icon">🛒</div>
+                            <p data-i18n="empty_cart">Корзина пуста</p>
+                            <button class="btn-primary" data-page="catalog" data-i18n="open_catalog">Открыть каталог</button>
+                        </div>
+                    </div>
+                    <div id="cart-summary" class="cart-summary hidden">
+                        <div class="summary-row">
+                            <span data-i18n="subtotal">Сумма</span>
+                            <span id="cart-subtotal">$0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span data-i18n="discount">Скидка</span>
+                            <span id="cart-discount">$0.00</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span data-i18n="total">Итого</span>
+                            <span id="cart-total">$0.00</span>
+                        </div>
+                        <button class="btn-primary btn-glow checkout-btn" id="checkout-btn">
+                            <span data-i18n="proceed_checkout">Перейти к оплате</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Checkout Page -->
+                <div id="page-checkout" class="page">
+                    <button class="back-btn" id="checkout-back">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m15 18-6-6 6-6"/>
+                        </svg>
+                        <span data-i18n="back_to_cart">Назад в корзину</span>
+                    </button>
+                    <h1 data-i18n="payment">Оплата</h1>
+                    
+                    <div class="checkout-form">
+                        <div class="form-section">
+                            <h3 data-i18n="recipient_details">🎮 Данные получателя</h3>
+                            <div class="form-group">
+                                <label data-i18n="player_id_label">ID игрока / Telegram username</label>
+                                <input type="text" id="target-id" placeholder="Введите ID" data-i18n-placeholder="enter_id">
+                            </div>
+                            <div class="form-group" id="server-field">
+                                <label data-i18n="server_if_needed">Сервер, если нужен</label>
+                                <input type="text" id="target-server" placeholder="Введите Server ID" data-i18n-placeholder="enter_server_id">
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h3 data-i18n="promo_code">🎟️ Промокод</h3>
+                            <div class="promo-input-group">
+                                <input type="text" id="promo-code" placeholder="Введите промокод" data-i18n-placeholder="promo_placeholder">
+                                <button class="btn-secondary" id="apply-promo" data-i18n="apply">Применить</button>
+                            </div>
+                            <div id="promo-message" class="promo-message"></div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h3 data-i18n="wallet_balance">💰 Баланс</h3>
+                            <div class="payment-instructions">
+                                <p data-i18n="order_paid_from_balance_hint">Заказ будет оплачен с баланса.</p>
+                                <p><strong data-i18n="available">Доступно:</strong> <span id="checkout-balance">0 UZS</span></p>
+                                <p style="color: var(--text-muted); font-size: 13px;" data-i18n="topup_profile_hint">Пополните баланс в профиле перед покупкой.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checkout-summary">
+                            <div class="summary-row">
+                                <span data-i18n="items">Товары</span>
+                                <span id="checkout-items-count">0</span>
+                            </div>
+                            <div class="summary-row">
+                                <span data-i18n="subtotal">Сумма</span>
+                                <span id="checkout-subtotal">$0.00</span>
+                            </div>
+                            <div class="summary-row" id="checkout-discount-row">
+                                <span data-i18n="discount">Скидка</span>
+                                <span id="checkout-discount">$0.00</span>
+                            </div>
+                            <div class="summary-row total">
+                                <span data-i18n="total_to_pay">К оплате</span>
+                                <span id="checkout-total">$0.00</span>
+                            </div>
+                        </div>
+                        
+                        <button class="btn-primary btn-glow btn-large" id="place-order-btn">
+                            <span data-i18n="buy_from_balance">Купить с баланса</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Orders Page -->
+                <div id="page-orders" class="page">
+                    <h1 data-i18n="history">История</h1>
+                    <div class="orders-filter">
+                        <button class="filter-btn active" data-filter="all" data-i18n="all_filter">Все</button>
+                        <button class="filter-btn" data-filter="awaiting_payment" data-i18n="waiting">Ожидание</button>
+                        <button class="filter-btn" data-filter="payment_submitted" data-i18n="check">Проверка</button>
+                        <button class="filter-btn" data-filter="paid" data-i18n="paid">Оплачено</button>
+                        <button class="filter-btn" data-filter="completed" data-i18n="ready">Готово</button>
+                    </div>
+                    <div id="orders-list" class="orders-list">
+                        <div class="skeleton-order"></div>
+                        <div class="skeleton-order"></div>
+                    </div>
+                </div>
+                
+                <!-- Order Detail Page -->
+                <div id="page-order-detail" class="page">
+                    <button class="back-btn" id="order-detail-back">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m15 18-6-6 6-6"/>
+                        </svg>
+                        <span data-i18n="back">Назад</span>
+                    </button>
+                    <div id="order-detail-content"></div>
+                </div>
+                
+                <!-- Profile Page -->
+                <div id="page-profile" class="page">
+                    <div class="profile-header">
+                        <div class="avatar">
+                            <span id="profile-avatar">👤</span>
+                        </div>
+                        <div class="profile-info">
+                            <h2 id="profile-name">User</h2>
+                            <p id="profile-username">@username</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-cards">
+                        <div class="stat-card">
+                            <div class="stat-value" id="profile-balance">$0.00</div>
+                            <div class="stat-label" data-i18n="balance">Баланс</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="profile-orders">0</div>
+                            <div class="stat-label" data-i18n="orders">Заказы</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="profile-spent">$0.00</div>
+                            <div class="stat-label" data-i18n="spent">Потрачено</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section wallet-topup-section">
+                        <h3 data-i18n="topup_balance">💳 Пополнить баланс</h3>
+                        <div class="promo-input-group">
+                            <input type="number" id="topup-amount" placeholder="Сумма в UZS" inputmode="numeric" data-i18n-placeholder="topup_amount_placeholder">
+                            <button class="btn-primary" id="create-topup-btn" data-i18n="get_card">Получить карту</button>
+                        </div>
+                        <div id="active-topup-box"></div>
+                    </div>
+
+                    <div class="menu-list">
+                        <button class="menu-item" data-page="orders">
+                            <span class="menu-icon">📦</span>
+                            <span class="menu-text" data-i18n="my_history">Моя история</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m9 18 6-6-6-6"/>
+                            </svg>
+                        </button>
+                        <button class="menu-item" id="referral-btn">
+                            <span class="menu-icon">🎁</span>
+                            <span class="menu-text" data-i18n="referral_program">Реферальная программа</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m9 18 6-6-6-6"/>
+                            </svg>
+                        </button>
+                        <button class="menu-item" id="support-btn">
+                            <span class="menu-icon">💬</span>
+                            <span class="menu-text" data-i18n="support">Поддержка</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m9 18 6-6-6-6"/>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div id="admin-panel-btn" class="hidden">
+                        <button class="menu-item admin-item" data-page="admin">
+                            <span class="menu-icon">⚙️</span>
+                            <span class="menu-text" data-i18n="admin_panel">Админ-панель</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m9 18 6-6-6-6"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Админ-панель Page -->
+                <div id="page-admin" class="page">
+                    <div class="admin-header">
+                        <button class="back-btn" id="admin-back">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m15 18-6-6 6-6"/>
+                            </svg>
+                            <span data-i18n="admin_back">Назад</span>
+                        </button>
+                        <h1 data-i18n="admin_panel">Админ-панель</h1>
+                    </div>
+                    
+                    <div class="admin-tabs">
+                        <button class="admin-tab active" data-tab="dashboard" data-i18n="dashboard">Dashboard</button>
+                        <button class="admin-tab" data-tab="orders" data-i18n="admin_orders">Orders</button>
+                        <button class="admin-tab" data-tab="products" data-i18n="admin_products">Products</button>
+                        <button class="admin-tab" data-tab="users" data-i18n="admin_users">Users</button>
+                        <button class="admin-tab" data-tab="p2p" data-i18n="p2p_topups">P2P / Top-ups</button>
+                        <button class="admin-tab" data-tab="system" data-i18n="system_check">System Check</button>
+                    </div>
+                    
+                    <div id="admin-dashboard" class="admin-content active">
+                        <div class="stats-grid">
+                            <div class="stat-card-large">
+                                <div class="stat-icon">👥</div>
+                                <div class="stat-value" id="admin-stat-users">0</div>
+                                <div class="stat-label" data-i18n="total_users">Total Users</div>
+                            </div>
+                            <div class="stat-card-large">
+                                <div class="stat-icon">📦</div>
+                                <div class="stat-value" id="admin-stat-orders">0</div>
+                                <div class="stat-label" data-i18n="total_orders">Total Заказы</div>
+                            </div>
+                            <div class="stat-card-large">
+                                <div class="stat-icon">💰</div>
+                                <div class="stat-value" id="admin-stat-revenue">$0</div>
+                                <div class="stat-label" data-i18n="total_revenue">Total Revenue</div>
+                            </div>
+                            <div class="stat-card-large">
+                                <div class="stat-icon">⏳</div>
+                                <div class="stat-value" id="admin-stat-pending">0</div>
+                                <div class="stat-label" data-i18n="pending">Pending</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="admin-orders" class="admin-content">
+                        <div class="admin-filter">
+                            <select id="admin-order-status">
+                                <option value="" data-i18n="all_statuses">All Statuses</option>
+                                <option value="paid" data-i18n="paid_needs_action">Paid (Needs Action)</option>
+                                <option value="processing" data-i18n="processing">Processing</option>
+                                <option value="completed" data-i18n="completed">Completed</option>
+                                <option value="cancelled" data-i18n="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div id="admin-orders-list" class="admin-list"></div>
+                    </div>
+                    
+                    <div id="admin-products" class="admin-content">
+                        <div class="admin-filter admin-actions-row">
+                            <button class="btn-secondary" id="add-category-btn" data-i18n="add_category">+ Add Category</button>
+                            <button class="btn-primary" id="add-product-btn" data-i18n="add_product">+ Add Product</button>
+                            <button class="btn-secondary" id="refresh-products-btn" data-i18n="refresh">Refresh</button>
+                        </div>
+                        <div id="admin-products-list" class="admin-list"></div>
+                    </div>
+                    
+                    <div id="admin-users" class="admin-content">
+                        <input type="text" id="admin-user-search" placeholder="Search users..." data-i18n-placeholder="search_users">
+                        <div id="admin-users-list" class="admin-list"></div>
+                    </div>
+                    <div id="admin-p2p" class="admin-content">
+                        <div class="admin-filter">
+                            <button class="btn-primary" id="add-p2p-card-btn" data-i18n="add_p2p_card">+ Add Card</button>
+                            <button class="btn-secondary" id="refresh-p2p-cards-btn" data-i18n="refresh">Refresh</button>
+                        </div>
+                        <h3 style="margin-top: 16px;" data-i18n="cards">Cards</h3>
+                        <div id="admin-p2p-cards-list" class="admin-list"></div>
+                        <h3 style="margin-top: 24px;" data-i18n="topups_review">Top-ups / Review</h3>
+                        <div id="admin-p2p-topups-list" class="admin-list"></div>
+                    </div>
+
+                    <div id="admin-system" class="admin-content">
+                        <div class="admin-filter admin-actions-row">
+                            <button class="btn-primary" id="run-system-check-btn" data-i18n="run_check">Run Check</button>
+                            <button class="btn-secondary" id="parse-humo-test-btn" data-i18n="parse_humo_text">Parse HUMO Text</button>
+                            <button class="btn-secondary" id="process-humo-test-btn" data-i18n="process_test_payment">Process Test Payment</button>
+                        </div>
+                        <div id="admin-system-summary" class="admin-list"></div>
+                        <div id="admin-system-checks" class="admin-list"></div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+        
+        <!-- Toast Container -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+    
+    <script src="js/i18n.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
