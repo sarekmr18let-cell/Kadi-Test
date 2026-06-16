@@ -2171,3 +2171,2890 @@ body {
     background: #111827;
     color: #ffffff;
 }
+
+
+/* KADI Pay v4 — clean payment screen, not competitor copy */
+.kadi-pay-v4 {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: none;
+    background:
+        radial-gradient(circle at 50% -12%, rgba(246, 200, 76, .13), transparent 32%),
+        radial-gradient(circle at 85% 86%, rgba(246, 200, 76, .08), transparent 30%),
+        linear-gradient(180deg, #080808 0%, #070707 100%);
+    color: #fff;
+    box-sizing: border-box;
+    padding: calc(14px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+}
+
+.kadi-pay-v4.active {
+    display: block;
+}
+
+.kadi-pay-v4-inner {
+    max-width: 520px;
+    margin: 0 auto;
+}
+
+.kadi-pay-v4-top {
+    display: grid;
+    grid-template-columns: 86px 1fr 70px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 34px;
+}
+
+.kadi-pay-v4-back,
+.kadi-pay-v4-lang {
+    height: 44px;
+    border: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.045);
+    color: #fff;
+    border-radius: 18px;
+    font-size: 15px;
+    font-weight: 900;
+}
+
+.kadi-pay-v4-back {
+    text-align: left;
+    padding: 0 14px;
+}
+
+.kadi-pay-v4-lang {
+    text-align: center;
+}
+
+.kadi-pay-v4-brand {
+    text-align: center;
+}
+
+.kadi-pay-v4-brand strong {
+    display: block;
+    font-size: 31px;
+    line-height: 1;
+    letter-spacing: 1.5px;
+    font-weight: 1000;
+}
+
+.kadi-pay-v4-brand span {
+    display: block;
+    margin-top: 6px;
+    color: rgba(255,255,255,.36);
+    font-size: 9px;
+    letter-spacing: 2.8px;
+    font-weight: 900;
+}
+
+.kadi-pay-v4-caption {
+    margin: 0 0 18px;
+    color: rgba(255,255,255,.46);
+    font-size: 14px;
+    font-weight: 1000;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    line-height: 1.45;
+}
+
+.kadi-pay-v4-amount-box {
+    margin-bottom: 18px;
+    padding: 14px;
+    border-radius: 28px;
+    background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+    border: 1px solid rgba(255,255,255,.07);
+    box-shadow: 0 20px 56px rgba(0,0,0,.42);
+}
+
+.kadi-pay-v4-input-wrap {
+    height: 76px;
+    display: grid;
+    grid-template-columns: 32px 1fr 46px;
+    align-items: center;
+    gap: 10px;
+    padding: 0 18px;
+    border-radius: 22px;
+    background: rgba(12,12,14,.92);
+    border: 1.5px solid rgba(246,200,76,.65);
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.025),
+        0 0 20px rgba(246,200,76,.065);
+}
+
+.kadi-pay-v4-icon {
+    color: #f6c84c;
+    font-size: 20px;
+    font-weight: 900;
+}
+
+#kadi-pay-v4-amount {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fff;
+    -webkit-text-fill-color: #fff;
+    font-size: 34px;
+    line-height: 76px;
+    font-weight: 900;
+    letter-spacing: .3px;
+    caret-color: #f6c84c;
+}
+
+#kadi-pay-v4-amount::placeholder {
+    color: rgba(255,255,255,.24);
+    -webkit-text-fill-color: rgba(255,255,255,.24);
+}
+
+.kadi-pay-v4-currency {
+    text-align: right;
+    color: rgba(255,255,255,.45);
+    font-size: 14px;
+    font-weight: 1000;
+}
+
+.kadi-pay-v4-limits {
+    margin-bottom: 22px;
+    padding: 22px 24px;
+    border-radius: 26px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.015));
+    border: 1px solid rgba(255,255,255,.065);
+}
+
+.kadi-pay-v4-limits-title {
+    margin: 0 0 17px;
+    font-size: 16px;
+    font-weight: 1000;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+}
+
+.kadi-pay-v4-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin: 13px 0;
+    color: rgba(255,255,255,.45);
+    font-size: 15px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+}
+
+.kadi-pay-v4-row strong {
+    color: #fff;
+    font-size: 20px;
+    font-weight: 900;
+    text-transform: none;
+    letter-spacing: .2px;
+}
+
+.kadi-pay-v4-submit {
+    width: 100%;
+    height: 66px;
+    border: 0;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #f6c84c 0%, #ffd700 100%);
+    color: #111;
+    font-size: 17px;
+    font-weight: 1000;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    box-shadow: 0 16px 36px rgba(255, 215, 0, .22);
+}
+
+.kadi-pay-v4-error {
+    min-height: 22px;
+    margin-top: 12px;
+    text-align: center;
+    color: #ff6868;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.kadi-pay-v4-help {
+    margin-top: 18px;
+    color: rgba(255,255,255,.34);
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.35;
+    font-weight: 700;
+}
+
+@media (max-width: 380px) {
+    .kadi-pay-v4 {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .kadi-pay-v4-top {
+        grid-template-columns: 78px 1fr 62px;
+    }
+
+    .kadi-pay-v4-brand strong {
+        font-size: 27px;
+    }
+
+    .kadi-pay-v4-caption {
+        font-size: 12px;
+        letter-spacing: 5px;
+    }
+
+    #kadi-pay-v4-amount {
+        font-size: 30px;
+    }
+
+    .kadi-pay-v4-row strong {
+        font-size: 17px;
+    }
+}
+
+
+/* KADI Pay v5 — cleaner screen with quick amounts */
+.kadi-pay-v4 {
+    padding: calc(12px + env(safe-area-inset-top)) 20px calc(22px + env(safe-area-inset-bottom)) !important;
+    background:
+        radial-gradient(circle at 50% -14%, rgba(246,200,76,.11), transparent 34%),
+        radial-gradient(circle at 82% 88%, rgba(246,200,76,.07), transparent 28%),
+        #080808 !important;
+}
+
+.kadi-pay-v4-top {
+    margin-bottom: 30px !important;
+}
+
+.kadi-pay-v4-brand strong {
+    font-size: 32px !important;
+    letter-spacing: 1.2px !important;
+}
+
+.kadi-pay-v4-brand span {
+    margin-top: 5px !important;
+    font-size: 9px !important;
+    letter-spacing: 2.4px !important;
+    color: rgba(255,255,255,.34) !important;
+}
+
+.kadi-pay-v4-caption {
+    margin: 0 0 18px !important;
+    color: #ffffff !important;
+    font-size: 28px !important;
+    line-height: 1.08 !important;
+    font-weight: 1000 !important;
+    letter-spacing: -0.5px !important;
+    text-transform: none !important;
+}
+
+.kadi-pay-v4-caption::before {
+    content: "KADI WALLET";
+    display: block;
+    margin-bottom: 10px;
+    color: #f6c84c;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 1000;
+    letter-spacing: 3.5px;
+}
+
+.kadi-pay-v4-amount-box {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+    border-radius: 26px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015)) !important;
+    box-shadow: 0 18px 48px rgba(0,0,0,.38) !important;
+}
+
+.kadi-pay-v4-input-wrap {
+    height: 72px !important;
+    border-radius: 22px !important;
+    grid-template-columns: 34px 1fr 45px !important;
+    padding: 0 17px !important;
+    background: rgba(10,10,11,.92) !important;
+    border: 1.35px solid rgba(246,200,76,.70) !important;
+}
+
+.kadi-pay-v4-icon {
+    font-size: 19px !important;
+}
+
+#kadi-pay-v4-amount {
+    font-size: 34px !important;
+    line-height: 72px !important;
+    font-weight: 900 !important;
+}
+
+.kadi-pay-v4-currency {
+    font-size: 14px !important;
+    color: rgba(255,255,255,.48) !important;
+}
+
+.kadi-pay-v5-chips {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 9px;
+    margin: 0 0 18px;
+}
+
+.kadi-pay-v5-chip {
+    height: 42px;
+    border: 1px solid rgba(255,255,255,.075);
+    border-radius: 17px;
+    background: linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.03));
+    color: rgba(255,255,255,.88);
+    font-size: 14px;
+    font-weight: 900;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.kadi-pay-v5-chip.active {
+    background: linear-gradient(135deg, rgba(246,200,76,.28), rgba(246,200,76,.10));
+    border-color: rgba(246,200,76,.55);
+    color: #f6c84c;
+}
+
+.kadi-pay-v5-chip:active {
+    transform: scale(.97);
+}
+
+.kadi-pay-v4-limits {
+    margin-bottom: 20px !important;
+    padding: 20px 22px !important;
+    border-radius: 25px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.032), rgba(255,255,255,.012)) !important;
+}
+
+.kadi-pay-v4-limits-title {
+    margin: 0 0 15px !important;
+    font-size: 15px !important;
+    letter-spacing: 4px !important;
+}
+
+.kadi-pay-v4-row {
+    margin: 11px 0 !important;
+    font-size: 14px !important;
+    letter-spacing: .8px !important;
+}
+
+.kadi-pay-v4-row strong {
+    font-size: 18px !important;
+    font-weight: 900 !important;
+}
+
+.kadi-pay-v4-submit {
+    height: 64px !important;
+    border-radius: 24px !important;
+    font-size: 17px !important;
+    letter-spacing: 3px !important;
+    box-shadow: 0 15px 32px rgba(255,215,0,.20) !important;
+}
+
+.kadi-pay-v4-help {
+    margin-top: 16px !important;
+    color: rgba(255,255,255,.32) !important;
+    font-size: 12px !important;
+}
+
+@media (max-width: 380px) {
+    .kadi-pay-v4-caption {
+        font-size: 25px !important;
+    }
+
+    #kadi-pay-v4-amount {
+        font-size: 30px !important;
+    }
+
+    .kadi-pay-v5-chips {
+        gap: 7px;
+    }
+
+    .kadi-pay-v5-chip {
+        height: 40px;
+        font-size: 13px;
+    }
+
+    .kadi-pay-v4-row strong {
+        font-size: 16px !important;
+    }
+}
+
+
+/* KADI Pay v6 — softer premium gold, cleaner title, better back button */
+:root {
+    --kadi-premium-gold: #c9a24a;
+    --kadi-premium-gold-2: #b88d35;
+    --kadi-premium-text: #f4f1ea;
+    --kadi-premium-muted: rgba(244, 241, 234, .52);
+}
+
+.kadi-pay-v4 {
+    background:
+        radial-gradient(circle at 50% -10%, rgba(201,162,74,.09), transparent 32%),
+        radial-gradient(circle at 90% 90%, rgba(201,162,74,.055), transparent 30%),
+        linear-gradient(180deg, #080808 0%, #050505 100%) !important;
+}
+
+/* Верхняя строка */
+.kadi-pay-v4-top {
+    grid-template-columns: 82px 1fr 58px !important;
+    margin-bottom: 28px !important;
+}
+
+/* Кнопка назад — легче и аккуратнее */
+.kadi-pay-v4-back {
+    height: 42px !important;
+    padding: 0 13px !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(255,255,255,.075) !important;
+    background: rgba(255,255,255,.028) !important;
+    color: rgba(255,255,255,.88) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+/* RU тоже легче */
+.kadi-pay-v4-lang {
+    height: 42px !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(255,255,255,.075) !important;
+    background: rgba(255,255,255,.028) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+}
+
+/* Бренд */
+.kadi-pay-v4-brand strong {
+    color: var(--kadi-premium-text) !important;
+    font-size: 31px !important;
+    font-weight: 850 !important;
+    letter-spacing: .8px !important;
+}
+
+.kadi-pay-v4-brand span {
+    color: rgba(255,255,255,.35) !important;
+    font-size: 9px !important;
+    letter-spacing: 2.3px !important;
+}
+
+/* KADI WALLET */
+.kadi-pay-v4-caption::before {
+    color: var(--kadi-premium-gold) !important;
+    font-size: 12px !important;
+    letter-spacing: 3px !important;
+    font-weight: 800 !important;
+}
+
+/* Заголовок — не такой жирный и грубый */
+.kadi-pay-v4-caption {
+    color: var(--kadi-premium-text) !important;
+    font-size: 30px !important;
+    line-height: 1.06 !important;
+    font-weight: 760 !important;
+    letter-spacing: -0.8px !important;
+    margin-bottom: 18px !important;
+}
+
+/* Карточка поля суммы */
+.kadi-pay-v4-amount-box {
+    padding: 12px !important;
+    border-radius: 25px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.014)) !important;
+    border: 1px solid rgba(255,255,255,.055) !important;
+    box-shadow: 0 18px 48px rgba(0,0,0,.38) !important;
+}
+
+/* Поле ввода — золото мягче */
+.kadi-pay-v4-input-wrap {
+    height: 72px !important;
+    border-radius: 21px !important;
+    background: rgba(10,10,11,.92) !important;
+    border: 1.35px solid rgba(201,162,74,.62) !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.025),
+        0 0 18px rgba(201,162,74,.055) !important;
+}
+
+.kadi-pay-v4-icon {
+    color: var(--kadi-premium-gold) !important;
+    opacity: .85 !important;
+}
+
+#kadi-pay-v4-amount {
+    color: var(--kadi-premium-text) !important;
+    -webkit-text-fill-color: var(--kadi-premium-text) !important;
+    font-size: 34px !important;
+    font-weight: 760 !important;
+    caret-color: var(--kadi-premium-gold) !important;
+}
+
+.kadi-pay-v4-currency {
+    color: rgba(255,255,255,.45) !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+}
+
+/* Быстрые суммы — оставляем, но спокойнее */
+.kadi-pay-v5-chips {
+    gap: 8px !important;
+    margin-bottom: 18px !important;
+}
+
+.kadi-pay-v5-chip {
+    height: 40px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255,255,255,.07) !important;
+    background: rgba(255,255,255,.035) !important;
+    color: rgba(255,255,255,.76) !important;
+    font-size: 14px !important;
+    font-weight: 720 !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+.kadi-pay-v5-chip.active {
+    background: rgba(201,162,74,.12) !important;
+    border-color: rgba(201,162,74,.45) !important;
+    color: #e4c678 !important;
+}
+
+/* Лимиты — меньше “кричат” */
+.kadi-pay-v4-limits {
+    padding: 20px 22px !important;
+    border-radius: 24px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.012)) !important;
+    border: 1px solid rgba(255,255,255,.055) !important;
+}
+
+.kadi-pay-v4-limits-title {
+    color: var(--kadi-premium-text) !important;
+    font-size: 15px !important;
+    font-weight: 760 !important;
+    letter-spacing: 3px !important;
+}
+
+.kadi-pay-v4-row {
+    color: rgba(255,255,255,.43) !important;
+    font-size: 14px !important;
+    font-weight: 650 !important;
+    letter-spacing: .3px !important;
+}
+
+.kadi-pay-v4-row strong {
+    color: var(--kadi-premium-text) !important;
+    font-size: 18px !important;
+    font-weight: 780 !important;
+}
+
+/* Главная кнопка — не кислотная, а золото */
+.kadi-pay-v4-submit {
+    height: 62px !important;
+    border-radius: 22px !important;
+    background: linear-gradient(180deg, var(--kadi-premium-gold) 0%, var(--kadi-premium-gold-2) 100%) !important;
+    color: #111 !important;
+    font-size: 19px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    box-shadow:
+        0 12px 26px rgba(201,162,74,.17),
+        inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+
+.kadi-pay-v4-help {
+    color: rgba(255,255,255,.32) !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+}
+
+@media (max-width: 380px) {
+    .kadi-pay-v4-caption {
+        font-size: 27px !important;
+    }
+
+    #kadi-pay-v4-amount {
+        font-size: 31px !important;
+    }
+}
+
+
+/* KADI Pay v7 — softer CTA button */
+.kadi-pay-v4-submit,
+.kadi-pay-v4 button#kadi-pay-v4-submit {
+    background: linear-gradient(180deg, #caa24a 0%, #aa7f2f 100%) !important;
+    color: #111 !important;
+    box-shadow:
+        0 10px 22px rgba(170,127,47,.16),
+        inset 0 1px 0 rgba(255,255,255,.14) !important;
+}
+
+.kadi-pay-v4-submit:active,
+.kadi-pay-v4 button#kadi-pay-v4-submit:active {
+    background: linear-gradient(180deg, #b88f3a 0%, #96702a 100%) !important;
+    transform: scale(.985);
+}
+
+
+/* KADI Pay FINAL — selected richer premium mockup */
+:root {
+    --kadi-final-gold: #d8aa3f;
+    --kadi-final-gold-2: #bd842c;
+    --kadi-final-gold-soft: rgba(216,170,63,.22);
+    --kadi-final-text: #f7f3ea;
+    --kadi-final-muted: rgba(247,243,234,.50);
+}
+
+/* Main screen */
+.kadi-pay-v4 {
+    background:
+        radial-gradient(circle at 50% -12%, rgba(216,170,63,.13), transparent 34%),
+        radial-gradient(circle at 84% 88%, rgba(216,170,63,.08), transparent 30%),
+        linear-gradient(180deg, #080808 0%, #050505 100%) !important;
+}
+
+/* Top */
+.kadi-pay-v4-top {
+    grid-template-columns: 74px 1fr 58px !important;
+    margin-bottom: 26px !important;
+}
+
+.kadi-pay-v4-back {
+    height: 40px !important;
+    padding: 0 12px !important;
+    border-radius: 17px !important;
+    background: rgba(255,255,255,.025) !important;
+    border: 1px solid rgba(255,255,255,.07) !important;
+    color: rgba(255,255,255,.88) !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    box-shadow: none !important;
+}
+
+.kadi-pay-v4-lang {
+    height: 40px !important;
+    border-radius: 17px !important;
+    background: rgba(255,255,255,.025) !important;
+    border: 1px solid rgba(255,255,255,.07) !important;
+    color: rgba(255,255,255,.90) !important;
+    font-size: 14px !important;
+    font-weight: 750 !important;
+}
+
+/* Brand */
+.kadi-pay-v4-brand strong {
+    color: var(--kadi-final-text) !important;
+    font-size: 32px !important;
+    font-weight: 850 !important;
+    letter-spacing: .8px !important;
+}
+
+.kadi-pay-v4-brand span {
+    color: rgba(255,255,255,.36) !important;
+    font-size: 9px !important;
+    letter-spacing: 2.4px !important;
+}
+
+/* KADI WALLET + title */
+.kadi-pay-v4-caption::before {
+    color: var(--kadi-final-gold) !important;
+    font-size: 12px !important;
+    letter-spacing: 3.2px !important;
+    font-weight: 850 !important;
+}
+
+.kadi-pay-v4-caption {
+    color: var(--kadi-final-text) !important;
+    font-size: 31px !important;
+    line-height: 1.08 !important;
+    font-weight: 780 !important;
+    letter-spacing: -0.7px !important;
+    margin-bottom: 18px !important;
+}
+
+/* Amount card */
+.kadi-pay-v4-amount-box {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+    border-radius: 25px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.038), rgba(255,255,255,.014)) !important;
+    border: 1px solid rgba(255,255,255,.055) !important;
+    box-shadow: 0 18px 46px rgba(0,0,0,.42) !important;
+}
+
+/* Remove square icon */
+.kadi-pay-v4-icon {
+    display: none !important;
+}
+
+.kadi-pay-v4-input-wrap {
+    height: 72px !important;
+    grid-template-columns: 1fr auto !important;
+    padding: 0 20px !important;
+    border-radius: 21px !important;
+    background: rgba(10,10,11,.94) !important;
+    border: 1.35px solid rgba(216,170,63,.66) !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.02),
+        0 0 22px rgba(216,170,63,.07) !important;
+}
+
+#kadi-pay-v4-amount {
+    color: var(--kadi-final-text) !important;
+    -webkit-text-fill-color: var(--kadi-final-text) !important;
+    font-size: 34px !important;
+    font-weight: 760 !important;
+    caret-color: var(--kadi-final-gold) !important;
+}
+
+.kadi-pay-v4-currency {
+    color: var(--kadi-final-gold) !important;
+    font-size: 15px !important;
+    font-weight: 850 !important;
+}
+
+/* Quick amounts */
+.kadi-pay-v5-chips {
+    gap: 8px !important;
+    margin-bottom: 18px !important;
+}
+
+.kadi-pay-v5-chip {
+    height: 40px !important;
+    border-radius: 16px !important;
+    background: rgba(255,255,255,.035) !important;
+    border: 1px solid rgba(255,255,255,.065) !important;
+    color: rgba(255,255,255,.74) !important;
+    font-size: 14px !important;
+    font-weight: 720 !important;
+    box-shadow: none !important;
+}
+
+.kadi-pay-v5-chip.active {
+    background: rgba(216,170,63,.14) !important;
+    border-color: rgba(216,170,63,.48) !important;
+    color: #e8c66d !important;
+}
+
+/* Limits */
+.kadi-pay-v4-limits {
+    padding: 20px 22px !important;
+    border-radius: 24px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.01)) !important;
+    border: 1px solid rgba(255,255,255,.052) !important;
+    box-shadow: none !important;
+}
+
+.kadi-pay-v4-limits-title {
+    color: var(--kadi-final-text) !important;
+    font-size: 15px !important;
+    font-weight: 760 !important;
+    letter-spacing: 3px !important;
+}
+
+.kadi-pay-v4-row {
+    color: rgba(255,255,255,.44) !important;
+    font-size: 14px !important;
+    font-weight: 650 !important;
+    letter-spacing: .2px !important;
+}
+
+.kadi-pay-v4-row strong {
+    color: var(--kadi-final-text) !important;
+    font-size: 18px !important;
+    font-weight: 780 !important;
+}
+
+/* CTA — like selected mockup, rich but not neon */
+.kadi-pay-v4-submit,
+.kadi-pay-v4 button#kadi-pay-v4-submit {
+    height: 62px !important;
+    border-radius: 22px !important;
+    background: linear-gradient(180deg, #d9ad44 0%, #bf862d 100%) !important;
+    color: #111 !important;
+    font-size: 19px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    box-shadow:
+        0 12px 28px rgba(216,170,63,.20),
+        inset 0 1px 0 rgba(255,255,255,.20) !important;
+}
+
+.kadi-pay-v4-submit:active,
+.kadi-pay-v4 button#kadi-pay-v4-submit:active {
+    transform: scale(.985);
+    background: linear-gradient(180deg, #c99a38 0%, #a97627 100%) !important;
+}
+
+.kadi-pay-v4-help {
+    color: rgba(255,255,255,.34) !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+}
+
+
+/* KADI Pay v8 — closer to selected right-side design */
+.kadi-pay-v4 {
+    background:
+        radial-gradient(circle at 50% -12%, rgba(230, 176, 45, .18), transparent 32%),
+        radial-gradient(circle at 50% 100%, rgba(230, 176, 45, .10), transparent 38%),
+        linear-gradient(180deg, #030303 0%, #050505 100%) !important;
+    padding: calc(18px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)) !important;
+}
+
+.kadi-pay-v8-inner {
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.kadi-pay-v8-top {
+    display: grid;
+    grid-template-columns: 112px 1fr 74px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 46px;
+}
+
+.kadi-pay-v8-back,
+.kadi-pay-v8-lang {
+    height: 44px;
+    border-radius: 20px;
+    border: 1px solid rgba(226, 176, 57, .34);
+    background: rgba(255,255,255,.018);
+    color: rgba(255,255,255,.92);
+    font-weight: 700;
+    box-shadow: 0 0 18px rgba(226,176,57,.05);
+}
+
+.kadi-pay-v8-back {
+    font-size: 15px;
+}
+
+.kadi-pay-v8-lang {
+    font-size: 15px;
+}
+
+.kadi-pay-v8-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.kadi-pay-v8-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(180deg, #f0c24d 0%, #d89622 100%);
+    color: #0b0b0b;
+    font-size: 25px;
+    font-weight: 900;
+    box-shadow: 0 0 20px rgba(230,176,45,.18);
+}
+
+.kadi-pay-v8-name strong {
+    display: block;
+    color: #f7f3ea;
+    font-size: 32px;
+    line-height: .9;
+    font-weight: 850;
+    letter-spacing: .5px;
+}
+
+.kadi-pay-v8-name span {
+    display: block;
+    margin-top: 7px;
+    color: #dca838;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 2.4px;
+}
+
+.kadi-pay-v8-title {
+    margin: 0 0 28px;
+    text-align: center;
+    color: #f7f3ea;
+    font-size: 32px;
+    line-height: 1.05;
+    font-weight: 760;
+    letter-spacing: -0.5px;
+}
+
+.kadi-pay-v8-card {
+    padding: 28px 24px 26px;
+    border-radius: 30px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.040), rgba(255,255,255,.012));
+    border: 1px solid rgba(226,176,57,.20);
+    box-shadow:
+        0 24px 70px rgba(0,0,0,.52),
+        0 0 44px rgba(226,176,57,.06);
+}
+
+.kadi-pay-v8-label {
+    margin-bottom: 14px;
+    color: rgba(247,243,234,.70);
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.kadi-pay-v8-input-wrap {
+    height: 76px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 0 22px;
+    border-radius: 20px;
+    background: rgba(2,2,2,.62);
+    border: 1.35px solid rgba(234,180,43,.78);
+    box-shadow:
+        0 0 22px rgba(234,180,43,.18),
+        inset 0 0 0 1px rgba(255,255,255,.02);
+}
+
+#kadi-pay-v4-amount {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 34px !important;
+    line-height: 76px;
+    font-weight: 760 !important;
+    letter-spacing: .1px;
+    caret-color: #eab42b;
+}
+
+#kadi-pay-v4-amount::placeholder {
+    color: rgba(255,255,255,.28);
+    -webkit-text-fill-color: rgba(255,255,255,.28);
+}
+
+.kadi-pay-v8-currency {
+    color: rgba(255,255,255,.60);
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.kadi-pay-v8-chips {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 24px 0 26px;
+}
+
+.kadi-pay-v8-chip {
+    height: 48px;
+    border-radius: 17px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.018);
+    color: rgba(255,255,255,.88);
+    font-size: 17px;
+    font-weight: 720;
+}
+
+.kadi-pay-v8-chip.active {
+    border-color: rgba(234,180,43,.88);
+    color: #eab42b;
+    background: rgba(234,180,43,.075);
+    box-shadow: 0 0 22px rgba(234,180,43,.14);
+}
+
+.kadi-pay-v8-divider {
+    height: 1px;
+    background: rgba(234,180,43,.13);
+    margin-bottom: 8px;
+}
+
+.kadi-pay-v8-row {
+    display: grid;
+    grid-template-columns: 26px 1fr auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 54px;
+    border-bottom: 1px solid rgba(234,180,43,.10);
+}
+
+.kadi-pay-v8-row:last-child {
+    border-bottom: 0;
+}
+
+.kadi-pay-v8-row-icon {
+    color: #eab42b;
+    font-size: 19px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.kadi-pay-v8-row span {
+    color: rgba(247,243,234,.72);
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.kadi-pay-v8-row strong {
+    color: #f7f3ea;
+    font-size: 18px;
+    font-weight: 780;
+    white-space: nowrap;
+}
+
+.kadi-pay-v8-submit {
+    width: 100%;
+    height: 66px;
+    margin-top: 28px;
+    border: 0;
+    border-radius: 22px;
+    background: linear-gradient(180deg, #f0c24d 0%, #e0a11f 100%);
+    color: #090909;
+    font-size: 20px;
+    font-weight: 820;
+    box-shadow:
+        0 0 30px rgba(234,180,43,.28),
+        0 16px 34px rgba(234,180,43,.18),
+        inset 0 1px 0 rgba(255,255,255,.24);
+}
+
+.kadi-pay-v8-submit:active {
+    transform: scale(.985);
+}
+
+.kadi-pay-v8-error {
+    min-height: 20px;
+    margin-top: 12px;
+    color: #ff6767;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.kadi-pay-v8-help {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 28px;
+    color: rgba(247,243,234,.62);
+    font-size: 15px;
+    line-height: 1.35;
+    font-weight: 500;
+    text-align: left;
+}
+
+.kadi-pay-v8-help-icon {
+    color: #eab42b;
+    font-size: 20px;
+    line-height: 1.1;
+}
+
+@media (max-width: 380px) {
+    .kadi-pay-v8-top {
+        grid-template-columns: 98px 1fr 64px;
+        margin-bottom: 36px;
+    }
+
+    .kadi-pay-v8-name strong {
+        font-size: 27px;
+    }
+
+    .kadi-pay-v8-title {
+        font-size: 29px;
+    }
+
+    .kadi-pay-v8-card {
+        padding: 24px 18px;
+    }
+
+    #kadi-pay-v4-amount {
+        font-size: 31px !important;
+    }
+
+    .kadi-pay-v8-chip {
+        font-size: 15px;
+    }
+
+    .kadi-pay-v8-row strong {
+        font-size: 16px;
+    }
+}
+
+
+/* KADI Top-up Flow v9 — amount -> method -> one reserved card */
+.quick-action[data-page="profile"] {
+    display: none !important;
+}
+
+.quick-actions {
+    grid-template-columns: repeat(3, 1fr) !important;
+}
+
+#kadi-pay-v4.kadi-flow-screen {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9999 !important;
+    overflow-y: auto !important;
+    background:
+        radial-gradient(circle at 50% -10%, rgba(235, 178, 35, .16), transparent 30%),
+        radial-gradient(circle at 50% 105%, rgba(235, 178, 35, .10), transparent 36%),
+        linear-gradient(180deg, #030303 0%, #050505 100%) !important;
+    color: #f7f3ea !important;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(26px + env(safe-area-inset-bottom)) !important;
+}
+
+#kadi-pay-v4.kadi-flow-screen:not(.active) {
+    display: none !important;
+}
+
+.kadi-flow-inner {
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.kadi-flow-top {
+    display: grid;
+    grid-template-columns: 112px 1fr 74px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 34px;
+}
+
+.kadi-flow-back,
+.kadi-flow-lang {
+    height: 44px;
+    border-radius: 20px;
+    border: 1px solid rgba(236, 181, 45, .35);
+    background: rgba(255,255,255,.018);
+    color: rgba(255,255,255,.92);
+    font-weight: 750;
+    box-shadow: 0 0 18px rgba(236,181,45,.05);
+}
+
+.kadi-flow-back {
+    font-size: 15px;
+}
+
+.kadi-flow-lang {
+    font-size: 15px;
+}
+
+.kadi-flow-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.kadi-flow-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(180deg, #f0c24d 0%, #d89622 100%);
+    color: #0b0b0b;
+    font-size: 25px;
+    font-weight: 950;
+    box-shadow: 0 0 20px rgba(236,181,45,.20);
+}
+
+.kadi-flow-name strong {
+    display: block;
+    color: #f7f3ea;
+    font-size: 32px;
+    line-height: .9;
+    font-weight: 850;
+}
+
+.kadi-flow-name span {
+    display: block;
+    margin-top: 7px;
+    color: #dca838;
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: 2.4px;
+}
+
+.kadi-flow-title {
+    margin: 0 0 26px;
+    text-align: center;
+    color: #f7f3ea;
+    font-size: 33px;
+    line-height: 1.05;
+    font-weight: 760;
+    letter-spacing: -0.6px;
+}
+
+.kadi-flow-subtitle {
+    margin: -14px 0 24px;
+    color: rgba(247,243,234,.52);
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.kadi-flow-card {
+    padding: 26px 24px;
+    border-radius: 30px;
+    background: linear-gradient(180deg, rgba(255,255,255,.040), rgba(255,255,255,.012));
+    border: 1px solid rgba(236,181,45,.20);
+    box-shadow:
+        0 24px 70px rgba(0,0,0,.52),
+        0 0 44px rgba(236,181,45,.06);
+}
+
+.kadi-flow-label {
+    margin-bottom: 14px;
+    color: rgba(247,243,234,.70);
+    font-size: 16px;
+    font-weight: 750;
+}
+
+.kadi-flow-input-wrap {
+    height: 76px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 0 22px;
+    border-radius: 20px;
+    background: rgba(2,2,2,.62);
+    border: 1.35px solid rgba(234,180,43,.78);
+    box-shadow:
+        0 0 22px rgba(234,180,43,.18),
+        inset 0 0 0 1px rgba(255,255,255,.02);
+}
+
+#kadi-flow-amount {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 34px !important;
+    line-height: 76px;
+    font-weight: 780 !important;
+    caret-color: #eab42b;
+}
+
+#kadi-flow-amount::placeholder {
+    color: rgba(255,255,255,.30);
+    -webkit-text-fill-color: rgba(255,255,255,.30);
+}
+
+.kadi-flow-currency {
+    color: rgba(255,255,255,.62);
+    font-size: 16px;
+    font-weight: 850;
+}
+
+.kadi-flow-chips {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 24px 0 6px;
+}
+
+.kadi-flow-chip {
+    height: 48px;
+    border-radius: 17px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.018);
+    color: rgba(255,255,255,.88);
+    font-size: 17px;
+    font-weight: 750;
+}
+
+.kadi-flow-chip.active {
+    border-color: rgba(234,180,43,.88);
+    color: #eab42b;
+    background: rgba(234,180,43,.075);
+    box-shadow: 0 0 22px rgba(234,180,43,.14);
+}
+
+.kadi-flow-submit {
+    width: 100%;
+    height: 66px;
+    margin-top: 26px;
+    border: 0;
+    border-radius: 22px;
+    background: linear-gradient(180deg, #f0c24d 0%, #e0a11f 100%);
+    color: #090909;
+    font-size: 20px;
+    font-weight: 850;
+    box-shadow:
+        0 0 30px rgba(234,180,43,.28),
+        0 16px 34px rgba(234,180,43,.18),
+        inset 0 1px 0 rgba(255,255,255,.24);
+}
+
+.kadi-flow-submit:active {
+    transform: scale(.985);
+}
+
+.kadi-flow-error {
+    min-height: 20px;
+    margin-top: 12px;
+    color: #ff6767;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 750;
+}
+
+/* Method screen */
+.kadi-method-amount {
+    height: 58px;
+    margin-bottom: 22px;
+    padding: 0 22px;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.07);
+}
+
+.kadi-method-amount span {
+    color: rgba(247,243,234,.44);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 3px;
+}
+
+.kadi-method-amount strong {
+    color: #f7f3ea;
+    font-size: 25px;
+    font-weight: 850;
+}
+
+.kadi-method-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+
+.kadi-method-card {
+    height: 132px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.025);
+    color: rgba(255,255,255,.70);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-weight: 850;
+}
+
+.kadi-method-card.active {
+    border: 2px solid #eab42b;
+    color: #eab42b;
+    box-shadow: 0 0 24px rgba(234,180,43,.14);
+}
+
+.kadi-method-card.disabled {
+    opacity: .38;
+}
+
+.kadi-method-card.full {
+    grid-column: 1 / -1;
+}
+
+.kadi-method-icon {
+    width: 72px;
+    height: 46px;
+    border-radius: 12px;
+    background: #fff;
+    display: grid;
+    place-items: center;
+    color: #111;
+    font-size: 24px;
+}
+
+/* Payment screen */
+.kadi-payment-timer {
+    margin-bottom: 28px;
+    padding: 24px 18px;
+    border-radius: 30px;
+    background: linear-gradient(180deg, #f0c24d 0%, #e0a11f 100%);
+    color: #111;
+    text-align: center;
+    box-shadow: 0 0 34px rgba(234,180,43,.25);
+}
+
+.kadi-payment-timer span {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 12px;
+    font-weight: 950;
+    letter-spacing: 4px;
+    opacity: .65;
+}
+
+.kadi-payment-timer strong {
+    display: block;
+    font-size: 43px;
+    font-weight: 950;
+}
+
+.kadi-bank-card {
+    margin-bottom: 20px;
+    padding: 24px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #6c21b7 0%, #961ab8 100%);
+    box-shadow: 0 20px 50px rgba(119,33,183,.25);
+}
+
+.kadi-bank-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 36px;
+}
+
+.kadi-bank-card-system {
+    color: #fff;
+    font-size: 20px;
+    font-weight: 850;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.kadi-bank-card-copy {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.10);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 850;
+}
+
+.kadi-bank-number {
+    margin-bottom: 28px;
+    color: #fff;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    word-spacing: 8px;
+}
+
+.kadi-bank-holder {
+    color: rgba(255,255,255,.72);
+    font-size: 15px;
+    font-weight: 850;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+}
+
+.kadi-payment-amount-card {
+    margin-bottom: 18px;
+    padding: 18px 20px;
+    border-radius: 24px;
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(236,181,45,.14);
+}
+
+.kadi-payment-amount-label {
+    margin-bottom: 10px;
+    color: rgba(247,243,234,.38);
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: 3px;
+}
+
+.kadi-payment-amount-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.kadi-payment-amount-row strong {
+    color: #fff;
+    font-size: 34px;
+    font-weight: 900;
+}
+
+.kadi-payment-copy-btn {
+    height: 43px;
+    padding: 0 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.04);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 850;
+}
+
+.kadi-rules {
+    padding: 22px 20px;
+    border-radius: 26px;
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.07);
+}
+
+.kadi-rule-title-ok {
+    color: #45df7a;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+}
+
+.kadi-rule-title-bad {
+    color: #ff5555;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    margin: 18px 0 12px;
+}
+
+.kadi-rule {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin: 12px 0;
+    color: rgba(255,255,255,.82);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.kadi-rule.ok b {
+    color: #45df7a;
+}
+
+.kadi-rule.bad b {
+    color: #ff5555;
+}
+
+.kadi-cancel-payment {
+    width: 100%;
+    height: 48px;
+    margin-top: 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,90,90,.25);
+    background: rgba(255,90,90,.06);
+    color: #ff7777;
+    font-weight: 850;
+}
+
+@media (max-width: 380px) {
+    .kadi-flow-top {
+        grid-template-columns: 98px 1fr 64px;
+    }
+
+    .kadi-flow-name strong {
+        font-size: 27px;
+    }
+
+    .kadi-flow-title {
+        font-size: 29px;
+    }
+
+    .kadi-flow-card {
+        padding: 22px 18px;
+    }
+
+    #kadi-flow-amount {
+        font-size: 31px !important;
+    }
+
+    .kadi-payment-timer strong {
+        font-size: 38px;
+    }
+
+    .kadi-bank-number {
+        font-size: 20px;
+        letter-spacing: 4px;
+    }
+}
+
+
+/* KADI Flow v10 — cleaner premium polish */
+#kadi-pay-v4.kadi-flow-screen {
+    background:
+        radial-gradient(circle at 50% -8%, rgba(214, 160, 44, .13), transparent 30%),
+        radial-gradient(circle at 50% 105%, rgba(171, 118, 30, .08), transparent 34%),
+        linear-gradient(180deg, #050505 0%, #020202 100%) !important;
+    padding: calc(14px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom)) !important;
+}
+
+.kadi-flow-inner {
+    max-width: 440px !important;
+}
+
+.kadi-flow-top {
+    grid-template-columns: 104px 1fr 64px !important;
+    gap: 9px !important;
+    margin-bottom: 30px !important;
+}
+
+.kadi-flow-back,
+.kadi-flow-lang {
+    height: 40px !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(205, 154, 49, .26) !important;
+    background: rgba(255,255,255,.018) !important;
+    color: rgba(255,255,255,.88) !important;
+    box-shadow: none !important;
+}
+
+.kadi-flow-back {
+    font-size: 14px !important;
+}
+
+.kadi-flow-lang {
+    font-size: 14px !important;
+}
+
+.kadi-flow-mark {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 11px !important;
+    background: linear-gradient(180deg, #d8aa44 0%, #b87f29 100%) !important;
+    font-size: 23px !important;
+    box-shadow: 0 0 14px rgba(216,170,68,.13) !important;
+}
+
+.kadi-flow-name strong {
+    font-size: 30px !important;
+    letter-spacing: .2px !important;
+}
+
+.kadi-flow-name span {
+    margin-top: 6px !important;
+    color: rgba(216,170,68,.78) !important;
+    font-size: 8.5px !important;
+    letter-spacing: 2.2px !important;
+}
+
+.kadi-flow-title {
+    margin-bottom: 22px !important;
+    font-size: 30px !important;
+    line-height: 1.08 !important;
+    font-weight: 780 !important;
+    letter-spacing: -0.5px !important;
+}
+
+.kadi-flow-subtitle {
+    margin-top: -12px !important;
+    margin-bottom: 22px !important;
+    color: rgba(247,243,234,.45) !important;
+    font-size: 13px !important;
+}
+
+.kadi-method-amount {
+    height: 54px !important;
+    margin-bottom: 20px !important;
+    padding: 0 20px !important;
+    border-radius: 21px !important;
+    background: rgba(255,255,255,.018) !important;
+    border: 1px solid rgba(255,255,255,.055) !important;
+}
+
+.kadi-method-amount span {
+    font-size: 11px !important;
+    letter-spacing: 3px !important;
+    color: rgba(247,243,234,.38) !important;
+}
+
+.kadi-method-amount strong {
+    font-size: 25px !important;
+    color: #f7f3ea !important;
+}
+
+.kadi-method-grid {
+    gap: 12px !important;
+}
+
+.kadi-method-card {
+    height: 118px !important;
+    border-radius: 22px !important;
+    background: rgba(255,255,255,.018) !important;
+    border: 1px solid rgba(255,255,255,.055) !important;
+    box-shadow: none !important;
+}
+
+.kadi-method-card.active {
+    border: 1.5px solid rgba(216,170,68,.72) !important;
+    background: rgba(216,170,68,.035) !important;
+    box-shadow: 0 0 22px rgba(216,170,68,.10) !important;
+}
+
+.kadi-method-icon {
+    width: 68px !important;
+    height: 44px !important;
+    border-radius: 13px !important;
+    background: rgba(255,255,255,.92) !important;
+    font-size: 23px !important;
+}
+
+.kadi-flow-submit,
+.kadi-pay-v4-submit,
+.kadi-pay-v4 button#kadi-pay-v4-submit,
+.kadi-flow-v10 .kadi-flow-submit {
+    height: 62px !important;
+    border-radius: 21px !important;
+    background: linear-gradient(180deg, #d8aa44 0%, #b98028 100%) !important;
+    color: #090909 !important;
+    font-size: 19px !important;
+    font-weight: 820 !important;
+    box-shadow:
+        0 12px 26px rgba(184,128,40,.16),
+        0 0 22px rgba(216,170,68,.12),
+        inset 0 1px 0 rgba(255,255,255,.16) !important;
+}
+
+/* Payment screen */
+.kadi-payment-timer {
+    margin-bottom: 22px !important;
+    padding: 20px 18px !important;
+    border-radius: 26px !important;
+    background: linear-gradient(180deg, #d8aa44 0%, #ba842b 100%) !important;
+    box-shadow:
+        0 14px 32px rgba(184,128,40,.16),
+        0 0 24px rgba(216,170,68,.12) !important;
+}
+
+.kadi-payment-timer span {
+    font-size: 11px !important;
+    letter-spacing: 3.4px !important;
+    opacity: .68 !important;
+}
+
+.kadi-payment-timer strong {
+    font-size: 40px !important;
+    line-height: 1.05 !important;
+}
+
+.kadi-bank-card {
+    min-height: 176px !important;
+    margin-bottom: 18px !important;
+    padding: 22px !important;
+    border-radius: 27px !important;
+    background:
+        radial-gradient(circle at 88% 18%, rgba(255,255,255,.12), transparent 24%),
+        linear-gradient(135deg, #5b22a4 0%, #8e19b1 58%, #a318aa 100%) !important;
+    box-shadow:
+        0 18px 44px rgba(99,33,164,.22),
+        inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+.kadi-bank-card-top {
+    margin-bottom: 30px !important;
+}
+
+.kadi-bank-card-system {
+    font-size: 20px !important;
+    letter-spacing: 3.4px !important;
+}
+
+.kadi-bank-card-copy {
+    height: 38px !important;
+    padding: 0 14px !important;
+    border-radius: 15px !important;
+    font-size: 13px !important;
+    background: rgba(255,255,255,.10) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+}
+
+.kadi-bank-number {
+    margin-bottom: 26px !important;
+    color: #fff !important;
+    font-size: 20px !important;
+    line-height: 1.45 !important;
+    font-weight: 720 !important;
+    letter-spacing: 3.2px !important;
+    word-spacing: 4px !important;
+    font-variant-numeric: tabular-nums !important;
+    white-space: normal !important;
+}
+
+.kadi-bank-holder {
+    font-size: 14px !important;
+    letter-spacing: 2.5px !important;
+    color: rgba(255,255,255,.70) !important;
+}
+
+.kadi-payment-amount-card {
+    margin-bottom: 16px !important;
+    padding: 18px 20px !important;
+    border-radius: 24px !important;
+    background: rgba(255,255,255,.018) !important;
+    border: 1px solid rgba(216,170,68,.12) !important;
+    box-shadow: none !important;
+}
+
+.kadi-payment-amount-label {
+    margin-bottom: 11px !important;
+    font-size: 11px !important;
+    letter-spacing: 3.2px !important;
+    color: rgba(247,243,234,.36) !important;
+}
+
+.kadi-payment-amount-row strong {
+    font-size: 31px !important;
+    line-height: 1.1 !important;
+    color: #f7f3ea !important;
+}
+
+.kadi-payment-copy-btn {
+    height: 40px !important;
+    padding: 0 14px !important;
+    border-radius: 15px !important;
+    background: rgba(255,255,255,.035) !important;
+    border: 1px solid rgba(255,255,255,.11) !important;
+    color: rgba(255,255,255,.90) !important;
+    font-size: 13px !important;
+}
+
+.kadi-rules {
+    padding: 21px 19px !important;
+    border-radius: 25px !important;
+    background: rgba(255,255,255,.018) !important;
+    border: 1px solid rgba(255,255,255,.055) !important;
+    box-shadow: none !important;
+}
+
+.kadi-rule-title-ok,
+.kadi-rule-title-bad {
+    font-size: 11px !important;
+    letter-spacing: 3.2px !important;
+}
+
+.kadi-rule {
+    margin: 13px 0 !important;
+    font-size: 14px !important;
+    line-height: 1.25 !important;
+    color: rgba(247,243,234,.78) !important;
+}
+
+.kadi-cancel-payment {
+    height: 48px !important;
+    margin-top: 17px !important;
+    border-radius: 18px !important;
+    background: rgba(255,70,70,.035) !important;
+    border: 1px solid rgba(255,90,90,.20) !important;
+    color: rgba(255,120,120,.88) !important;
+    font-size: 14px !important;
+}
+
+/* Amount input screen */
+.kadi-flow-card {
+    padding: 24px 22px !important;
+    border-radius: 28px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.030), rgba(255,255,255,.010)) !important;
+    border: 1px solid rgba(216,170,68,.16) !important;
+    box-shadow: 0 20px 55px rgba(0,0,0,.46) !important;
+}
+
+.kadi-flow-input-wrap {
+    height: 72px !important;
+    border-radius: 19px !important;
+    border-color: rgba(216,170,68,.68) !important;
+    box-shadow: 0 0 17px rgba(216,170,68,.10) !important;
+}
+
+#kadi-flow-amount {
+    font-size: 32px !important;
+}
+
+.kadi-flow-chip {
+    height: 45px !important;
+    border-radius: 16px !important;
+    background: rgba(255,255,255,.020) !important;
+}
+
+.kadi-flow-chip.active {
+    border-color: rgba(216,170,68,.72) !important;
+    color: #ddb457 !important;
+    box-shadow: 0 0 18px rgba(216,170,68,.10) !important;
+}
+
+@media (max-width: 380px) {
+    .kadi-flow-top {
+        grid-template-columns: 92px 1fr 58px !important;
+    }
+
+    .kadi-flow-name strong {
+        font-size: 27px !important;
+    }
+
+    .kadi-flow-name span {
+        font-size: 8px !important;
+        letter-spacing: 1.9px !important;
+    }
+
+    .kadi-flow-title {
+        font-size: 27px !important;
+    }
+
+    .kadi-bank-number {
+        font-size: 18px !important;
+        letter-spacing: 2.6px !important;
+        word-spacing: 3px !important;
+    }
+
+    .kadi-payment-amount-row strong {
+        font-size: 28px !important;
+    }
+}
+
+
+/* =========================================================
+   KADI TOPUP FLOW v11 — clean premium UI, not BUYTIX copy
+   ========================================================= */
+
+/* Hide duplicated small top-up shortcut on home */
+.quick-actions > .quick-action:first-child,
+.quick-actions > button.quick-action:first-child {
+    display: none !important;
+}
+
+.quick-actions {
+    grid-template-columns: repeat(3, 1fr) !important;
+}
+
+/* Fullscreen overlay */
+#kadi-pay-v11 {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background:
+        radial-gradient(circle at 50% -12%, rgba(189, 138, 42, .17), transparent 34%),
+        radial-gradient(circle at 10% 52%, rgba(189, 138, 42, .055), transparent 26%),
+        radial-gradient(circle at 92% 85%, rgba(189, 138, 42, .09), transparent 28%),
+        linear-gradient(180deg, #050505 0%, #020202 100%);
+    color: #f5f0e7;
+    font-family: inherit;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(26px + env(safe-area-inset-bottom));
+}
+
+#kadi-pay-v11.active {
+    display: block;
+}
+
+.k11-shell {
+    width: min(100%, 440px);
+    margin: 0 auto;
+}
+
+/* Header */
+.k11-header {
+    display: grid;
+    grid-template-columns: 94px 1fr 62px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+}
+
+.k11-back,
+.k11-lang {
+    height: 42px;
+    border: 1px solid rgba(201, 150, 51, .30);
+    border-radius: 18px;
+    background: rgba(255,255,255,.018);
+    color: rgba(255,255,255,.90);
+    font-size: 14px;
+    font-weight: 760;
+    letter-spacing: -.2px;
+    box-shadow: none;
+}
+
+.k11-back {
+    text-align: center;
+}
+
+.k11-lang {
+    font-weight: 820;
+}
+
+.k11-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.k11-logo {
+    width: 39px;
+    height: 39px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(180deg, #d7aa48 0%, #a97422 100%);
+    color: #060606;
+    font-size: 24px;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: 0 0 18px rgba(201,150,51,.16);
+    flex: 0 0 auto;
+}
+
+.k11-wordmark {
+    min-width: 0;
+}
+
+.k11-wordmark strong {
+    display: block;
+    color: #fffaf0;
+    font-size: 31px;
+    line-height: .86;
+    font-weight: 890;
+    letter-spacing: .4px;
+}
+
+.k11-wordmark span {
+    display: block;
+    margin-top: 7px;
+    color: rgba(201,150,51,.86);
+    font-size: 8.5px;
+    line-height: 1.25;
+    font-weight: 850;
+    letter-spacing: 2.05px;
+}
+
+/* General */
+.k11-kicker {
+    margin: 0 0 11px;
+    color: #c99633;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+}
+
+.k11-title {
+    margin: 0;
+    color: #fffaf0;
+    font-size: 33px;
+    line-height: 1.08;
+    font-weight: 820;
+    letter-spacing: -1px;
+}
+
+.k11-muted {
+    margin: 13px 0 0;
+    color: rgba(245,240,231,.54);
+    font-size: 15px;
+    line-height: 1.45;
+    font-weight: 520;
+}
+
+.k11-card {
+    margin-top: 26px;
+    padding: 22px;
+    border-radius: 28px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.038), rgba(255,255,255,.012));
+    border: 1px solid rgba(255,255,255,.065);
+    box-shadow:
+        0 24px 70px rgba(0,0,0,.50),
+        inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+/* Amount screen */
+.k11-input-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 13px;
+    color: rgba(245,240,231,.62);
+    font-size: 14px;
+    font-weight: 750;
+}
+
+.k11-balance {
+    color: #4cd975;
+    font-size: 13px;
+    font-weight: 850;
+}
+
+.k11-input-wrap {
+    height: 76px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 0 22px;
+    border-radius: 22px;
+    background: rgba(0,0,0,.48);
+    border: 1.25px solid rgba(201,150,51,.68);
+    box-shadow:
+        0 0 0 1px rgba(255,255,255,.018) inset,
+        0 0 22px rgba(201,150,51,.09);
+}
+
+#k11-amount {
+    min-width: 0;
+    width: 100%;
+    height: 74px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fffaf0 !important;
+    -webkit-text-fill-color: #fffaf0 !important;
+    font-size: 36px !important;
+    font-weight: 820 !important;
+    letter-spacing: -.4px;
+    caret-color: #c99633;
+}
+
+#k11-amount::placeholder {
+    color: rgba(245,240,231,.26);
+    -webkit-text-fill-color: rgba(245,240,231,.26);
+}
+
+.k11-currency {
+    color: #d4a640;
+    font-size: 18px;
+    font-weight: 880;
+}
+
+.k11-chips {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 11px;
+    margin-top: 18px;
+}
+
+.k11-chip {
+    height: 46px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.085);
+    background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.020));
+    color: rgba(255,255,255,.82);
+    font-size: 16px;
+    font-weight: 780;
+}
+
+.k11-chip.active {
+    border-color: rgba(201,150,51,.68);
+    color: #d6aa48;
+    background: rgba(201,150,51,.08);
+    box-shadow: 0 0 18px rgba(201,150,51,.11);
+}
+
+.k11-limit-box {
+    margin-top: 20px;
+    padding: 17px 18px;
+    border-radius: 21px;
+    background: rgba(201,150,51,.055);
+    border: 1px solid rgba(201,150,51,.10);
+}
+
+.k11-limit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 36px;
+    gap: 14px;
+}
+
+.k11-limit-row span {
+    color: rgba(245,240,231,.54);
+    font-size: 15px;
+    font-weight: 720;
+}
+
+.k11-limit-row strong {
+    color: #fffaf0;
+    font-size: 16px;
+    font-weight: 820;
+    white-space: nowrap;
+}
+
+.k11-primary {
+    width: 100%;
+    height: 62px;
+    margin-top: 22px;
+    border: 0;
+    border-radius: 21px;
+    background: linear-gradient(180deg, #d6aa48 0%, #b37a24 100%);
+    color: #070707;
+    font-size: 19px;
+    font-weight: 860;
+    box-shadow:
+        0 14px 34px rgba(179,122,36,.17),
+        0 0 24px rgba(201,150,51,.13),
+        inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.k11-primary:active {
+    transform: scale(.985);
+}
+
+.k11-error {
+    min-height: 18px;
+    margin-top: 12px;
+    color: #ff7474;
+    font-size: 13px;
+    font-weight: 720;
+    text-align: center;
+}
+
+/* Method screen */
+.k11-summary-pill {
+    height: 60px;
+    margin-top: 24px;
+    padding: 0 20px;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,.018);
+    border: 1px solid rgba(255,255,255,.060);
+}
+
+.k11-summary-pill span {
+    color: rgba(245,240,231,.40);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 3.2px;
+    text-transform: uppercase;
+}
+
+.k11-summary-pill strong {
+    color: #fffaf0;
+    font-size: 25px;
+    font-weight: 870;
+    white-space: nowrap;
+}
+
+.k11-methods {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 13px;
+    margin-top: 20px;
+}
+
+.k11-method {
+    min-height: 126px;
+    border: 1px solid rgba(255,255,255,.065);
+    border-radius: 24px;
+    background: rgba(255,255,255,.016);
+    color: rgba(255,255,255,.56);
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 16px 12px;
+}
+
+.k11-method.active {
+    border: 1.5px solid rgba(201,150,51,.75);
+    background: rgba(201,150,51,.040);
+    color: #d6aa48;
+    box-shadow: 0 0 22px rgba(201,150,51,.10);
+}
+
+.k11-method.disabled {
+    opacity: .40;
+}
+
+.k11-method.wide {
+    grid-column: 1 / -1;
+    min-height: 105px;
+}
+
+.k11-method-icon {
+    width: 74px;
+    height: 48px;
+    border-radius: 14px;
+    margin-bottom: 12px;
+    background: rgba(255,255,255,.92);
+    color: #111;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 900;
+}
+
+.k11-method-title {
+    font-size: 16px;
+    font-weight: 850;
+}
+
+/* Payment screen */
+.k11-timer {
+    margin-top: 8px;
+    padding: 19px 18px 20px;
+    border-radius: 27px;
+    background: linear-gradient(180deg, #d6aa48 0%, #b37a24 100%);
+    color: #080808;
+    text-align: center;
+    box-shadow:
+        0 14px 34px rgba(179,122,36,.18),
+        0 0 24px rgba(201,150,51,.13);
+}
+
+.k11-timer span {
+    display: block;
+    margin-bottom: 8px;
+    opacity: .62;
+    font-size: 11px;
+    font-weight: 930;
+    letter-spacing: 3.4px;
+    text-transform: uppercase;
+}
+
+.k11-timer strong {
+    display: block;
+    font-size: 41px;
+    line-height: 1;
+    font-weight: 930;
+    letter-spacing: -1px;
+}
+
+.k11-pay-card {
+    margin-top: 22px;
+    padding: 24px;
+    min-height: 190px;
+    border-radius: 29px;
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 84% 24%, rgba(201,150,51,.18), transparent 26%),
+        linear-gradient(135deg, #171717 0%, #090909 72%);
+    border: 1px solid rgba(201,150,51,.24);
+    box-shadow:
+        0 24px 60px rgba(0,0,0,.48),
+        inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.k11-pay-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, transparent, rgba(255,255,255,.035), transparent);
+    transform: translateX(-80%);
+    opacity: .45;
+}
+
+.k11-card-top {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 34px;
+}
+
+.k11-card-system {
+    color: #d6aa48;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+}
+
+.k11-copy-small {
+    height: 40px;
+    padding: 0 15px;
+    border-radius: 15px;
+    border: 1px solid rgba(201,150,51,.28);
+    background: rgba(255,255,255,.025);
+    color: rgba(255,255,255,.88);
+    font-size: 13px;
+    font-weight: 820;
+}
+
+.k11-card-number {
+    position: relative;
+    color: #fffaf0;
+    font-size: 22px;
+    line-height: 1.35;
+    font-weight: 800;
+    letter-spacing: 3.4px;
+    word-spacing: 4px;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 30px;
+}
+
+.k11-card-holder {
+    position: relative;
+    color: rgba(245,240,231,.58);
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.k11-amount-box {
+    margin-top: 18px;
+    padding: 20px;
+    border-radius: 24px;
+    background: rgba(255,255,255,.018);
+    border: 1px solid rgba(255,255,255,.060);
+}
+
+.k11-amount-title {
+    margin-bottom: 10px;
+    color: rgba(245,240,231,.38);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 3.4px;
+    text-transform: uppercase;
+}
+
+.k11-amount-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.k11-amount-row strong {
+    color: #fffaf0;
+    font-size: 33px;
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: -.8px;
+}
+
+.k11-rules {
+    margin-top: 18px;
+    padding: 22px 20px;
+    border-radius: 25px;
+    background: rgba(255,255,255,.018);
+    border: 1px solid rgba(255,255,255,.060);
+}
+
+.k11-rules-title-ok,
+.k11-rules-title-bad {
+    font-size: 11px;
+    font-weight: 920;
+    letter-spacing: 3.2px;
+    text-transform: uppercase;
+}
+
+.k11-rules-title-ok {
+    color: #45df7a;
+}
+
+.k11-rules-title-bad {
+    color: #ff6767;
+    margin-top: 20px;
+}
+
+.k11-rule {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    align-items: center;
+    gap: 10px;
+    margin-top: 13px;
+    color: rgba(245,240,231,.78);
+    font-size: 15px;
+    line-height: 1.3;
+    font-weight: 760;
+}
+
+.k11-rule b {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.k11-rule.ok b {
+    color: #45df7a;
+}
+
+.k11-rule.bad b {
+    color: #ff6767;
+}
+
+.k11-cancel {
+    width: 100%;
+    height: 50px;
+    margin-top: 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,90,90,.20);
+    background: rgba(255,80,80,.035);
+    color: rgba(255,120,120,.88);
+    font-size: 14px;
+    font-weight: 820;
+}
+
+@media (max-width: 380px) {
+    #kadi-pay-v11 {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .k11-header {
+        grid-template-columns: 88px 1fr 58px;
+        gap: 8px;
+    }
+
+    .k11-back,
+    .k11-lang {
+        height: 39px;
+        font-size: 13px;
+    }
+
+    .k11-logo {
+        width: 36px;
+        height: 36px;
+        font-size: 22px;
+    }
+
+    .k11-wordmark strong {
+        font-size: 27px;
+    }
+
+    .k11-wordmark span {
+        font-size: 7.5px;
+        letter-spacing: 1.7px;
+    }
+
+    .k11-title {
+        font-size: 29px;
+    }
+
+    .k11-card {
+        padding: 20px 18px;
+    }
+
+    #k11-amount {
+        font-size: 32px !important;
+    }
+
+    .k11-summary-pill strong {
+        font-size: 22px;
+    }
+
+    .k11-method {
+        min-height: 116px;
+    }
+
+    .k11-card-number {
+        font-size: 19px;
+        letter-spacing: 2.5px;
+        word-spacing: 3px;
+    }
+
+    .k11-amount-row strong {
+        font-size: 29px;
+    }
+}
+
+
+/* =========================================================
+   KADI TOPUP FLOW v12 — compact clean UI
+   ========================================================= */
+body.k12-lock { overflow: hidden !important; }
+
+.quick-actions > .quick-action:first-child,
+.quick-actions > button.quick-action:first-child {
+    display: none !important;
+}
+.quick-actions { grid-template-columns: repeat(3, 1fr) !important; }
+
+#kadi-pay-v12 {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    background:
+        radial-gradient(circle at 50% -12%, rgba(188, 143, 58, .12), transparent 30%),
+        radial-gradient(circle at 90% 90%, rgba(188, 143, 58, .06), transparent 26%),
+        linear-gradient(180deg, #050505 0%, #020202 100%);
+    color: #f4efe5;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+#kadi-pay-v12.active { display: block; }
+
+.k12-shell { width: min(100%, 420px); margin: 0 auto; }
+.k12-header {
+    display: grid;
+    grid-template-columns: 86px 1fr 58px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 26px;
+}
+.k12-pill {
+    height: 38px;
+    border: 1px solid rgba(190, 147, 61, .28);
+    border-radius: 17px;
+    background: rgba(255,255,255,.018);
+    color: rgba(244,239,229,.90);
+    font-size: 13.5px;
+    font-weight: 650;
+    letter-spacing: -.2px;
+}
+.k12-lang { font-weight: 750; }
+.k12-brand { display: flex; align-items: center; justify-content: center; gap: 9px; min-width: 0; }
+.k12-logo {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: linear-gradient(180deg, #d0a550 0%, #a8752d 100%);
+    color: #060606;
+    font-size: 22px; font-weight: 850;
+    box-shadow: 0 0 14px rgba(190,147,61,.12);
+    flex: 0 0 auto;
+}
+.k12-brand-title { color: #fffaf1; font-size: 28px; line-height: .9; font-weight: 750; letter-spacing: .3px; }
+.k12-brand-sub { margin-top: 6px; color: rgba(203,161,80,.85); font-size: 8px; font-weight: 700; letter-spacing: 1.8px; }
+
+.k12-headline { margin: 0 0 20px; }
+.k12-headline.center { text-align: center; }
+.k12-headline.compact { margin-bottom: 18px; }
+.k12-eyebrow { margin-bottom: 8px; color: #c79c45; font-size: 11px; font-weight: 750; letter-spacing: 3.2px; }
+.k12-headline h1 {
+    margin: 0;
+    color: #fffaf1;
+    font-size: 28px;
+    line-height: 1.12;
+    font-weight: 700;
+    letter-spacing: -.7px;
+}
+.k12-headline p {
+    margin: 10px 0 0;
+    color: rgba(244,239,229,.52);
+    font-size: 14px;
+    line-height: 1.42;
+    font-weight: 480;
+}
+
+.k12-panel {
+    padding: 18px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(255,255,255,.032), rgba(255,255,255,.010));
+    border: 1px solid rgba(255,255,255,.06);
+    box-shadow: 0 18px 52px rgba(0,0,0,.42);
+}
+.k12-field-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.k12-field-top span { color: rgba(244,239,229,.58); font-size: 13px; font-weight: 650; }
+.k12-field-top b { color: #55d77b; font-size: 12.5px; font-weight: 750; }
+.k12-input-box {
+    height: 64px;
+    border-radius: 18px;
+    padding: 0 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0,0,0,.44);
+    border: 1px solid rgba(198,154,67,.58);
+    box-shadow: 0 0 18px rgba(198,154,67,.07);
+}
+#k12-amount {
+    width: 100%; min-width: 0; height: 62px;
+    border: 0; outline: 0; background: transparent;
+    color: #fffaf1 !important; -webkit-text-fill-color: #fffaf1 !important;
+    font-size: 30px !important;
+    font-weight: 650 !important;
+    letter-spacing: -.2px;
+    caret-color: #c69a43;
+}
+#k12-amount::placeholder { color: rgba(244,239,229,.28); -webkit-text-fill-color: rgba(244,239,229,.28); }
+.k12-input-box span { color: #cfa44e; font-size: 15px; font-weight: 750; }
+.k12-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-top: 14px; }
+.k12-chips button {
+    height: 40px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.075);
+    background: rgba(255,255,255,.025);
+    color: rgba(244,239,229,.78);
+    font-size: 14px;
+    font-weight: 650;
+}
+.k12-chips button.active { border-color: rgba(198,154,67,.58); color: #d0a550; background: rgba(198,154,67,.055); }
+.k12-limits {
+    margin-top: 16px;
+    padding: 14px 15px;
+    border-radius: 18px;
+    background: rgba(198,154,67,.045);
+    border: 1px solid rgba(198,154,67,.09);
+}
+.k12-limits div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
+.k12-limits span { color: rgba(244,239,229,.53); font-size: 13.5px; font-weight: 560; }
+.k12-limits b { color: #fffaf1; font-size: 14px; font-weight: 670; white-space: nowrap; }
+.k12-main-btn {
+    width: 100%; height: 54px;
+    margin-top: 18px;
+    border: 0; border-radius: 17px;
+    background: linear-gradient(180deg, #d0a550 0%, #a8752d 100%);
+    color: #070707;
+    font-size: 17px;
+    font-weight: 720;
+    box-shadow: 0 12px 28px rgba(168,117,45,.16), 0 0 20px rgba(198,154,67,.10);
+}
+.k12-main-btn:disabled { opacity: .7; }
+.k12-error { min-height: 18px; margin-top: 10px; color: #ff7777; text-align: center; font-size: 12.5px; font-weight: 600; }
+
+.k12-summary {
+    height: 54px;
+    padding: 0 18px;
+    border-radius: 19px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: rgba(255,255,255,.018);
+    border: 1px solid rgba(255,255,255,.055);
+}
+.k12-summary span { color: rgba(244,239,229,.42); font-size: 12px; font-weight: 650; }
+.k12-summary b { color: #fffaf1; font-size: 21px; font-weight: 680; white-space: nowrap; }
+.k12-method-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px; }
+.k12-method {
+    min-height: 104px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.065);
+    background: rgba(255,255,255,.014);
+    color: rgba(244,239,229,.72);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 12px;
+}
+.k12-method.active { border-color: rgba(198,154,67,.62); background: rgba(198,154,67,.038); color: #d0a550; }
+.k12-method.disabled { opacity: .45; }
+.k12-method.wide { grid-column: 1 / -1; min-height: 86px; }
+.k12-method-icon {
+    width: 58px; height: 42px;
+    border-radius: 13px;
+    display: grid; place-items: center;
+    background: rgba(244,239,229,.92);
+    margin-bottom: 10px;
+}
+.k12-method-icon svg { width: 38px; height: 28px; fill: none; stroke: #171717; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.k12-method b { font-size: 14.5px; font-weight: 680; }
+
+.k12-timer {
+    height: 62px;
+    margin-bottom: 16px;
+    padding: 0 18px;
+    border-radius: 21px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(180deg, #d0a550 0%, #a8752d 100%);
+    color: #080808;
+    box-shadow: 0 12px 28px rgba(168,117,45,.15);
+}
+.k12-timer span { opacity: .67; font-size: 12px; font-weight: 750; }
+.k12-timer b { font-size: 29px; font-weight: 760; letter-spacing: -.6px; }
+.k12-bank-card {
+    padding: 20px;
+    min-height: 166px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #191919 0%, #080808 72%);
+    border: 1px solid rgba(198,154,67,.22);
+    box-shadow: 0 18px 50px rgba(0,0,0,.42);
+}
+.k12-bank-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 30px; }
+.k12-bank-top span { color: #d0a550; font-size: 20px; font-weight: 740; letter-spacing: 3px; }
+.k12-bank-top button,
+.k12-pay-amount button {
+    height: 36px;
+    padding: 0 13px;
+    border-radius: 13px;
+    border: 1px solid rgba(198,154,67,.24);
+    background: rgba(255,255,255,.025);
+    color: rgba(244,239,229,.86);
+    font-size: 12.5px;
+    font-weight: 650;
+}
+.k12-card-number {
+    color: #fffaf1;
+    font-size: clamp(18px, 4.65vw, 21px);
+    line-height: 1.32;
+    font-weight: 650;
+    letter-spacing: 2.2px;
+    word-spacing: 3px;
+    font-variant-numeric: tabular-nums;
+    white-space: normal;
+    margin-bottom: 26px;
+}
+.k12-holder { color: rgba(244,239,229,.54); font-size: 12.5px; font-weight: 700; letter-spacing: 2.7px; }
+.k12-pay-amount {
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: 20px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    background: rgba(255,255,255,.016);
+    border: 1px solid rgba(255,255,255,.055);
+}
+.k12-pay-amount span { display: block; margin-bottom: 7px; color: rgba(244,239,229,.40); font-size: 11.5px; font-weight: 650; }
+.k12-pay-amount b { color: #fffaf1; font-size: 25px; font-weight: 700; letter-spacing: -.4px; }
+.k12-rules {
+    margin-top: 14px;
+    padding: 17px;
+    border-radius: 21px;
+    background: rgba(255,255,255,.014);
+    border: 1px solid rgba(255,255,255,.055);
+}
+.k12-rules .ok-title, .k12-rules .bad-title { font-size: 11px; font-weight: 750; letter-spacing: 2.8px; }
+.k12-rules .ok-title { color: #4ade80; }
+.k12-rules .bad-title { color: #fb6f6f; margin-top: 15px; }
+.k12-rules p { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 10px; margin: 11px 0 0; color: rgba(244,239,229,.76); font-size: 13.5px; line-height: 1.32; font-weight: 590; }
+.k12-rules p b { font-size: 19px; }
+.k12-rules p.ok b { color: #4ade80; }
+.k12-rules p.bad b { color: #fb6f6f; }
+.k12-cancel {
+    width: 100%; height: 46px; margin-top: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,95,95,.20);
+    background: rgba(255,65,65,.032);
+    color: rgba(255,120,120,.84);
+    font-size: 13.5px; font-weight: 650;
+}
+
+@media (max-width: 380px) {
+    #kadi-pay-v12 { padding-left: 14px; padding-right: 14px; }
+    .k12-header { grid-template-columns: 80px 1fr 54px; gap: 8px; }
+    .k12-pill { height: 36px; font-size: 12.5px; }
+    .k12-logo { width: 33px; height: 33px; font-size: 20px; }
+    .k12-brand-title { font-size: 24px; }
+    .k12-brand-sub { font-size: 7px; letter-spacing: 1.4px; }
+    .k12-headline h1 { font-size: 25px; }
+    #k12-amount { font-size: 27px !important; }
+    .k12-panel { padding: 16px; }
+    .k12-summary b { font-size: 19px; }
+    .k12-method { min-height: 96px; }
+    .k12-bank-card { padding: 18px; }
+    .k12-card-number { letter-spacing: 1.6px; word-spacing: 2px; }
+    .k12-pay-amount b { font-size: 22px; }
+}
+
+
+/* KADI v12.1 small polish: safer top spacing */
+#kadi-pay-v12 {
+    padding-top: calc(28px + env(safe-area-inset-top)) !important;
+}
+
+.k12-header {
+    margin-top: 4px !important;
+    margin-bottom: 28px !important;
+}
+
+.k12-title {
+    font-size: 31px !important;
+    line-height: 1.12 !important;
+}
+
+.k12-card-number {
+    font-size: 21px !important;
+    letter-spacing: 3px !important;
+}
+
+@media (max-width: 380px) {
+    .k12-title {
+        font-size: 28px !important;
+    }
+
+    .k12-card-number {
+        font-size: 19px !important;
+        letter-spacing: 2.4px !important;
+    }
+}
