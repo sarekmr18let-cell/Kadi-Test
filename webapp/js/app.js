@@ -3368,3 +3368,58 @@ window.closeModal = closeModal;
 
     console.log(MARKER + ' loaded');
 })();
+
+
+/* KADI_TELEGRAM_SCROLL_UNLOCK_V1: unlock scroll for Telegram WebApp */
+(function () {
+    const MARKER = 'KADI_TELEGRAM_SCROLL_UNLOCK_V1';
+
+    function expandTelegramWebApp() {
+        try {
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+            }
+        } catch (e) {}
+    }
+
+    function unlockScroll() {
+        try {
+            document.documentElement.style.overflowY = 'auto';
+            document.documentElement.style.height = 'auto';
+
+            document.body.style.overflowY = 'auto';
+            document.body.style.height = 'auto';
+            document.body.style.position = 'relative';
+            document.body.style.touchAction = 'pan-y';
+        } catch (e) {}
+    }
+
+    function addBottomSpace() {
+        try {
+            let spacer = document.getElementById('kadi-scroll-bottom-spacer');
+            if (!spacer) {
+                spacer = document.createElement('div');
+                spacer.id = 'kadi-scroll-bottom-spacer';
+                spacer.style.height = '140px';
+                spacer.style.minHeight = '140px';
+                spacer.style.pointerEvents = 'none';
+                document.body.appendChild(spacer);
+            }
+        } catch (e) {}
+    }
+
+    function applyScrollFix() {
+        expandTelegramWebApp();
+        unlockScroll();
+        addBottomSpace();
+    }
+
+    applyScrollFix();
+    document.addEventListener('DOMContentLoaded', applyScrollFix);
+    window.addEventListener('load', applyScrollFix);
+    window.addEventListener('resize', applyScrollFix);
+    setInterval(applyScrollFix, 1000);
+
+    console.log(MARKER + ' loaded');
+})();

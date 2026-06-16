@@ -5186,3 +5186,44 @@ body.k12-lock { overflow: hidden !important; }
     font-size: 13px;
     line-height: 1.45;
 }
+
+
+/* KADI_USER_SCROLL_FIX_V1: fix scrolling for normal users in Telegram Mini App */
+html,
+body {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+}
+
+body {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
+}
+
+#app,
+.app,
+.main,
+main,
+.page,
+.screen,
+.view,
+.content,
+.catalog-page,
+.product-page,
+.history-page,
+.profile-page,
+.admin-page {
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    padding-bottom: calc(130px + env(safe-area-inset-bottom)) !important;
+}
+
+.bottom-nav,
+.tabbar,
+.navbar-bottom {
+    z-index: 999 !important;
+}
