@@ -33,6 +33,13 @@ from app.services.moogold_fulfillment import fulfill_order_via_moogold
 
 
 # KADI_NOTIFY_ADMIN_NEW_ORDER_V1
+
+def _kadi_format_amount_safe(value) -> str:
+    try:
+        return f"{int(float(value)):,}".replace(",", " ")
+    except Exception:
+        return str(value)
+
 def _kadi_notify_admin_new_order(order) -> None:
     """
     Notify admin when a paid order is created.
@@ -48,28 +55,45 @@ def _kadi_notify_admin_new_order(order) -> None:
         status = getattr(order, "status", "paid")
         user_id = getattr(order, "user_id", "unknown")
 
+        target_id = getattr(order, "target_id", None)
+        target_server = getattr(order, "target_server", None)
+        target_region = (
+            getattr(order, "target_region_label", None)
+            or getattr(order, "target_region", None)
+        )
+        nickname = getattr(order, "verified_target_name", None)
+
         target_parts = []
-        for field in ("target", "target_username", "recipient", "username", "game_id", "player_id", "server_id"):
-            value = getattr(order, field, None)
-            if value:
-                target_parts.append(str(value))
+        if target_id:
+            target_parts.append(str(target_id))
+        if target_server:
+            target_parts.append(str(target_server))
 
         target_text = " / ".join(target_parts) if target_parts else "Открой админ-панель"
+
+        detail_lines = [f"Target: {target_text}"]
+
+        if nickname:
+            detail_lines.append(f"Nickname: {nickname}")
+
+        if target_region:
+            detail_lines.append(f"Region: {target_region}")
+
+        details_text = "\n".join(detail_lines)
 
         message = (
             "🆕 Новый оплаченный заказ\n\n"
             f"Заказ: #{order_number}\n"
             f"User ID: {user_id}\n"
-            f"Сумма: {_kadi_format_uzs(amount)} UZS\n"
+            f"Сумма: {_kadi_format_amount_safe(amount)} UZS\n"
             f"Статус: {status}\n"
-            f"Target: {target_text}\n\n"
+            f"{details_text}\n\n"
             "Открой админ-панель и нажми «✅ Выполнено» после выдачи."
         )
 
         _kadi_send_telegram_safe(admin_chat_id, message)
     except Exception as exc:
         _kadi_log_warning("KADI admin new order notification failed: %s", exc)
-
 
 # KADI_ORDER_DIRECT_TELEGRAM_NOTIFY_V1
 def _kadi_format_uzs(value) -> str:
