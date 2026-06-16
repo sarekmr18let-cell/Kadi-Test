@@ -24,6 +24,7 @@ from app.models.models import (
 )
 from app.services.notifications import send_order_notification
 
+from app.services.notifications import send_telegram_message_sync
 PAYMENT_TTL_MINUTES = int(settings.P2P_PAYMENT_TTL_MINUTES or 5)
 UNIQUE_AMOUNT_MIN = 1
 UNIQUE_AMOUNT_MAX = 499
@@ -406,6 +407,7 @@ async def credit_balance_topup(
         raise HTTPException(status_code=404, detail="Top-up user not found")
 
     user.balance = round(float(user.balance or 0) + float(topup.amount), 2)
+    _kadi_notify_balance_topup(user, topup.amount)
     topup.status = "paid"
     topup.paid_at = incoming.paid_at if incoming else _now()
     topup.updated_at = _now()
@@ -561,6 +563,48 @@ def _kadi_aware_utc(value):
             return value
         return value.astimezone(_kadi_dt.timezone.utc).replace(tzinfo=None)
     return value
+
+
+
+# KADI_TOPUP_NOTIFY_HELPER_V1
+def _kadi_format_uzs(value) -> str:
+    try:
+        return f"{int(float(value or 0)):,}".replace(",", " ")
+    except Exception:
+        return str(value or 0)
+
+
+def _kadi_notify_balance_topup(user, amount) -> None:
+    """
+    Send Telegram message to user after successful balance top-up.
+    This must never break payment processing.
+    """
+    try:
+        telegram_id = getattr(user, "telegram_id", None)
+        if not telegram_id:
+            return
+
+        balance = getattr(user, "balance", 0)
+
+        message = (
+            "✅ Баланс пополнен\n\n"
+            f"Сумма: {_kadi_format_uzs(amount)} UZS\n"
+            f"Ваш баланс: {_kadi_format_uzs(balance)} UZS"
+        )
+
+        send_telegram_message_sync(telegram_id, message)
+
+        try:
+            logger.info("KADI topup notification sent to user_id=%s telegram_id=%s amount=%s", getattr(user, "id", None), telegram_id, amount)
+        except Exception:
+            pass
+
+    except Exception as exc:
+        try:
+            logger.warning("KADI topup notification failed: %s", exc)
+        except Exception:
+            pass
+
 
 async def process_incoming_p2p_payment(
     db: AsyncSession,

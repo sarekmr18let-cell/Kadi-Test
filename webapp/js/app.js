@@ -3102,3 +3102,117 @@ window.closeModal = closeModal;
 
     console.log(MARKER + ' loaded');
 })();
+
+
+/* KADI_PAY_CLOSE_OVERLAY_V16: close payment overlay after successful top-up */
+(function () {
+    const MARKER = 'KADI_PAY_CLOSE_OVERLAY_V16';
+    let timer = null;
+    let startedAt = 0;
+
+    function hasPayWait() {
+        return !!document.querySelector('.kadi-pay-wait-v15, .kadi-paid-wait-v13');
+    }
+
+    function isPayScreenVisible() {
+        const text = document.body.innerText || '';
+        return /HUMO|UZCARD/i.test(text)
+            && /Сумма к оплате|Сумма перевода|UZS/i.test(text)
+            && /Отменить пополнение/i.test(text);
+    }
+
+    function closePayOverlay() {
+        const selectors = [
+            '#kadi-pay-v11',
+            '#kadi-pay-v12',
+            '#kadi-pay-flow',
+            '#kadi-pay-overlay',
+            '.kadi-pay-overlay',
+            '.kadi-pay-flow',
+            '.kadi-topup-overlay'
+        ];
+
+        selectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => {
+                try { el.remove(); } catch (e) {}
+            });
+        });
+
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+    }
+
+    async function refreshBalanceSoft() {
+        try { if (typeof loadUserBalance === 'function') await loadUserBalance(); } catch (e) {}
+        try { if (typeof loadBalance === 'function') await loadBalance(); } catch (e) {}
+        try { if (typeof updateBalance === 'function') await updateBalance(); } catch (e) {}
+    }
+
+    async function goHomeAfterPaid() {
+        await refreshBalanceSoft();
+
+        closePayOverlay();
+
+        if (typeof navigateTo === 'function') {
+            navigateTo('home');
+        } else {
+            location.hash = '#home';
+        }
+
+        if (typeof showToast === 'function') {
+            showToast('success', 'Баланс пополнен ✅');
+        }
+    }
+
+    async function checkPaidAndClose() {
+        if (!hasPayWait() && !isPayScreenVisible()) return;
+
+        try {
+            const topups = await api('GET', '/payments/topups/my');
+            const list = Array.isArray(topups) ? topups : [];
+
+            const latest = list[0];
+            const pending = list.find(t => String(t.status) === 'pending');
+
+            if (latest && String(latest.status) === 'paid' && !pending) {
+                await goHomeAfterPaid();
+                if (timer) clearInterval(timer);
+                timer = null;
+                return;
+            }
+        } catch (e) {}
+    }
+
+    function startWatcher() {
+        startedAt = Date.now();
+
+        if (timer) clearInterval(timer);
+
+        timer = setInterval(checkPaidAndClose, 2000);
+        checkPaidAndClose();
+    }
+
+    document.addEventListener('click', function (event) {
+        const btn = event.target.closest('.kadi-pay-paid-btn-v15, .kadi-paid-btn-v13');
+        if (!btn) return;
+        setTimeout(startWatcher, 500);
+    }, true);
+
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && (hasPayWait() || isPayScreenVisible())) {
+            startWatcher();
+        }
+    });
+
+    window.addEventListener('focus', function () {
+        if (hasPayWait() || isPayScreenVisible()) {
+            startWatcher();
+        }
+    });
+
+    setInterval(function () {
+        if (hasPayWait()) checkPaidAndClose();
+    }, 3000);
+
+    console.log(MARKER + ' loaded');
+})();
