@@ -39,8 +39,8 @@ class Settings(BaseSettings):
     
     # App URLs
     CALLBACK_BASE_URL: str = "http://localhost:8000"
-    FRONTEND_URL: str = "https://tgbot.example.com"
-    WEBAPP_URL: str = "https://tgbot.example.com"
+    FRONTEND_URL: str = "https://www.kadi-store.uz"
+    WEBAPP_URL: str = "https://www.kadi-store.uz"
     
     @field_validator('JWT_SECRET')
     @classmethod
