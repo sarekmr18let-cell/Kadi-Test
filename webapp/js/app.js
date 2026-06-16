@@ -671,7 +671,7 @@ function renderProductDetail(product) {
             verifyButton.disabled = true;
             verifyButton.textContent = 'Проверяем...';
             if (verifyStatus) {
-                verifyStatus.textContent = 'Проверяем аккаунт через GameDrops...';
+                verifyStatus.textContent = 'Проверяем аккаунт...';
                 verifyStatus.style.color = '';
             }
 
