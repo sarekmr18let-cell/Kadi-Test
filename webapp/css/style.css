@@ -5058,3 +5058,131 @@ body.k12-lock { overflow: hidden !important; }
         letter-spacing: 2.4px !important;
     }
 }
+
+
+/* KADI: paid button wait state */
+.kadi-paid-btn {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.kadi-paid-btn:disabled {
+    opacity: .75;
+    filter: grayscale(.15);
+}
+
+.kadi-paid-wait {
+    margin: 12px 0;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(214, 166, 70, .32);
+    background: linear-gradient(135deg, rgba(214, 166, 70, .13), rgba(255, 255, 255, .04));
+}
+
+.kadi-paid-wait-title {
+    color: #f0c15a;
+    font-weight: 800;
+    font-size: 15px;
+    margin-bottom: 5px;
+}
+
+.kadi-paid-wait-text {
+    color: rgba(255, 255, 255, .68);
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+
+/* KADI paid button v13 */
+.kadi-paid-btn-v13 {
+    width: 100%;
+    margin-top: 14px;
+    min-height: 58px;
+    border-radius: 18px;
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.kadi-paid-btn-v13:disabled {
+    opacity: .78;
+}
+
+.kadi-paid-wait-v13 {
+    margin: 12px 0 14px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(214, 166, 70, .32);
+    background: linear-gradient(135deg, rgba(214, 166, 70, .13), rgba(255, 255, 255, .04));
+}
+
+.kadi-paid-wait-v13 b {
+    display: block;
+    color: #f0c15a;
+    font-size: 15px;
+    margin-bottom: 5px;
+}
+
+.kadi-paid-wait-v13 span {
+    display: block;
+    color: rgba(255,255,255,.68);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+
+/* KADI_NO_PROFILE_TOPUP_V14: profile must not contain top-up payment UI */
+#profile-page .wallet-topup-section,
+.profile-page .wallet-topup-section,
+.wallet-topup-section {
+    display: none !important;
+}
+
+/* Hide old/forced paid button inside profile block */
+#profile-page .kadi-paid-btn-v13,
+.profile-page .kadi-paid-btn-v13,
+.wallet-topup-section .kadi-paid-btn-v13,
+.wallet-topup-section .kadi-paid-wait-v13 {
+    display: none !important;
+}
+
+
+/* KADI Pay paid button v15 */
+.kadi-pay-paid-btn-v15 {
+    width: 100%;
+    min-height: 58px;
+    margin: 18px 0 12px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #f0c85a 0%, #c8912d 100%);
+    color: #0b0b0d;
+    font-size: 18px;
+    font-weight: 900;
+    box-shadow: 0 14px 34px rgba(198, 145, 45, .22);
+}
+
+.kadi-pay-paid-btn-v15:disabled {
+    opacity: .75;
+}
+
+.kadi-pay-wait-v15 {
+    margin: 12px 0 14px;
+    padding: 15px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(214, 166, 70, .35);
+    background: linear-gradient(135deg, rgba(214, 166, 70, .13), rgba(255, 255, 255, .04));
+}
+
+.kadi-pay-wait-v15 b {
+    display: block;
+    color: #f0c15a;
+    font-size: 15px;
+    margin-bottom: 5px;
+}
+
+.kadi-pay-wait-v15 span {
+    display: block;
+    color: rgba(255,255,255,.68);
+    font-size: 13px;
+    line-height: 1.45;
+}

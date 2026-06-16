@@ -1188,6 +1188,8 @@ function renderTopupBox(topup) {
             <div class="action-buttons">
                 <button class="btn-secondary" onclick="copyText('${escapeHtml(card.card_number || '')}')">${tr('copy_card')}</button>
                 <button class="btn-secondary" onclick="copyText('${Math.round(Number(topup.amount || 0))}')">${tr('copy_amount')}</button>
+                
+                <button class="btn-primary kadi-paid-btn" onclick="confirmBalanceTopupPaid(${topup.id})">Я оплатил</button>
                 <button class="btn-secondary" onclick="cancelBalanceTopup(${topup.id})">${tr('cancel')}</button>
             </div>
         </div>
@@ -2608,4 +2610,495 @@ window.closeModal = closeModal;
     document.addEventListener('DOMContentLoaded', removeTestPaymentButtons);
     document.addEventListener('click', () => setTimeout(removeTestPaymentButtons, 100));
     setInterval(removeTestPaymentButtons, 1000);
+})();
+
+
+/* KADI: paid button wait flow */
+(function () {
+    if (window.confirmBalanceTopupPaid) return;
+
+    let kadiPaidWaitTimer = null;
+
+    function setPaidButtonLoading(isLoading) {
+        document.querySelectorAll('.kadi-paid-btn').forEach(btn => {
+            btn.disabled = isLoading;
+            btn.textContent = isLoading ? 'Ожидаем оплату...' : 'Я оплатил';
+        });
+    }
+
+    function showPaidWaitNotice() {
+        const box = document.getElementById('active-topup-box');
+        if (!box || box.querySelector('.kadi-paid-wait')) return;
+
+        const notice = document.createElement('div');
+        notice.className = 'kadi-paid-wait';
+        notice.innerHTML = `
+            <div class="kadi-paid-wait-title">Проверяем оплату</div>
+            <div class="kadi-paid-wait-text">
+                Обычно подтверждение занимает 10–60 секунд.
+                Баланс пополнится автоматически после уведомления банка.
+            </div>
+        `;
+        box.prepend(notice);
+    }
+
+    async function refreshBalanceSoft() {
+        try {
+            if (typeof loadUserBalance === 'function') await loadUserBalance();
+        } catch (e) {}
+        try {
+            if (typeof loadBalance === 'function') await loadBalance();
+        } catch (e) {}
+        try {
+            if (typeof updateBalance === 'function') await updateBalance();
+        } catch (e) {}
+    }
+
+    window.confirmBalanceTopupPaid = async function (topupId) {
+        if (kadiPaidWaitTimer) {
+            clearTimeout(kadiPaidWaitTimer);
+            kadiPaidWaitTimer = null;
+        }
+
+        setPaidButtonLoading(true);
+        showPaidWaitNotice();
+
+        if (typeof showToast === 'function') {
+            showToast('success', 'Ожидаем подтверждение банка...');
+        }
+
+        let attempts = 0;
+        const maxAttempts = 80; // about 4 minutes
+
+        async function checkTopupStatus() {
+            attempts += 1;
+
+            try {
+                const topups = await api('GET', '/payments/topups/my');
+                const topup = (topups || []).find(t => Number(t.id) === Number(topupId));
+
+                if (topup && topup.status === 'paid') {
+                    await refreshBalanceSoft();
+
+                    if (typeof showToast === 'function') {
+                        showToast('success', 'Баланс пополнен ✅');
+                    }
+
+                    setTimeout(() => {
+                        if (typeof navigateTo === 'function') {
+                            navigateTo('home');
+                        } else {
+                            location.hash = '#home';
+                        }
+                    }, 800);
+
+                    return;
+                }
+
+                if (topup && ['expired', 'cancelled', 'rejected'].includes(String(topup.status))) {
+                    setPaidButtonLoading(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Платёж не найден или пополнение отменено');
+                    }
+                    return;
+                }
+
+                if (attempts >= maxAttempts) {
+                    setPaidButtonLoading(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Пока не нашли платёж. Если оплатили — напишите в поддержку.');
+                    }
+                    return;
+                }
+
+                kadiPaidWaitTimer = setTimeout(checkTopupStatus, 3000);
+            } catch (e) {
+                if (attempts >= maxAttempts) {
+                    setPaidButtonLoading(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Не удалось проверить оплату');
+                    }
+                    return;
+                }
+                kadiPaidWaitTimer = setTimeout(checkTopupStatus, 3000);
+            }
+        }
+
+        await checkTopupStatus();
+    };
+})();
+
+
+/* KADI_PAID_BUTTON_V13: robust "Я оплатил" button */
+(function () {
+    const MARKER = 'KADI_PAID_BUTTON_V13';
+    let waitTimer = null;
+
+    function paidText() {
+        const lang = (localStorage.getItem('lang') || document.documentElement.lang || 'ru').toLowerCase();
+        if (lang.startsWith('uz')) return "To‘lov qildim";
+        if (lang.startsWith('en')) return "I paid";
+        return "Я оплатил";
+    }
+
+    function waitText() {
+        const lang = (localStorage.getItem('lang') || document.documentElement.lang || 'ru').toLowerCase();
+        if (lang.startsWith('uz')) return "To‘lov tasdig‘i kutilmoqda...";
+        if (lang.startsWith('en')) return "Waiting for payment confirmation...";
+        return "Ожидаем подтверждение оплаты...";
+    }
+
+    function insertPaidButton() {
+        const box = document.getElementById('active-topup-box');
+        if (!box) return;
+
+        if (box.querySelector('.kadi-paid-btn-v13')) return;
+
+        const text = box.innerText || '';
+        const hasTopup = /HUMO|UZCARD|Карта|Сумма|UZS|Активное пополнение/i.test(text);
+        if (!hasTopup) return;
+
+        const btn = document.createElement('button');
+        btn.className = 'btn-primary kadi-paid-btn-v13';
+        btn.type = 'button';
+        btn.textContent = paidText();
+        btn.onclick = function () {
+            window.kadiWaitForTopupPaidV13();
+        };
+
+        const cancelBtn = box.querySelector('button[onclick*="cancelBalanceTopup"]');
+        if (cancelBtn && cancelBtn.parentNode) {
+            cancelBtn.parentNode.insertBefore(btn, cancelBtn);
+        } else {
+            box.appendChild(btn);
+        }
+    }
+
+    function showWaitNotice() {
+        const box = document.getElementById('active-topup-box');
+        if (!box || box.querySelector('.kadi-paid-wait-v13')) return;
+
+        const notice = document.createElement('div');
+        notice.className = 'kadi-paid-wait-v13';
+        notice.innerHTML = `
+            <b>Проверяем оплату</b>
+            <span>Обычно это занимает 10–60 секунд. Баланс зачислится автоматически после уведомления банка.</span>
+        `;
+        box.prepend(notice);
+    }
+
+    function setButtonWaiting(waiting) {
+        document.querySelectorAll('.kadi-paid-btn-v13').forEach(btn => {
+            btn.disabled = waiting;
+            btn.textContent = waiting ? waitText() : paidText();
+        });
+    }
+
+    async function softRefreshBalance() {
+        try { if (typeof loadUserBalance === 'function') await loadUserBalance(); } catch (e) {}
+        try { if (typeof loadBalance === 'function') await loadBalance(); } catch (e) {}
+        try { if (typeof updateBalance === 'function') await updateBalance(); } catch (e) {}
+    }
+
+    window.kadiWaitForTopupPaidV13 = async function () {
+        if (waitTimer) clearTimeout(waitTimer);
+
+        showWaitNotice();
+        setButtonWaiting(true);
+
+        if (typeof showToast === 'function') {
+            showToast('success', 'Ожидаем подтверждение банка...');
+        }
+
+        let attempts = 0;
+        const maxAttempts = 90;
+
+        async function check() {
+            attempts++;
+
+            try {
+                const topups = await api('GET', '/payments/topups/my');
+                const list = Array.isArray(topups) ? topups : [];
+                const latest = list[0];
+                const pending = list.find(t => String(t.status) === 'pending');
+
+                if (latest && String(latest.status) === 'paid') {
+                    await softRefreshBalance();
+
+                    if (typeof showToast === 'function') {
+                        showToast('success', 'Баланс пополнен ✅');
+                    }
+
+                    setTimeout(() => {
+                        if (typeof navigateTo === 'function') {
+                            navigateTo('home');
+                        } else {
+                            location.hash = '#home';
+                        }
+                    }, 700);
+
+                    return;
+                }
+
+                if (!pending && latest && ['cancelled', 'expired', 'rejected'].includes(String(latest.status))) {
+                    setButtonWaiting(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Платёж не найден или пополнение отменено');
+                    }
+                    return;
+                }
+
+                if (attempts >= maxAttempts) {
+                    setButtonWaiting(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Пока не нашли платёж. Если оплатили — напишите в поддержку.');
+                    }
+                    return;
+                }
+
+                waitTimer = setTimeout(check, 3000);
+            } catch (e) {
+                if (attempts >= maxAttempts) {
+                    setButtonWaiting(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Не удалось проверить оплату');
+                    }
+                    return;
+                }
+                waitTimer = setTimeout(check, 3000);
+            }
+        }
+
+        await check();
+    };
+
+    setInterval(insertPaidButton, 1000);
+
+    const observer = new MutationObserver(insertPaidButton);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    document.addEventListener('DOMContentLoaded', insertPaidButton);
+    window.addEventListener('load', insertPaidButton);
+
+    console.log(MARKER + ' loaded');
+})();
+
+
+/* KADI_NO_PROFILE_TOPUP_V14: top-up is separate flow, not profile block */
+(function () {
+    const MARKER = 'KADI_NO_PROFILE_TOPUP_V14';
+
+    function removeProfileTopupSection() {
+        document.querySelectorAll('.wallet-topup-section').forEach(el => {
+            el.remove();
+        });
+
+        document.querySelectorAll('.kadi-paid-btn-v13, .kadi-paid-wait-v13').forEach(el => {
+            const inProfile = el.closest('#profile-page, .profile-page, .wallet-topup-section');
+            if (inProfile) el.remove();
+        });
+    }
+
+    function openTopupFlowSafe() {
+        if (typeof window.openKadiTopupFlow === 'function') {
+            window.openKadiTopupFlow();
+            return true;
+        }
+
+        if (typeof openKadiTopupFlow === 'function') {
+            openKadiTopupFlow();
+            return true;
+        }
+
+        if (typeof navigateTo === 'function') {
+            navigateTo('profile');
+            setTimeout(removeProfileTopupSection, 300);
+        }
+
+        return false;
+    }
+
+    document.addEventListener('click', function (event) {
+        const target = event.target.closest(
+            '#hero-topup-btn, .hero-cta#hero-topup-btn, [data-open-kadi-topup], [data-page="profile"].quick-action'
+        );
+
+        if (!target) return;
+
+        const text = (target.innerText || '').toLowerCase();
+        const isTopupButton =
+            target.id === 'hero-topup-btn' ||
+            target.hasAttribute('data-open-kadi-topup') ||
+            text.includes('пополн') ||
+            text.includes('top up') ||
+            text.includes('to‘ld');
+
+        if (!isTopupButton) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        openTopupFlowSafe();
+    }, true);
+
+    setInterval(removeProfileTopupSection, 700);
+    document.addEventListener('DOMContentLoaded', removeProfileTopupSection);
+    window.addEventListener('load', removeProfileTopupSection);
+
+    console.log(MARKER + ' loaded');
+})();
+
+
+/* KADI_PAY_PAID_BUTTON_V15: paid button for standalone payment screen */
+(function () {
+    const MARKER = 'KADI_PAY_PAID_BUTTON_V15';
+    let waitTimer = null;
+
+    function isPaymentScreen() {
+        const text = document.body.innerText || '';
+        return /HUMO|UZCARD/i.test(text)
+            && /Сумма к оплате|Сумма перевода|UZS/i.test(text)
+            && /Отменить пополнение/i.test(text);
+    }
+
+    function findCancelButton() {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        return buttons.find(btn => /Отменить пополнение|Отменить/i.test(btn.innerText || ''));
+    }
+
+    function insertButton() {
+        if (!isPaymentScreen()) return;
+        if (document.querySelector('.kadi-pay-paid-btn-v15')) return;
+
+        const cancelBtn = findCancelButton();
+        if (!cancelBtn || !cancelBtn.parentNode) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'kadi-pay-paid-btn-v15';
+        btn.textContent = 'Я оплатил';
+        btn.onclick = function () {
+            waitForPayment();
+        };
+
+        cancelBtn.parentNode.insertBefore(btn, cancelBtn);
+    }
+
+    function showWaitBlock() {
+        if (document.querySelector('.kadi-pay-wait-v15')) return;
+
+        const cancelBtn = findCancelButton();
+        if (!cancelBtn || !cancelBtn.parentNode) return;
+
+        const block = document.createElement('div');
+        block.className = 'kadi-pay-wait-v15';
+        block.innerHTML = `
+            <b>Проверяем оплату</b>
+            <span>Обычно это занимает 10–60 секунд. После подтверждения баланс обновится автоматически.</span>
+        `;
+
+        cancelBtn.parentNode.insertBefore(block, cancelBtn);
+    }
+
+    function setWaiting(waiting) {
+        document.querySelectorAll('.kadi-pay-paid-btn-v15').forEach(btn => {
+            btn.disabled = waiting;
+            btn.textContent = waiting ? 'Ожидаем подтверждение...' : 'Я оплатил';
+        });
+    }
+
+    async function refreshBalanceSoft() {
+        try { if (typeof loadUserBalance === 'function') await loadUserBalance(); } catch (e) {}
+        try { if (typeof loadBalance === 'function') await loadBalance(); } catch (e) {}
+        try { if (typeof updateBalance === 'function') await updateBalance(); } catch (e) {}
+    }
+
+    async function goHome() {
+        await refreshBalanceSoft();
+
+        if (typeof showToast === 'function') {
+            showToast('success', 'Баланс пополнен ✅');
+        }
+
+        setTimeout(() => {
+            if (typeof navigateTo === 'function') {
+                navigateTo('home');
+            } else {
+                location.hash = '#home';
+            }
+        }, 700);
+    }
+
+    async function waitForPayment() {
+        if (waitTimer) clearTimeout(waitTimer);
+
+        setWaiting(true);
+        showWaitBlock();
+
+        if (typeof showToast === 'function') {
+            showToast('success', 'Ожидаем подтверждение банка...');
+        }
+
+        let attempts = 0;
+        const maxAttempts = 90;
+
+        async function check() {
+            attempts++;
+
+            try {
+                const topups = await api('GET', '/payments/topups/my');
+                const list = Array.isArray(topups) ? topups : [];
+
+                const latest = list[0];
+                const paid = list.find(t => String(t.status) === 'paid');
+                const pending = list.find(t => String(t.status) === 'pending');
+
+                if (paid && (!pending || Number(paid.id) >= Number(pending.id || 0))) {
+                    await goHome();
+                    return;
+                }
+
+                if (!pending && latest && ['expired', 'cancelled', 'rejected'].includes(String(latest.status))) {
+                    setWaiting(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Платёж не найден или пополнение отменено');
+                    }
+                    return;
+                }
+
+                if (attempts >= maxAttempts) {
+                    setWaiting(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Пока не нашли платёж. Если оплатили — напишите в поддержку.');
+                    }
+                    return;
+                }
+
+                waitTimer = setTimeout(check, 3000);
+            } catch (e) {
+                if (attempts >= maxAttempts) {
+                    setWaiting(false);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Не удалось проверить оплату');
+                    }
+                    return;
+                }
+
+                waitTimer = setTimeout(check, 3000);
+            }
+        }
+
+        await check();
+    }
+
+    setInterval(insertButton, 700);
+
+    const observer = new MutationObserver(insertButton);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    document.addEventListener('DOMContentLoaded', insertButton);
+    window.addEventListener('load', insertButton);
+
+    console.log(MARKER + ' loaded');
 })();
