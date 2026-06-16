@@ -2069,6 +2069,39 @@ function initEventListeners() {
     });
 }
 
+
+// KADI fix: make all buttons/cards with data-page clickable.
+// This covers hero buttons, quick actions, "see all", wallet shortcuts, etc.
+document.addEventListener('click', (event) => {
+    const pageBtn = event.target.closest?.('[data-page]');
+    if (!pageBtn) return;
+
+    const page = pageBtn.dataset.page;
+    if (!page) return;
+
+    // nav-item already has its own listener, but this is safe.
+    event.preventDefault();
+    navigateTo(page);
+
+    // If user clicked a top-up shortcut, open profile and scroll to wallet top-up block.
+    if (
+        page === 'profile' &&
+        (
+            pageBtn.id === 'hero-topup-btn' ||
+            pageBtn.classList.contains('quick-action') ||
+            pageBtn.id === 'header-wallet-btn'
+        )
+    ) {
+        setTimeout(() => {
+            document.querySelector('.wallet-topup-section')?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }, 300);
+    }
+});
+
+
 // ===== Initialize =====
 function init() {
     initLanguageSwitcher();
