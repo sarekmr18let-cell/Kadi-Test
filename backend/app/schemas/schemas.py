@@ -200,7 +200,8 @@ class OrderCreateRequest(BaseModel):
     target_server: Optional[str] = None
     target_region: Optional[str] = None
     promo_code: Optional[str] = None
-
+    verified_target_name: Optional[str] = None
+    verified_target_payload: Optional[Dict[str, Any]] = None
 
 class OrderResponse(BaseModel):
     id: int
@@ -213,6 +214,8 @@ class OrderResponse(BaseModel):
     target_server: Optional[str] = None
     target_region: Optional[str] = None
     target_region_label: Optional[str] = None
+    verified_target_name: Optional[str] = None
+    verified_target_payload: Optional[Dict[str, Any]] = None
     moogold_order_id: Optional[str] = None
     promo_code: Optional[str] = None
     discount_amount: float

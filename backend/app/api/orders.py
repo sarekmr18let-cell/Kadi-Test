@@ -9,6 +9,7 @@ import string
 import json
 
 from app.core.database import get_db
+from app.services.gamedrops import GameDropsClient
 from app.core.security import get_current_user
 from app.models.models import Order, OrderItem, ProductVariation, PromoCode, P2PPaymentSession, User, Transaction, Product
 from app.schemas.schemas import (
@@ -338,6 +339,53 @@ async def create_order(
         )
 
     # Create paid order
+    verified_target_name = getattr(request, "verified_target_name", None) or None
+    verified_target_payload = getattr(request, "verified_target_payload", None) or {}
+
+    # Server-side GameDrops verification fallback.
+    # This keeps checkout safe even if Mini App does not send verified_target_name.
+    target_id_for_verify = str(getattr(request, "target_id", None) or "").strip()
+    target_server_for_verify = str(getattr(request, "target_server", None) or "").strip()
+
+    if not verified_target_name and request.items and target_id_for_verify and target_server_for_verify:
+        try:
+            first_item = request.items[0]
+            first_variation_id = getattr(first_item, "variation_id", None)
+
+            if first_variation_id:
+                variation = await db.get(ProductVariation, first_variation_id)
+
+                if (
+                    variation
+                    and getattr(variation, "provider", None) == "gamedrops"
+                    and getattr(variation, "provider_variation_id", None)
+                ):
+                    gd_client = GameDropsClient()
+                    try:
+                        gd_data = await gd_client.check_game_data(
+                            offer_id=str(variation.provider_variation_id),
+                            game_user_id=target_id_for_verify,
+                            game_server_id=target_server_for_verify,
+                        )
+
+                        if isinstance(gd_data, dict):
+                            gd_status = str(gd_data.get("status") or "").upper()
+                            gd_name = (
+                                gd_data.get("gameUserLogin")
+                                or gd_data.get("nickname")
+                                or gd_data.get("name")
+                                or gd_data.get("username")
+                            )
+
+                            if gd_status == "VALID" and gd_name:
+                                verified_target_name = str(gd_name)
+                                verified_target_payload = gd_data
+                    finally:
+                        await gd_client.close()
+        except Exception:
+            # Checkout must not fail only because nickname verification failed.
+            pass
+
     order = Order(
         order_number=generate_order_number(),
         user_id=user_id,
@@ -351,6 +399,8 @@ async def create_order(
         target_server=(request.target_server or None),
         target_region=(request.target_region or None),
         target_region_label=target_region_label,
+        verified_target_name=verified_target_name,
+        verified_target_payload=verified_target_payload,
         promo_code=request.promo_code,
         discount_amount=discount,
         partner_order_id=generate_order_number(),
