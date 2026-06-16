@@ -235,7 +235,14 @@ async def create_order(
     await db.commit()
     await db.refresh(order)
 
-    send_order_notification.delay(order.id, "paid")
+    # KADI_ORDER_NOTIFICATION_SAFE_V1
+    try:
+        send_order_notification.delay(order.id, "paid")
+    except Exception as exc:
+        try:
+            logger.warning("KADI order notification task failed: %s", exc)
+        except Exception:
+            print("KADI order notification task failed:", exc)
     fulfill_order_via_moogold.delay(order.id)
 
     return await load_order_for_response(db, order.id, user_id)
@@ -313,7 +320,14 @@ async def submit_payment(
     await db.refresh(order)
 
     # Notify admin that a manual check is needed.
-    send_order_notification.delay(order.id, "payment_submitted")
+    # KADI_ORDER_NOTIFICATION_SAFE_V1
+    try:
+        send_order_notification.delay(order.id, "payment_submitted")
+    except Exception as exc:
+        try:
+            logger.warning("KADI order notification task failed: %s", exc)
+        except Exception:
+            print("KADI order notification task failed:", exc)
 
     return await load_order_for_response(db, order.id, int(current_user["sub"]))
 
