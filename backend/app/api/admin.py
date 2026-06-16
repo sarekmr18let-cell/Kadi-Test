@@ -25,6 +25,222 @@ from app.services.notifications import send_order_notification
 from app.services.p2p import count_promo_usage_if_needed, clean_card_number, card_last4, credit_balance_topup, expire_old_balance_topups, parse_incoming_payment_payload, process_incoming_p2p_payment
 from app.services.moogold_fulfillment import fulfill_order_via_moogold
 
+
+
+
+
+
+
+
+
+
+
+# KADI_BUYER_COMPLETED_DIRECT_NOTIFY_FORCE_V2
+async def _kadi_send_completed_direct_to_buyer(db, order) -> None:
+    """
+    Sends direct Telegram message to buyer when admin marks order completed.
+    Must never break admin API.
+    """
+    try:
+        if db is None or order is None:
+            return
+
+        user_id = getattr(order, "user_id", None)
+        if not user_id:
+            return
+
+        from sqlalchemy import text
+
+        result = await db.execute(
+            text("SELECT telegram_id FROM users WHERE id = :user_id LIMIT 1"),
+            {"user_id": user_id}
+        )
+        row = result.first()
+
+        if not row or not row[0]:
+            try:
+                logger.warning("KADI completed notify: telegram_id not found for user_id=%s", user_id)
+            except Exception:
+                print("KADI completed notify: telegram_id not found for user_id", user_id)
+            return
+
+        telegram_id = row[0]
+
+        order_number = getattr(order, "order_number", None) or getattr(order, "id", "unknown")
+        amount = getattr(order, "total_amount", 0)
+
+        try:
+            amount_text = f"{int(float(amount or 0)):,}".replace(",", " ")
+        except Exception:
+            amount_text = str(amount or 0)
+
+        message = (
+            "✅ Заказ выполнен\n\n"
+            f"Заказ: #{order_number}\n"
+            f"Сумма: {amount_text} UZS\n\n"
+            "Спасибо за покупку в KADI."
+        )
+
+        from app.services.notifications import send_telegram_message_sync
+        send_telegram_message_sync(telegram_id, message)
+
+        try:
+            logger.warning("KADI completed notify sent to buyer telegram_id=%s order=%s", telegram_id, order_number)
+        except Exception:
+            print("KADI completed notify sent", telegram_id, order_number)
+
+    except Exception as exc:
+        try:
+            logger.warning("KADI completed notify failed: %s", exc)
+        except Exception:
+            print("KADI completed notify failed:", exc)
+
+
+# KADI_NOTIFY_USER_ORDER_COMPLETED_V1
+async def _kadi_notify_user_order_completed(session, order) -> None:
+    """
+    Notify buyer when admin marks order as completed.
+    """
+    try:
+        if str(getattr(order, "status", "")) != "completed":
+            return
+
+        user = getattr(order, "user", None)
+
+        if user is None and session is not None:
+            try:
+                try:
+                    from app.models.user import User
+                except Exception:
+                    try:
+                        from app.models.users import User
+                    except Exception:
+                        from app.models.models import User
+
+                user = await session.get(User, getattr(order, "user_id", None))
+            except Exception as exc:
+                _kadi_log_warning("KADI cannot load order user: %s", exc)
+                user = None
+
+        telegram_id = getattr(user, "telegram_id", None) if user else None
+        if not telegram_id:
+            _kadi_log_warning("KADI buyer telegram_id not found for order_id=%s", getattr(order, "id", None))
+            return
+
+        order_number = getattr(order, "order_number", None) or getattr(order, "id", "unknown")
+        amount = getattr(order, "total_amount", 0)
+
+        message = (
+            "✅ Заказ выполнен\n\n"
+            f"Заказ: #{order_number}\n"
+            f"Сумма: {_kadi_format_uzs(amount)} UZS\n\n"
+            "Спасибо за покупку в KADI."
+        )
+
+        _kadi_send_telegram_safe(telegram_id, message)
+    except Exception as exc:
+        _kadi_log_warning("KADI buyer completed notification failed: %s", exc)
+
+
+# KADI_ORDER_DIRECT_TELEGRAM_NOTIFY_V1
+def _kadi_format_uzs(value) -> str:
+    try:
+        return f"{int(float(value or 0)):,}".replace(",", " ")
+    except Exception:
+        return str(value or 0)
+
+
+def _kadi_log_warning(message: str, *args):
+    try:
+        log = globals().get("logger")
+        if log:
+            log.warning(message, *args)
+        else:
+            print(message % args if args else message)
+    except Exception:
+        pass
+
+
+def _kadi_get_admin_chat_id():
+    try:
+        from app.core.config import settings
+        for name in ("ADMIN_TG_ID", "ADMIN_CHAT_ID", "ADMIN_TELEGRAM_ID", "ADMIN_ID"):
+            value = getattr(settings, name, None)
+            if value:
+                return value
+    except Exception:
+        pass
+
+    try:
+        import os
+        for name in ("ADMIN_TG_ID", "ADMIN_CHAT_ID", "ADMIN_TELEGRAM_ID", "ADMIN_ID"):
+            value = os.getenv(name)
+            if value:
+                return value
+    except Exception:
+        pass
+
+    return None
+
+
+def _kadi_send_telegram_safe(chat_id, message: str) -> None:
+    if not chat_id:
+        return
+
+    try:
+        from app.services.notifications import send_telegram_message_sync
+        send_telegram_message_sync(chat_id, message)
+    except Exception as exc:
+        _kadi_log_warning("KADI direct Telegram notify failed: %s", exc)
+
+
+def _kadi_safe_celery_delay(task, *args, **kwargs):
+    """
+    MVP mode: Celery task errors must never break checkout/admin API.
+    """
+    try:
+        delay = getattr(task, "delay")
+        return delay(*args, **kwargs)
+    except Exception as exc:
+        _kadi_log_warning("KADI skipped Celery task %s: %s", getattr(task, "__name__", task), exc)
+        return None
+
+
+# KADI_SAFE_ALL_CELERY_DELAY_V4
+def _kadi_safe_celery_delay(task, *args, **kwargs):
+    """
+    MVP mode: Celery/Rabbit/Redis task errors must never break checkout/admin API.
+    """
+    try:
+        delay = getattr(task, "delay")
+        return delay(*args, **kwargs)
+    except Exception as exc:
+        try:
+            logger.warning("KADI skipped Celery task %s: %s", getattr(task, "__name__", task), exc)
+        except Exception:
+            try:
+                print("KADI skipped Celery task:", task, exc)
+            except Exception:
+                pass
+        return None
+
+
+# KADI_DISABLE_CELERY_ORDER_NOTIFY_V3
+def _kadi_order_notify_safe_no_celery(*args, **kwargs):
+    """
+    MVP mode: order notification must never break checkout/admin actions.
+    Celery broker is currently unavailable/misconfigured, so we skip task safely.
+    """
+    try:
+        logger.warning("KADI skipped Celery order notification args=%s kwargs=%s", args, kwargs)
+    except Exception:
+        try:
+            print("KADI skipped Celery order notification", args, kwargs)
+        except Exception:
+            pass
+    return None
+
+
 router = APIRouter()
 
 def product_payload_for_db(product: ProductCreate) -> dict:
@@ -287,14 +503,26 @@ async def update_order_status(
     should_fulfill = status_update.status == "paid" and previous_status != "paid"
 
     await db.commit()
+    # KADI_CALL_BUYER_COMPLETED_DIRECT_NOTIFY_FORCE_V2
+    try:
+        _kadi_new_status = getattr(status_update, 'status', None) if 'status_update' in locals() else locals().get('status')
+        if str(_kadi_new_status).split('.')[-1].lower() == 'completed':
+            await _kadi_send_completed_direct_to_buyer(locals().get('db') or locals().get('session'), order)
+    except Exception as exc:
+        try:
+            logger.warning('KADI completed buyer notify wrapper failed: %s', exc)
+        except Exception:
+            print('KADI completed buyer notify wrapper failed:', exc)
 
     # Notify user
-    send_order_notification.delay(order.id, status_update.status)
+    _kadi_order_notify_safe_no_celery(order.id, status_update.status)
 
     # If admin manually confirms a payment, automatically submit the order to MooGold.
     if should_fulfill:
-        fulfill_order_via_moogold.delay(order.id)
+        _kadi_safe_celery_delay(fulfill_order_via_moogold, order.id)
 
+    # KADI_CALL_USER_ORDER_COMPLETED_NOTIFY_V1
+    await _kadi_notify_user_order_completed(locals().get("db") or locals().get("session"), order)
     return {"status": "success", "order_id": order_id, "new_status": status_update.status, "moogold_queued": should_fulfill}
 
 
@@ -316,7 +544,7 @@ async def fulfill_order_now(
     if order.status not in {"paid", "processing"}:
         raise HTTPException(status_code=400, detail=f"Order must be paid before MooGold fulfillment. Current status: {order.status}")
 
-    fulfill_order_via_moogold.delay(order.id)
+    _kadi_safe_celery_delay(fulfill_order_via_moogold, order.id)
     return {"status": "queued", "order_id": order.id}
 
 

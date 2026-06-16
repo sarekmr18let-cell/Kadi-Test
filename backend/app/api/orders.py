@@ -23,6 +23,152 @@ from app.services.notifications import send_order_notification
 from app.services.p2p import count_promo_usage_if_needed
 from app.services.moogold_fulfillment import fulfill_order_via_moogold
 
+
+
+
+
+
+
+
+
+# KADI_NOTIFY_ADMIN_NEW_ORDER_V1
+def _kadi_notify_admin_new_order(order) -> None:
+    """
+    Notify admin when a paid order is created.
+    """
+    try:
+        admin_chat_id = _kadi_get_admin_chat_id()
+        if not admin_chat_id:
+            _kadi_log_warning("KADI admin chat id not configured")
+            return
+
+        order_number = getattr(order, "order_number", None) or getattr(order, "id", "unknown")
+        amount = getattr(order, "total_amount", 0)
+        status = getattr(order, "status", "paid")
+        user_id = getattr(order, "user_id", "unknown")
+
+        target_parts = []
+        for field in ("target", "target_username", "recipient", "username", "game_id", "player_id", "server_id"):
+            value = getattr(order, field, None)
+            if value:
+                target_parts.append(str(value))
+
+        target_text = " / ".join(target_parts) if target_parts else "Открой админ-панель"
+
+        message = (
+            "🆕 Новый оплаченный заказ\n\n"
+            f"Заказ: #{order_number}\n"
+            f"User ID: {user_id}\n"
+            f"Сумма: {_kadi_format_uzs(amount)} UZS\n"
+            f"Статус: {status}\n"
+            f"Target: {target_text}\n\n"
+            "Открой админ-панель и нажми «✅ Выполнено» после выдачи."
+        )
+
+        _kadi_send_telegram_safe(admin_chat_id, message)
+    except Exception as exc:
+        _kadi_log_warning("KADI admin new order notification failed: %s", exc)
+
+
+# KADI_ORDER_DIRECT_TELEGRAM_NOTIFY_V1
+def _kadi_format_uzs(value) -> str:
+    try:
+        return f"{int(float(value or 0)):,}".replace(",", " ")
+    except Exception:
+        return str(value or 0)
+
+
+def _kadi_log_warning(message: str, *args):
+    try:
+        log = globals().get("logger")
+        if log:
+            log.warning(message, *args)
+        else:
+            print(message % args if args else message)
+    except Exception:
+        pass
+
+
+def _kadi_get_admin_chat_id():
+    try:
+        from app.core.config import settings
+        for name in ("ADMIN_TG_ID", "ADMIN_CHAT_ID", "ADMIN_TELEGRAM_ID", "ADMIN_ID"):
+            value = getattr(settings, name, None)
+            if value:
+                return value
+    except Exception:
+        pass
+
+    try:
+        import os
+        for name in ("ADMIN_TG_ID", "ADMIN_CHAT_ID", "ADMIN_TELEGRAM_ID", "ADMIN_ID"):
+            value = os.getenv(name)
+            if value:
+                return value
+    except Exception:
+        pass
+
+    return None
+
+
+def _kadi_send_telegram_safe(chat_id, message: str) -> None:
+    if not chat_id:
+        return
+
+    try:
+        from app.services.notifications import send_telegram_message_sync
+        send_telegram_message_sync(chat_id, message)
+    except Exception as exc:
+        _kadi_log_warning("KADI direct Telegram notify failed: %s", exc)
+
+
+def _kadi_safe_celery_delay(task, *args, **kwargs):
+    """
+    MVP mode: Celery task errors must never break checkout/admin API.
+    """
+    try:
+        delay = getattr(task, "delay")
+        return delay(*args, **kwargs)
+    except Exception as exc:
+        _kadi_log_warning("KADI skipped Celery task %s: %s", getattr(task, "__name__", task), exc)
+        return None
+
+
+# KADI_SAFE_ALL_CELERY_DELAY_V4
+def _kadi_safe_celery_delay(task, *args, **kwargs):
+    """
+    MVP mode: Celery/Rabbit/Redis task errors must never break checkout/admin API.
+    """
+    try:
+        delay = getattr(task, "delay")
+        return delay(*args, **kwargs)
+    except Exception as exc:
+        try:
+            logger.warning("KADI skipped Celery task %s: %s", getattr(task, "__name__", task), exc)
+        except Exception:
+            try:
+                print("KADI skipped Celery task:", task, exc)
+            except Exception:
+                pass
+        return None
+
+
+# KADI_DISABLE_CELERY_ORDER_NOTIFY_V3
+def _kadi_order_notify_safe_no_celery(*args, **kwargs):
+    """
+    MVP mode: order notification must never break checkout/admin actions.
+    Celery broker is currently unavailable/misconfigured, so we skip task safely.
+    """
+    try:
+        logger.warning("KADI skipped Celery order notification args=%s kwargs=%s", args, kwargs)
+    except Exception:
+        try:
+            print("KADI skipped Celery order notification", args, kwargs)
+        except Exception:
+            pass
+    return None
+
+
 router = APIRouter()
 
 
@@ -237,14 +383,16 @@ async def create_order(
 
     # KADI_ORDER_NOTIFICATION_SAFE_V1
     try:
-        send_order_notification.delay(order.id, "paid")
+        _kadi_order_notify_safe_no_celery(order.id, "paid")
     except Exception as exc:
         try:
             logger.warning("KADI order notification task failed: %s", exc)
         except Exception:
             print("KADI order notification task failed:", exc)
-    fulfill_order_via_moogold.delay(order.id)
+    _kadi_safe_celery_delay(fulfill_order_via_moogold, order.id)
 
+    # KADI_CALL_ADMIN_NEW_ORDER_NOTIFY_V1
+    _kadi_notify_admin_new_order(order)
     return await load_order_for_response(db, order.id, user_id)
 
 
@@ -322,7 +470,7 @@ async def submit_payment(
     # Notify admin that a manual check is needed.
     # KADI_ORDER_NOTIFICATION_SAFE_V1
     try:
-        send_order_notification.delay(order.id, "payment_submitted")
+        _kadi_order_notify_safe_no_celery(order.id, "payment_submitted")
     except Exception as exc:
         try:
             logger.warning("KADI order notification task failed: %s", exc)

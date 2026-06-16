@@ -943,11 +943,11 @@ function showOrderConfirmation(order) {
             <div style="text-align: center; padding: 20px 0;">
                 <div style="font-size: 48px; margin-bottom: 16px;">🚀</div>
                 <h3 style="font-size: 20px; margin-bottom: 8px;">${tr('order')} #${escapeHtml(order.order_number)}</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 20px;">Paid from balance: <strong style="color: var(--neon-green);">${formatMoney(order.total_amount, 'UZS')}</strong></p>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">Оплачено с баланса: <strong style="color: var(--neon-green);">${formatMoney(order.total_amount, 'UZS')}</strong></p>
                 <div class="payment-instructions" style="text-align: left;">
                     <h3>${tr('auto_delivery')}</h3>
-                    <p>Your order is paid and queued for MooGold delivery.</p>
-                    <p>You can track status in My Orders.</p>
+                    <p>Заказ оплачен и передан админу на выполнение.</p>
+                    <p>Статус можно отслеживать в разделе «Мои заказы».</p>
                 </div>
                 <button class="btn-primary" style="margin-top: 16px;" onclick="closeModal()">${tr('view_my_orders')}</button>
             </div>
@@ -3213,6 +3213,158 @@ window.closeModal = closeModal;
     setInterval(function () {
         if (hasPayWait()) checkPaidAndClose();
     }, 3000);
+
+    console.log(MARKER + ' loaded');
+})();
+
+
+/* KADI_MANUAL_COMPLETE_FORCE_V2: force manual completion instead of MooGold */
+(function () {
+    const MARKER = 'KADI_MANUAL_COMPLETE_FORCE_V2';
+
+    async function manualCompleteOrder(orderId) {
+        if (!orderId) return;
+
+        const ok = confirm('Отметить заказ как выполненный?');
+        if (!ok) return;
+
+        try {
+            await api('POST', `/admin/orders/${orderId}/status`, { status: 'completed' });
+
+            if (typeof showToast === 'function') {
+                showToast('success', 'Заказ выполнен ✅');
+            }
+
+            if (typeof loadAdminOrders === 'function') {
+                await loadAdminOrders();
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') {
+                showToast('error', e.message || 'Не удалось выполнить заказ');
+            } else {
+                alert(e.message || 'Не удалось выполнить заказ');
+            }
+        }
+    }
+
+    // Even if old button still calls fulfillOrder(orderId), make it manual completion.
+    window.fulfillOrder = manualCompleteOrder;
+    window.kadiManualCompleteOrder = manualCompleteOrder;
+
+    function patchButtons() {
+        document.querySelectorAll('button').forEach(btn => {
+            const text = (btn.innerText || '').trim().toLowerCase();
+            const onclick = btn.getAttribute('onclick') || '';
+
+            if (text.includes('send moogold') || onclick.includes('fulfillOrder')) {
+                const match = onclick.match(/fulfillOrder\((\d+)\)/);
+                if (!match) return;
+
+                const orderId = match[1];
+
+                btn.innerText = '✅ Выполнено';
+                btn.classList.add('kadi-complete-order-btn');
+                btn.setAttribute('onclick', `kadiManualCompleteOrder(${orderId})`);
+            }
+        });
+    }
+
+    setInterval(patchButtons, 500);
+
+    const observer = new MutationObserver(patchButtons);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    document.addEventListener('DOMContentLoaded', patchButtons);
+    window.addEventListener('load', patchButtons);
+
+    console.log(MARKER + ' loaded');
+})();
+
+
+/* KADI_CLEAR_CART_AFTER_ORDER_V1: clear cart after successful balance checkout */
+(function () {
+    const MARKER = 'KADI_CLEAR_CART_AFTER_ORDER_V1';
+
+    function kadiClearCartStorage() {
+        try {
+            const keys = [];
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key) continue;
+
+                if (/cart|basket|korzina|kadi_cart|cartItems/i.test(key)) {
+                    keys.push(key);
+                }
+            }
+
+            keys.forEach(key => localStorage.removeItem(key));
+        } catch (e) {}
+
+        try {
+            const keys = [];
+
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (!key) continue;
+
+                if (/cart|basket|korzina|kadi_cart|cartItems/i.test(key)) {
+                    keys.push(key);
+                }
+            }
+
+            keys.forEach(key => sessionStorage.removeItem(key));
+        } catch (e) {}
+
+        try {
+            if (Array.isArray(window.cart)) window.cart.length = 0;
+            if (Array.isArray(window.cartItems)) window.cartItems.length = 0;
+            if (Array.isArray(window.basket)) window.basket.length = 0;
+        } catch (e) {}
+    }
+
+    async function kadiRefreshAfterCartClear() {
+        try { if (typeof updateCartBadge === 'function') updateCartBadge(); } catch (e) {}
+        try { if (typeof renderCart === 'function') renderCart(); } catch (e) {}
+        try { if (typeof loadCart === 'function') await loadCart(); } catch (e) {}
+        try { if (typeof loadUserBalance === 'function') await loadUserBalance(); } catch (e) {}
+        try { if (typeof loadBalance === 'function') await loadBalance(); } catch (e) {}
+        try { if (typeof updateBalance === 'function') await updateBalance(); } catch (e) {}
+    }
+
+    async function kadiClearCartAfterOrder() {
+        kadiClearCartStorage();
+        await kadiRefreshAfterCartClear();
+
+        if (typeof showToast === 'function') {
+            showToast('success', 'Заказ создан ✅ Корзина очищена');
+        }
+    }
+
+    function patchApiForCartClear() {
+        if (window.__kadiClearCartApiPatched) return;
+        if (typeof window.api !== 'function') return;
+
+        const originalApi = window.api;
+
+        window.api = async function (method, endpoint, data) {
+            const result = await originalApi.apply(this, arguments);
+
+            const m = String(method || '').toUpperCase();
+            const e = String(endpoint || '');
+
+            if (m === 'POST' && /\/orders\/?$/.test(e)) {
+                setTimeout(kadiClearCartAfterOrder, 100);
+            }
+
+            return result;
+        };
+
+        window.__kadiClearCartApiPatched = true;
+    }
+
+    patchApiForCartClear();
+    setInterval(patchApiForCartClear, 1000);
 
     console.log(MARKER + ' loaded');
 })();
