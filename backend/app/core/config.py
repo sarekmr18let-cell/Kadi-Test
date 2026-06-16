@@ -31,6 +31,17 @@ class Settings(BaseSettings):
     MOOGOLD_DEFAULT_ORDER_CATEGORY: int = 1  # 1=Direct Top Up, 2=eVouchers
     MOOGOLD_TEST_MODE: bool = False  # True = no real MooGold purchases; returns fake order IDs
 
+    # GameDrops API
+    GAMEDROPS_API_TOKEN: str = ""
+    GAMEDROPS_BASE_URL: str = "https://partner.gamesdrop.io"
+
+    # PayStars API
+    PAYSTARS_API_KEY: str = ""
+    PAYSTARS_BASE_URL: str = "https://paystars.uz/api/v1"
+
+    # Provider safety
+    PROVIDER_AUTO_FULFILL_ENABLED: bool = False
+
     # P2P / wallet safety
     P2P_TEST_MODE: bool = False  # True = admin can run safe parser/process tests
     P2P_PAYMENT_TTL_MINUTES: int = 5
