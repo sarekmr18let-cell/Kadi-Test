@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import set_committed_value
 from typing import List, Optional
 import json
 
@@ -107,4 +108,19 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # Hide inactive variations from Mini App and sort real provider packages.
+    active_variations = [v for v in product.variations if v.is_active]
+
+    def _variation_sort_key(v):
+        meta = v.provider_meta or {}
+        try:
+            sort_order = int(meta.get("sort_order") or 999999)
+        except Exception:
+            sort_order = 999999
+        return (sort_order, float(v.price or 0), int(v.id or 0))
+
+    active_variations.sort(key=_variation_sort_key)
+    set_committed_value(product, "variations", active_variations)
+
     return product

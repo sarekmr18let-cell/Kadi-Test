@@ -450,14 +450,44 @@ function renderProductDetail(product) {
     if (!content) return;
     state.currentProductDetail = product;
 
-    const variations = product.variations || [];
-    const hasStock = variations.some(v => v.stock_status === 'instock');
+    const allVariations = product.variations || [];
     const regions = Array.isArray(product.region_options) ? product.region_options : [];
-    const firstРегион = regions[0]?.code || '';
+    const firstRegion = regions[0]?.code || '';
 
     const targetTypePlaceholder = product.target_type === 'telegram_username'
         ? tr('target_username_placeholder')
         : tr('target_id_placeholder');
+
+    function getVariationRegion(variation) {
+        const meta = variation.provider_meta || {};
+        return String(meta.region || '').toLowerCase();
+    }
+
+    function getFilteredVariations(regionCode) {
+        const hasRegionMeta = allVariations.some(v => !!getVariationRegion(v));
+
+        if (!product.requires_region || !hasRegionMeta) {
+            return allVariations;
+        }
+
+        const code = String(regionCode || '').toLowerCase();
+
+        if (!code) {
+            return [];
+        }
+
+        return allVariations.filter(v => getVariationRegion(v) === code);
+    }
+
+    function requiresGameDropsVerify(variation) {
+        return !!(
+            variation &&
+            variation.provider === 'gamedrops' &&
+            variation.provider_variation_id &&
+            product.requires_target_id &&
+            product.requires_server_id
+        );
+    }
 
     content.innerHTML = `
         <div class="product-hero">
@@ -492,20 +522,19 @@ function renderProductDetail(product) {
                     </div>
                 </div>
             ` : ''}
+
+            ${product.requires_target_id && product.requires_server_id ? `
+                <button type="button" class="btn-secondary" id="verify-mlbb-btn" style="width:100%; margin-top:10px;">
+                    🔍 Проверить ID
+                </button>
+                <div id="verify-mlbb-status" class="requirement-help" style="margin-top:10px;">
+                    Сначала выберите пакет и проверьте User ID / Server ID.
+                </div>
+            ` : ''}
         </div>
 
         <h3 style="margin-bottom: 12px; font-size: 16px;">${tr('choose_package')}</h3>
-        <div class="variations-list">
-            ${variations.map((v, i) => `
-                <div class="variation-item ${i === 0 ? 'selected' : ''}" data-id="${v.id}" data-price="${escapeHtml(v.price)}">
-                    <div class="info">
-                        <div class="name">${escapeHtml(v.name)}</div>
-                        <div class="stock">${v.stock_status === 'instock' ? tr('in_stock') : tr('out_of_stock')}</div>
-                    </div>
-                    <div class="price">${formatMoney(v.price, 'UZS')}</div>
-                </div>
-            `).join('')}
-        </div>
+        <div class="variations-list" id="product-variations-list"></div>
 
         <div class="quantity-selector">
             <button id="qty-minus">−</button>
@@ -513,34 +542,184 @@ function renderProductDetail(product) {
             <button id="qty-plus">+</button>
         </div>
 
-        <button class="btn-primary btn-glow" id="add-to-cart-btn" ${!hasStock ? 'disabled' : ''}>
-            ${hasStock ? tr('add_to_cart') : tr('out_of_stock')}
+        <button class="btn-primary btn-glow" id="add-to-cart-btn" disabled>
+            ${tr('add_to_cart')}
         </button>
     `;
 
-    let selectedVariation = variations[0];
-    let selectedРегион = firstРегион;
-    let selectedРегионLabel = regions[0]?.label || '';
+    let selectedVariation = null;
+    let selectedRegion = firstRegion;
+    let selectedRegionLabel = regions[0]?.label || '';
+    let quantity = 1;
+    let verifiedTarget = null;
 
-    content.querySelectorAll('.variation-item').forEach(item => {
-        item.addEventListener('click', () => {
-            content.querySelectorAll('.variation-item').forEach(i => i.classList.remove('selected'));
-            item.classList.add('selected');
-            selectedVariation = variations.find(v => v.id === parseInt(item.dataset.id));
+    const variationsList = content.querySelector('#product-variations-list');
+    const addButton = content.querySelector('#add-to-cart-btn');
+    const verifyButton = content.querySelector('#verify-mlbb-btn');
+    const verifyStatus = content.querySelector('#verify-mlbb-status');
+    const targetIdInput = content.querySelector('#product-target-id');
+    const targetServerInput = content.querySelector('#product-target-server');
+
+    function resetVerification(message = 'Сначала проверьте User ID / Server ID.') {
+        verifiedTarget = null;
+        if (verifyStatus) {
+            verifyStatus.textContent = message;
+            verifyStatus.style.color = '';
+        }
+        updateAddButtonState();
+    }
+
+    function updateAddButtonState() {
+        if (!selectedVariation || selectedVariation.stock_status !== 'instock') {
+            addButton.disabled = true;
+            addButton.textContent = tr('out_of_stock');
+            return;
+        }
+
+        if (requiresGameDropsVerify(selectedVariation) && !verifiedTarget) {
+            addButton.disabled = true;
+            addButton.textContent = 'Сначала проверьте ID';
+            return;
+        }
+
+        addButton.disabled = false;
+        addButton.textContent = tr('add_to_cart');
+    }
+
+    function renderVariationList() {
+        const filteredVariations = getFilteredVariations(selectedRegion);
+        const hasStock = filteredVariations.some(v => v.stock_status === 'instock');
+
+        if (!filteredVariations.length) {
+            selectedVariation = null;
+            variationsList.innerHTML = `
+                <div class="requirement-help" style="padding: 14px;">
+                    Для выбранного региона пока нет доступных пакетов.
+                </div>
+            `;
+            resetVerification('Для выбранного региона нет пакетов.');
+            return;
+        }
+
+        variationsList.innerHTML = filteredVariations.map((v, i) => `
+            <div class="variation-item ${i === 0 ? 'selected' : ''}" data-id="${v.id}" data-price="${escapeHtml(v.price)}">
+                <div class="info">
+                    <div class="name">${escapeHtml(v.name)}</div>
+                    <div class="stock">${v.stock_status === 'instock' ? tr('in_stock') : tr('out_of_stock')}</div>
+                </div>
+                <div class="price">${formatMoney(v.price, 'UZS')}</div>
+            </div>
+        `).join('');
+
+        selectedVariation = filteredVariations[0] || null;
+
+        variationsList.querySelectorAll('.variation-item').forEach(item => {
+            item.addEventListener('click', () => {
+                variationsList.querySelectorAll('.variation-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                selectedVariation = filteredVariations.find(v => v.id === parseInt(item.dataset.id));
+                resetVerification('Пакет изменён. Проверьте ID заново.');
+            });
         });
-    });
+
+        if (!hasStock) {
+            addButton.disabled = true;
+            addButton.textContent = tr('out_of_stock');
+        } else {
+            resetVerification('Сначала проверьте User ID / Server ID.');
+        }
+    }
 
     content.querySelectorAll('.region-chip').forEach(chip => {
         chip.addEventListener('click', () => {
             content.querySelectorAll('.region-chip').forEach(c => c.classList.remove('selected'));
             chip.classList.add('selected');
-            selectedРегион = chip.dataset.code || '';
-            selectedРегионLabel = chip.dataset.label || '';
+            selectedRegion = chip.dataset.code || '';
+            selectedRegionLabel = chip.dataset.label || '';
+            renderVariationList();
         });
     });
 
-    let quantity = 1;
-    const qtyValue = document.getElementById('qty-value');
+    if (targetIdInput) {
+        targetIdInput.addEventListener('input', () => resetVerification('ID изменён. Проверьте заново.'));
+    }
+
+    if (targetServerInput) {
+        targetServerInput.addEventListener('input', () => resetVerification('Server ID изменён. Проверьте заново.'));
+    }
+
+    if (verifyButton) {
+        verifyButton.addEventListener('click', async () => {
+            if (!selectedVariation) {
+                showToast('error', 'Сначала выберите пакет');
+                return;
+            }
+
+            const targetId = targetIdInput?.value.trim() || '';
+            const targetServer = targetServerInput?.value.trim() || '';
+
+            if (!targetId) {
+                showToast('error', `${product.target_id_label || 'User ID'} ${tr('required')}`);
+                return;
+            }
+
+            if (!targetServer) {
+                showToast('error', `${product.target_server_label || 'Server ID'} ${tr('required')}`);
+                return;
+            }
+
+            verifyButton.disabled = true;
+            verifyButton.textContent = 'Проверяем...';
+            if (verifyStatus) {
+                verifyStatus.textContent = 'Проверяем аккаунт через GameDrops...';
+                verifyStatus.style.color = '';
+            }
+
+            try {
+                const result = await api('POST', '/verify/mlbb', {
+                    variation_id: selectedVariation.id,
+                    user_id: targetId,
+                    server_id: targetServer,
+                });
+
+                if (result?.valid) {
+                    verifiedTarget = {
+                        nickname: result.nickname || '',
+                        status: result.status || 'VALID',
+                        raw: result.raw || {},
+                    };
+
+                    if (verifyStatus) {
+                        verifyStatus.textContent = `✅ Найден аккаунт: ${verifiedTarget.nickname || 'без ника'}`;
+                        verifyStatus.style.color = '#22c55e';
+                    }
+
+                    showToast('success', `ID подтверждён: ${verifiedTarget.nickname || 'аккаунт найден'}`);
+                } else {
+                    verifiedTarget = null;
+
+                    if (verifyStatus) {
+                        verifyStatus.textContent = `❌ ${result?.message || 'Неверный User ID или Server ID'}`;
+                        verifyStatus.style.color = '#ef4444';
+                    }
+
+                    showToast('error', result?.message || 'Неверный User ID или Server ID');
+                }
+            } catch (error) {
+                verifiedTarget = null;
+                if (verifyStatus) {
+                    verifyStatus.textContent = '❌ Ошибка проверки. Попробуйте ещё раз.';
+                    verifyStatus.style.color = '#ef4444';
+                }
+            } finally {
+                verifyButton.disabled = false;
+                verifyButton.textContent = '🔍 Проверить ID';
+                updateAddButtonState();
+            }
+        });
+    }
+
+    let qtyValue = document.getElementById('qty-value');
     document.getElementById('qty-minus').addEventListener('click', () => {
         if (quantity > 1) {
             quantity--;
@@ -557,8 +736,8 @@ function renderProductDetail(product) {
     document.getElementById('add-to-cart-btn').addEventListener('click', () => {
         if (!selectedVariation || selectedVariation.stock_status !== 'instock') return;
 
-        const targetId = document.getElementById('product-target-id')?.value.trim() || '';
-        const targetServer = document.getElementById('product-target-server')?.value.trim() || '';
+        const targetId = targetIdInput?.value.trim() || '';
+        const targetServer = targetServerInput?.value.trim() || '';
 
         if (product.requires_target_id && !targetId) {
             showToast('error', `${product.target_id_label || 'User ID'} ${tr('required')}`);
@@ -568,8 +747,13 @@ function renderProductDetail(product) {
             showToast('error', `${product.target_server_label || 'Server ID'} ${tr('required')}`);
             return;
         }
-        if (product.requires_region && !selectedРегион) {
+        if (product.requires_region && !selectedRegion) {
             showToast('error', `${product.target_region_label || tr('target_region')} ${tr('required')}`);
+            return;
+        }
+
+        if (requiresGameDropsVerify(selectedVariation) && !verifiedTarget) {
+            showToast('error', 'Сначала нажмите “Проверить ID”');
             return;
         }
 
@@ -582,8 +766,10 @@ function renderProductDetail(product) {
             quantity: quantity,
             target_id: targetId || null,
             target_server: targetServer || null,
-            target_region: selectedРегион || null,
-            target_region_label: selectedРегионLabel || null,
+            target_region: selectedRegion || null,
+            target_region_label: selectedRegionLabel || null,
+            verified_target_name: verifiedTarget?.nickname || null,
+            verified_target_payload: verifiedTarget || null,
             requirements: {
                 target_type: product.target_type || 'game_id',
                 requires_target_id: !!product.requires_target_id,
@@ -595,6 +781,8 @@ function renderProductDetail(product) {
             },
         });
     });
+
+    renderVariationList();
 }
 
 function getCartTargetInfo() {

@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, Text, BigInteger, CheckConstraint, Index
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime, timezone
 
 from app.models.base import Base
@@ -55,6 +56,11 @@ class Product(Base):
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
 
+    # Provider integration
+    provider = Column(String(32), default="manual")
+    provider_product_id = Column(String(128), nullable=True)
+    provider_meta = Column(JSONB, default=dict)
+
     # Dynamic order form requirements. These make regions/IDs configurable per product,
     # so MLBB, PUBG, Free Fire, Telegram Stars, etc. can each show only the fields they need.
     target_type = Column(String(30), default="game_id")  # game_id, telegram_username, none
@@ -81,6 +87,13 @@ class ProductVariation(Base):
     price = Column(Float, nullable=False)
     stock_status = Column(String(20), default="instock")  # instock, outofstock
     is_active = Column(Boolean, default=True)
+
+    # Provider integration
+    provider = Column(String(32), default="manual")
+    provider_variation_id = Column(String(128), nullable=True)
+    provider_price = Column(Float, nullable=True)
+    provider_currency = Column(String(16), nullable=True)
+    provider_meta = Column(JSONB, default=dict)
     
     # Constraints
     __table_args__ = (
@@ -110,6 +123,14 @@ class Order(Base):
     # MooGold
     moogold_order_id = Column(String(50), nullable=True)
     partner_order_id = Column(String(100), nullable=True)
+
+    # Provider integration
+    provider = Column(String(32), nullable=True)
+    provider_order_id = Column(String(128), nullable=True)
+    provider_status = Column(String(64), nullable=True)
+    provider_response = Column(JSONB, default=dict)
+    verified_target_name = Column(String(255), nullable=True)
+    verified_target_payload = Column(JSONB, default=dict)
     
     # Target account info
     target_id = Column(String(255), nullable=True)

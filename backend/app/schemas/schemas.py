@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 import json
 
@@ -88,6 +88,11 @@ class ProductVariationUpdate(ProductVariationBase):
 class ProductVariationResponse(ProductVariationBase):
     id: int
     moogold_variation_id: Optional[int] = None
+    provider: Optional[str] = None
+    provider_variation_id: Optional[str] = None
+    provider_price: Optional[float] = None
+    provider_currency: Optional[str] = None
+    provider_meta: Optional[Dict[str, Any]] = None
     is_active: bool
     
     class Config:
@@ -147,6 +152,9 @@ class ProductResponse(ProductBase):
     id: int
     category_id: int
     moogold_id: Optional[int] = None
+    provider: Optional[str] = None
+    provider_product_id: Optional[str] = None
+    provider_meta: Optional[Dict[str, Any]] = None
     is_active: bool
     category: Optional[CategoryResponse] = None
     variations: List[ProductVariationResponse] = []

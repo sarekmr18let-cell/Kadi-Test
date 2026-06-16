@@ -9,7 +9,7 @@ import os
 from app.core.database import engine, AsyncSessionLocal
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.api import auth, products, orders, admin, users, payments, moogold_proxy, webhook, bot_internal
+from app.api import auth, products, orders, admin, users, payments, moogold_proxy, webhook, bot_internal, verify
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -69,6 +69,7 @@ app.include_router(bot_internal.router, prefix="/api/bot", tags=["Bot Internal"]
 app.include_router(admin, prefix="/api/admin", tags=["Admin"])
 app.include_router(moogold_proxy, prefix="/api/moogold", tags=["MooGold Proxy"])
 app.include_router(webhook, prefix="/api/webhook", tags=["Webhooks"])
+app.include_router(verify, prefix="/api/verify", tags=["Verify"])
 
 # Static files (Mini App)
 # Static files are served by nginx in Docker
