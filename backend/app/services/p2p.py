@@ -1,3 +1,4 @@
+import datetime as _kadi_dt
 import hashlib
 import json
 import random
@@ -43,9 +44,10 @@ _CARD_LAST4_PATTERNS = [
 _TIME_PATTERN = re.compile(r"(\d{1,2}:\d{2})\s+(\d{2}\.\d{2}\.\d{4})")
 
 
-def _now() -> datetime:
-    return datetime.utcnow()
-
+def _now() -> _kadi_dt.datetime:
+    # DB uses TIMESTAMP WITHOUT TIME ZONE.
+    # Store UTC as naive datetime.
+    return _kadi_dt.datetime.now(_kadi_dt.timezone.utc).replace(tzinfo=None)
 
 def clean_card_number(card_number: str) -> str:
     return "".join(ch for ch in card_number if ch.isdigit())
@@ -546,6 +548,20 @@ async def _match_balance_topup_first(
     return False
 
 
+
+def _kadi_aware_utc(value):
+    """
+    Convert parser datetime to DB-safe UTC naive datetime.
+    PostgreSQL column is TIMESTAMP WITHOUT TIME ZONE.
+    """
+    if value is None:
+        return None
+    if isinstance(value, _kadi_dt.datetime):
+        if value.tzinfo is None:
+            return value
+        return value.astimezone(_kadi_dt.timezone.utc).replace(tzinfo=None)
+    return value
+
 async def process_incoming_p2p_payment(
     db: AsyncSession,
     source: str,
@@ -555,6 +571,7 @@ async def process_incoming_p2p_payment(
     external_id: Optional[str] = None,
 ) -> P2PIncomingPayment:
     parsed = parse_incoming_payment_payload(raw_text, source, amount, card_last4_value)
+    parsed["paid_at"] = _kadi_aware_utc(parsed.get("paid_at")) or _now()
     final_amount = parsed["amount"]
     final_last4 = parsed["card_last4"]
     final_external_id = external_id or make_external_id(raw_text, source)
@@ -573,7 +590,7 @@ async def process_incoming_p2p_payment(
         currency="UZS",
         card_last4=final_last4,
         external_id=final_external_id,
-        paid_at=parsed["paid_at"] or _now(),
+        paid_at=_kadi_aware_utc(parsed['paid_at']) or _now(),
         status="new",
         parser_data=json.dumps(parsed, ensure_ascii=False, default=str),
     )

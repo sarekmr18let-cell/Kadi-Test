@@ -2586,3 +2586,26 @@ window.closeModal = closeModal;
 
     console.log('KADI TIMER FINAL FIX loaded');
 })();
+
+/* KADI production safety: hide fake payment test button */
+(function () {
+    const blockedLabels = [
+        'Тест платежа',
+        'Process Test Payment',
+        'Test Payment',
+        'Test to‘lov'
+    ];
+
+    function removeTestPaymentButtons() {
+        document.querySelectorAll('button').forEach((btn) => {
+            const text = (btn.textContent || '').trim();
+            if (blockedLabels.some(label => text.includes(label))) {
+                btn.remove();
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', removeTestPaymentButtons);
+    document.addEventListener('click', () => setTimeout(removeTestPaymentButtons, 100));
+    setInterval(removeTestPaymentButtons, 1000);
+})();

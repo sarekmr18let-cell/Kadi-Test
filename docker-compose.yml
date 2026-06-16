@@ -54,7 +54,7 @@ services:
       - MOOGOLD_DEFAULT_ORDER_CATEGORY=${MOOGOLD_DEFAULT_ORDER_CATEGORY:-1}
       - MOOGOLD_TEST_MODE=${MOOGOLD_TEST_MODE:-false}
       - CALLBACK_BASE_URL=${CALLBACK_BASE_URL:-http://localhost:8000}
-      - FRONTEND_URL=${FRONTEND_URL:-https://tgbot.example.com}
+      - FRONTEND_URL=${FRONTEND_URL:-https://www.kadi-store.uz}
       - SUPPORT_USERNAME=${SUPPORT_USERNAME}
       - SUPPORT_EMAIL=${SUPPORT_EMAIL}
     ports:
@@ -85,7 +85,7 @@ services:
       - P2P_PAYMENT_TTL_MINUTES=${P2P_PAYMENT_TTL_MINUTES:-5}
       - WALLET_TOPUP_MIN_AMOUNT=${WALLET_TOPUP_MIN_AMOUNT:-1000}
       - WALLET_TOPUP_MAX_AMOUNT=${WALLET_TOPUP_MAX_AMOUNT:-5000000}
-      - WEBAPP_URL=${WEBAPP_URL:-https://tgbot.example.com}
+      - WEBAPP_URL=${WEBAPP_URL:-https://www.kadi-store.uz}
     depends_on:
       - backend
     command: python main.py
