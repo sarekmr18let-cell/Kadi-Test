@@ -5762,3 +5762,11 @@ textarea:focus {
     }
 }
 
+
+
+/* KADI_HIDE_HERO_SUBTITLE_V1 */
+#page-home [data-i18n="hero_subtitle"],
+#page-home .hero-subtitle,
+#page-home .home-subtitle {
+    display: none !important;
+}
