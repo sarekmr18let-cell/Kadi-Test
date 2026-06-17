@@ -259,24 +259,24 @@ async function updateHeaderBalance() {
     if (!el || !state.token) return;
     try {
         const balance = await api('GET', '/users/balance');
-        el.textContent = formatMoney(balance?.balance || 0, 'UZS');
+        const formatted = formatMoney(balance?.balance || 0, 'UZS');
+        el.textContent = formatted;
+        const homeBalance = document.getElementById('home-balance-value');
+        if (homeBalance) homeBalance.textContent = formatted;
     } catch (error) {
         // Header balance must never block the UI.
     }
 }
 
 function productVisual(name, imageUrl = null) {
-    if (imageUrl) {
-        return `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(name)}" loading="lazy">`;
+    const src = String(imageUrl || '').trim();
+    if (src) {
+        return `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)}" loading="lazy">`;
     }
-    const n = String(name || '').toLowerCase();
-    if (n.includes('telegram') || n.includes('stars') || n.includes('premium')) return '⭐';
-    if (n.includes('mobile') || n.includes('legend') || n.includes('mlbb')) return '💎';
-    if (n.includes('pubg')) return '🔫';
-    if (n.includes('free')) return '🔥';
-    if (n.includes('brawl')) return '⚡';
-    if (n.includes('standoff')) return '🎯';
-    return '🎮';
+    return `<div class="kadi-product-fallback" aria-label="${escapeHtml(name || 'KADI')}">
+        <span class="kadi-product-fallback-mark">K</span>
+        <span class="kadi-product-fallback-name">KADI</span>
+    </div>`;
 }
 
 function productBadge(name) {
@@ -491,7 +491,7 @@ function renderProductDetail(product) {
 
     content.innerHTML = `
         <div class="product-hero">
-            ${product.image_url ? `<img src="${escapeHtml(product.image_url)}" alt="${escapeHtml(product.name)}">` : '🎮'}
+            ${productVisual(product.name, product.image_url)}
         </div>
         <h1 class="product-name">${escapeHtml(product.name)}</h1>
         <p class="product-description">${escapeHtml(product.description || tr('default_description'))}</p>
@@ -761,6 +761,7 @@ function renderProductDetail(product) {
             variation_id: selectedVariation.id,
             product_id: product.id,
             product_name: product.name,
+            product_image_url: product.image_url || null,
             name: `${product.name} - ${selectedVariation.name}`,
             price: selectedVariation.price,
             quantity: quantity,
@@ -911,7 +912,7 @@ function loadCartPage() {
     
     container.innerHTML = state.cart.map(item => `
         <div class="cart-item">
-            <div class="image">🎮</div>
+            <div class="image">${productVisual(item.product_name || item.name, item.product_image_url)}</div>
             <div class="details">
                 <div class="name">${escapeHtml(item.name)}</div>
                 <div class="meta">Qty: ${escapeHtml(item.quantity)}</div>
