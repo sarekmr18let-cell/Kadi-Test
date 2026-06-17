@@ -21,7 +21,7 @@ function initLanguageSwitcher() {
     window.addEventListener('languageChanged', () => {
         applyTranslations(document);
         refreshCurrentPageText();
-        if (tg) tg.MainButton.setText(tr('pay'));
+        if (tg) tg.MainButton.hide();
     });
 }
 
@@ -89,17 +89,8 @@ function initTelegram() {
             }
         });
         
-        // Main button handler
-        tg.MainButton.setParams({
-            text: tr('pay'),
-            color: '#f6c84c',
-            textColor: '#ffffff',
-        });
-        tg.MainButton.onClick(() => {
-            if (state.currentPage === 'cart') {
-                navigateTo('checkout');
-            }
-        });
+        // Use in-app buttons for cart/product/checkout; keep Telegram SDK but hide its MainButton.
+        tg.MainButton.hide();
         
         state.telegramUser = tg.initDataUnsafe?.user;
         
@@ -217,11 +208,7 @@ function navigateTo(page, data = null) {
             tg.BackButton.show();
         }
         
-        if (page === 'cart' && state.cart.length > 0) {
-            tg.MainButton.show();
-        } else {
-            tg.MainButton.hide();
-        }
+        tg.MainButton.hide();
     }
     
     // Load page data
@@ -259,24 +246,24 @@ async function updateHeaderBalance() {
     if (!el || !state.token) return;
     try {
         const balance = await api('GET', '/users/balance');
-        el.textContent = formatMoney(balance?.balance || 0, 'UZS');
+        const formatted = formatMoney(balance?.balance || 0, 'UZS');
+        el.textContent = formatted;
+        const homeBalance = document.getElementById('home-balance-value');
+        if (homeBalance) homeBalance.textContent = formatted;
     } catch (error) {
         // Header balance must never block the UI.
     }
 }
 
 function productVisual(name, imageUrl = null) {
-    if (imageUrl) {
-        return `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(name)}" loading="lazy">`;
+    const src = String(imageUrl || '').trim();
+    if (src) {
+        return `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)}" loading="lazy">`;
     }
-    const n = String(name || '').toLowerCase();
-    if (n.includes('telegram') || n.includes('stars') || n.includes('premium')) return '⭐';
-    if (n.includes('mobile') || n.includes('legend') || n.includes('mlbb')) return '💎';
-    if (n.includes('pubg')) return '🔫';
-    if (n.includes('free')) return '🔥';
-    if (n.includes('brawl')) return '⚡';
-    if (n.includes('standoff')) return '🎯';
-    return '🎮';
+    return `<div class="kadi-product-fallback" aria-label="${escapeHtml(name || 'KADI')}">
+        <span class="kadi-product-fallback-mark">K</span>
+        <span class="kadi-product-fallback-name">KADI</span>
+    </div>`;
 }
 
 function productBadge(name) {
@@ -491,13 +478,16 @@ function renderProductDetail(product) {
 
     content.innerHTML = `
         <div class="product-hero">
-            ${product.image_url ? `<img src="${escapeHtml(product.image_url)}" alt="${escapeHtml(product.name)}">` : '🎮'}
+            ${productVisual(product.name, product.image_url)}
         </div>
         <h1 class="product-name">${escapeHtml(product.name)}</h1>
         <p class="product-description">${escapeHtml(product.description || tr('default_description'))}</p>
 
         <div class="product-requirements">
             ${product.input_help_text ? `<div class="requirement-help">${escapeHtml(product.input_help_text)}</div>` : ''}
+            ${(product.requires_target_id || product.requires_server_id) ? `
+                <div id="last-account-chip" class="last-account-chip hidden"></div>
+            ` : ''}
             ${product.requires_target_id ? `
                 <div class="form-group">
                     <label>${escapeHtml(product.target_id_label || tr('player_id_label'))}</label>
@@ -545,6 +535,14 @@ function renderProductDetail(product) {
         <button class="btn-primary btn-glow" id="add-to-cart-btn" disabled>
             ${tr('add_to_cart')}
         </button>
+
+        <div class="product-sticky-bar" id="product-sticky-bar">
+            <div class="product-sticky-info">
+                <span id="sticky-variation-name">${tr('choose_package')}</span>
+                <strong id="sticky-variation-price">—</strong>
+            </div>
+            <button class="btn-primary" id="sticky-add-to-cart-btn" disabled>${tr('choose_package')}</button>
+        </div>
     `;
 
     let selectedVariation = null;
@@ -559,6 +557,92 @@ function renderProductDetail(product) {
     const verifyStatus = content.querySelector('#verify-mlbb-status');
     const targetIdInput = content.querySelector('#product-target-id');
     const targetServerInput = content.querySelector('#product-target-server');
+    const lastAccountChip = content.querySelector('#last-account-chip');
+    const stickyBar = content.querySelector('#product-sticky-bar');
+    const stickyName = content.querySelector('#sticky-variation-name');
+    const stickyPrice = content.querySelector('#sticky-variation-price');
+    const stickyAddButton = content.querySelector('#sticky-add-to-cart-btn');
+    const lastAccountKey = `kadi:last-account:${product.id}`;
+
+    function readLastAccount() {
+        try { return JSON.parse(localStorage.getItem(lastAccountKey) || 'null'); } catch (_) { return null; }
+    }
+
+    function saveLastAccount() {
+        if (!product.requires_target_id && !product.requires_server_id) return;
+        const data = {
+            product_id: product.id,
+            target_id: targetIdInput?.value.trim() || '',
+            target_server: targetServerInput?.value.trim() || '',
+            target_region: selectedRegion || '',
+            target_region_label: selectedRegionLabel || '',
+            verified_target_name: verifiedTarget?.nickname || '',
+        };
+        if (!data.target_id && !data.target_server) return;
+        try { localStorage.setItem(lastAccountKey, JSON.stringify(data)); } catch (_) {}
+    }
+
+    function clearLastAccount() {
+        try { localStorage.removeItem(lastAccountKey); } catch (_) {}
+        if (lastAccountChip) lastAccountChip.classList.add('hidden');
+    }
+
+    function renderLastAccountChip(saved) {
+        if (!lastAccountChip || !saved || (!saved.target_id && !saved.target_server)) return;
+        const title = saved.verified_target_name || 'Аккаунт';
+        const target = [saved.target_id, saved.target_server].filter(Boolean).join(' / ');
+        lastAccountChip.classList.remove('hidden');
+        lastAccountChip.innerHTML = `
+            <span>Последний аккаунт: <b>${escapeHtml(title)}</b> · ${escapeHtml(target)}</span>
+            <button type="button" id="clear-last-account-btn">Очистить</button>
+        `;
+        lastAccountChip.querySelector('#clear-last-account-btn')?.addEventListener('click', () => {
+            clearLastAccount();
+            if (targetIdInput) targetIdInput.value = '';
+            if (targetServerInput) targetServerInput.value = '';
+            resetVerification('Аккаунт очищен. Введите ID заново.');
+        });
+    }
+
+    function applyLastAccount() {
+        const saved = readLastAccount();
+        if (!saved || Number(saved.product_id) !== Number(product.id)) return;
+        if (targetIdInput && saved.target_id) targetIdInput.value = saved.target_id;
+        if (targetServerInput && saved.target_server) targetServerInput.value = saved.target_server;
+        let regionChanged = false;
+        if (product.requires_region && saved.target_region) {
+            regionChanged = selectedRegion !== saved.target_region;
+            selectedRegion = saved.target_region;
+            selectedRegionLabel = saved.target_region_label || saved.target_region;
+            content.querySelectorAll('.region-chip').forEach(chip => {
+                chip.classList.toggle('selected', chip.dataset.code === selectedRegion);
+            });
+        }
+        if (regionChanged) renderVariationList();
+        renderLastAccountChip(saved);
+        resetVerification('Проверьте сохранённый аккаунт перед покупкой.');
+    }
+
+    function parseAccountNumbers(text) {
+        return String(text || '').match(/\d+/g) || [];
+    }
+
+    function handleAccountPaste(event, activeInput) {
+        const pasted = event.clipboardData?.getData('text') || '';
+        const nums = parseAccountNumbers(pasted);
+        if (nums.length >= 2 && targetIdInput && targetServerInput) {
+            event.preventDefault();
+            targetIdInput.value = nums[0];
+            targetServerInput.value = nums[1];
+            resetVerification('ID и Server ID вставлены. Проверьте аккаунт заново.');
+            return;
+        }
+        if (nums.length === 1 && activeInput) {
+            event.preventDefault();
+            activeInput.value = nums[0];
+            resetVerification('ID изменён. Проверьте заново.');
+        }
+    }
 
     function resetVerification(message = 'Сначала проверьте User ID / Server ID.') {
         verifiedTarget = null;
@@ -570,20 +654,21 @@ function renderProductDetail(product) {
     }
 
     function updateAddButtonState() {
-        if (!selectedVariation || selectedVariation.stock_status !== 'instock') {
-            addButton.disabled = true;
-            addButton.textContent = tr('out_of_stock');
-            return;
-        }
+        const hasVariation = !!selectedVariation;
+        const inStock = hasVariation && selectedVariation.stock_status === 'instock';
+        const needsVerify = hasVariation && requiresGameDropsVerify(selectedVariation) && !verifiedTarget;
+        const disabled = !inStock;
+        const text = !hasVariation ? tr('choose_package') : (!inStock ? tr('out_of_stock') : (needsVerify ? 'Сначала проверьте ID' : tr('add_to_cart')));
 
-        if (requiresGameDropsVerify(selectedVariation) && !verifiedTarget) {
-            addButton.disabled = true;
-            addButton.textContent = 'Сначала проверьте ID';
-            return;
+        addButton.disabled = disabled;
+        addButton.textContent = text;
+        if (stickyAddButton) {
+            stickyAddButton.disabled = disabled;
+            stickyAddButton.textContent = text;
         }
-
-        addButton.disabled = false;
-        addButton.textContent = tr('add_to_cart');
+        if (stickyName) stickyName.textContent = selectedVariation?.name || tr('choose_package');
+        if (stickyPrice) stickyPrice.textContent = selectedVariation ? formatMoney(selectedVariation.price, 'UZS') : '—';
+        if (stickyBar) stickyBar.classList.toggle('hidden', !hasVariation);
     }
 
     function renderVariationList() {
@@ -641,10 +726,12 @@ function renderProductDetail(product) {
     });
 
     if (targetIdInput) {
+        targetIdInput.addEventListener('paste', (e) => handleAccountPaste(e, targetIdInput));
         targetIdInput.addEventListener('input', () => resetVerification('ID изменён. Проверьте заново.'));
     }
 
     if (targetServerInput) {
+        targetServerInput.addEventListener('paste', (e) => handleAccountPaste(e, targetServerInput));
         targetServerInput.addEventListener('input', () => resetVerification('Server ID изменён. Проверьте заново.'));
     }
 
@@ -695,6 +782,8 @@ function renderProductDetail(product) {
                     }
 
                     showToast('success', `ID подтверждён: ${verifiedTarget.nickname || 'аккаунт найден'}`);
+                    saveLastAccount();
+                    renderLastAccountChip(readLastAccount());
                 } else {
                     verifiedTarget = null;
 
@@ -733,8 +822,11 @@ function renderProductDetail(product) {
         }
     });
 
-    document.getElementById('add-to-cart-btn').addEventListener('click', () => {
-        if (!selectedVariation || selectedVariation.stock_status !== 'instock') return;
+    function handleAddToCartClick() {
+        if (!selectedVariation || selectedVariation.stock_status !== 'instock') {
+            showToast('error', tr('choose_package'));
+            return;
+        }
 
         const targetId = targetIdInput?.value.trim() || '';
         const targetServer = targetServerInput?.value.trim() || '';
@@ -757,10 +849,12 @@ function renderProductDetail(product) {
             return;
         }
 
+        saveLastAccount();
         addToCart({
             variation_id: selectedVariation.id,
             product_id: product.id,
             product_name: product.name,
+            product_image_url: product.image_url || null,
             name: `${product.name} - ${selectedVariation.name}`,
             price: selectedVariation.price,
             quantity: quantity,
@@ -780,9 +874,13 @@ function renderProductDetail(product) {
                 target_region_label: product.target_region_label || tr('target_region'),
             },
         });
-    });
+    }
+
+    addButton.addEventListener('click', handleAddToCartClick);
+    stickyAddButton?.addEventListener('click', handleAddToCartClick);
 
     renderVariationList();
+    applyLastAccount();
 }
 
 function getCartTargetInfo() {
@@ -911,7 +1009,7 @@ function loadCartPage() {
     
     container.innerHTML = state.cart.map(item => `
         <div class="cart-item">
-            <div class="image">🎮</div>
+            <div class="image">${productVisual(item.product_name || item.name, item.product_image_url)}</div>
             <div class="details">
                 <div class="name">${escapeHtml(item.name)}</div>
                 <div class="meta">Qty: ${escapeHtml(item.quantity)}</div>
