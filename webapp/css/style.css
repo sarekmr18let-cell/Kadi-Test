@@ -5599,3 +5599,166 @@ textarea:focus {
     }
 }
 
+
+/* KADI_HOME_UI_V1 */
+
+/* ===== Home premium layout ===== */
+#page-home {
+    padding-bottom: 120px;
+}
+
+#page-home .home-hero,
+#page-home .hero-card,
+#page-home .balance-card,
+#page-home [class*="balance"] {
+    position: relative;
+}
+
+#page-home .home-hero,
+#page-home .hero-card {
+    border-radius: 30px;
+    background:
+        radial-gradient(circle at 20% 0%, rgba(245, 212, 0, 0.18), transparent 36%),
+        radial-gradient(circle at 85% 35%, rgba(130, 80, 255, 0.22), transparent 42%),
+        linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035));
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow:
+        0 20px 50px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.10);
+    backdrop-filter: blur(18px);
+    overflow: hidden;
+}
+
+#page-home .balance-card,
+#page-home .wallet-card,
+#page-home .hero-balance {
+    border-radius: 30px;
+    background:
+        radial-gradient(circle at 25% 15%, rgba(245, 212, 0, 0.20), transparent 35%),
+        radial-gradient(circle at 95% 80%, rgba(0, 255, 160, 0.13), transparent 42%),
+        linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.04));
+    border: 1px solid rgba(245, 212, 0, 0.18);
+    box-shadow:
+        0 18px 45px rgba(0,0,0,0.45),
+        0 0 35px rgba(245, 212, 0, 0.07);
+}
+
+/* быстрые действия */
+#page-home .quick-actions,
+#page-home .hero-actions,
+#page-home .actions-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+}
+
+#page-home .action-pill,
+#page-home .quick-action,
+#page-home [data-open="kadi-topup"],
+#page-home [data-page="support"] {
+    min-height: 46px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.07);
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter: blur(14px);
+    transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+#page-home .action-pill:active,
+#page-home .quick-action:active,
+#page-home [data-open="kadi-topup"]:active,
+#page-home [data-page="support"]:active {
+    transform: scale(0.96);
+    border-color: rgba(245, 212, 0, 0.42);
+    background: rgba(245, 212, 0, 0.12);
+}
+
+/* tabs игры / telegram / категории */
+#page-home .section-tabs,
+#page-home .tabs,
+#page-home .categories-tabs {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 4px 0 10px;
+    scrollbar-width: none;
+}
+
+#page-home .section-tabs::-webkit-scrollbar,
+#page-home .tabs::-webkit-scrollbar,
+#page-home .categories-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+/* сетка товаров */
+#page-home #catalog-products,
+#page-home .products-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+}
+
+#page-home .product-card,
+#page-home .category-card {
+    min-height: 128px;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(245,212,0,0.13), transparent 34%),
+        linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.035));
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow:
+        0 14px 32px rgba(0,0,0,0.34),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter: blur(14px);
+    overflow: hidden;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+#page-home .product-card:active,
+#page-home .category-card:active {
+    transform: scale(0.96);
+    border-color: rgba(245,212,0,0.38);
+    box-shadow:
+        0 14px 34px rgba(0,0,0,0.42),
+        0 0 26px rgba(245,212,0,0.10);
+}
+
+/* защита от обрезания названий */
+#page-home .product-card *,
+#page-home .category-card * {
+    overflow-wrap: anywhere;
+}
+
+#page-home .product-title,
+#page-home .category-title,
+#page-home .product-name,
+#page-home .category-name {
+    font-size: 13px;
+    line-height: 1.15;
+    max-width: 100%;
+}
+
+@media (max-width: 380px) {
+    #page-home #catalog-products,
+    #page-home .products-grid {
+        gap: 9px;
+    }
+
+    #page-home .product-card,
+    #page-home .category-card {
+        min-height: 116px;
+        border-radius: 20px;
+    }
+
+    #page-home .product-title,
+    #page-home .category-title,
+    #page-home .product-name,
+    #page-home .category-name {
+        font-size: 12px;
+    }
+}
+
