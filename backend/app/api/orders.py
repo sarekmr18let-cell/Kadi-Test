@@ -42,7 +42,8 @@ def _kadi_format_amount_safe(value) -> str:
 
 def _kadi_notify_admin_new_order(order) -> None:
     """
-    Notify admin when a paid order is created.
+    Short admin notification for new paid order.
+    Does not expose provider names.
     """
     try:
         admin_chat_id = _kadi_get_admin_chat_id()
@@ -50,50 +51,53 @@ def _kadi_notify_admin_new_order(order) -> None:
             _kadi_log_warning("KADI admin chat id not configured")
             return
 
-        order_number = getattr(order, "order_number", None) or getattr(order, "id", "unknown")
-        amount = getattr(order, "total_amount", 0)
-        status = getattr(order, "status", "paid")
-        user_id = getattr(order, "user_id", "unknown")
+        short_id = getattr(order, "id", None) or getattr(order, "order_number", None) or "?"
+
+        amount = getattr(order, "total_amount", None) or getattr(order, "amount", None) or 0
+        amount_text = _kadi_format_amount_safe(amount)
 
         target_id = getattr(order, "target_id", None)
         target_server = getattr(order, "target_server", None)
-        target_region = (
+
+        if target_id and target_server:
+            target_text = f"{target_id} / {target_server}"
+        else:
+            target_text = target_id or target_server
+
+        nickname = getattr(order, "verified_target_name", None)
+
+        region = (
             getattr(order, "target_region_label", None)
             or getattr(order, "target_region", None)
         )
-        nickname = getattr(order, "verified_target_name", None)
 
-        target_parts = []
-        if target_id:
-            target_parts.append(str(target_id))
-        if target_server:
-            target_parts.append(str(target_server))
+        lines = [
+            f"🆕 Оплачен заказ #{short_id}",
+            "",
+            f"💰 {amount_text} UZS",
+        ]
 
-        target_text = " / ".join(target_parts) if target_parts else "Открой админ-панель"
+        if region:
+            lines.append(f"🌍 {region}")
 
-        detail_lines = [f"Target: {target_text}"]
+        if target_text:
+            lines.append(f"🎯 {target_text}")
 
         if nickname:
-            detail_lines.append(f"Nickname: {nickname}")
+            lines.append(f"👤 {nickname}")
 
-        if target_region:
-            detail_lines.append(f"Region: {target_region}")
+        lines.extend([
+            "",
+            "Нажми «✅ Выполнено» после выдачи.",
+        ])
 
-        details_text = "\n".join(detail_lines)
-
-        message = (
-            "🆕 Новый оплаченный заказ\n\n"
-            f"Заказ: #{order_number}\n"
-            f"User ID: {user_id}\n"
-            f"Сумма: {_kadi_format_amount_safe(amount)} UZS\n"
-            f"Статус: {status}\n"
-            f"{details_text}\n\n"
-            "Открой админ-панель и нажми «✅ Выполнено» после выдачи."
-        )
+        message = "\n".join(lines)
 
         _kadi_send_telegram_safe(admin_chat_id, message)
+
     except Exception as exc:
         _kadi_log_warning("KADI admin new order notification failed: %s", exc)
+
 
 # KADI_ORDER_DIRECT_TELEGRAM_NOTIFY_V1
 def _kadi_format_uzs(value) -> str:
@@ -431,6 +435,12 @@ async def create_order(
     )
     db.add(order)
     await db.flush()
+
+    # Public short order number, stored in DB.
+    # Example: order.id=87 -> order_number="87"
+    if getattr(order, "id", None):
+        order.order_number = str(order.id)
+        await db.flush()
 
     # Create order items
     for item_data in order_items_data:

@@ -41,6 +41,9 @@ async def _kadi_send_completed_direct_to_buyer(db, order) -> None:
     Sends direct Telegram message to buyer when admin marks order completed.
     Must never break admin API.
     """
+
+    # Disabled: buyer now receives the new short delivery message below.
+    return
     try:
         if db is None or order is None:
             return
@@ -99,50 +102,122 @@ async def _kadi_send_completed_direct_to_buyer(db, order) -> None:
 # KADI_NOTIFY_USER_ORDER_COMPLETED_V1
 async def _kadi_notify_user_order_completed(session, order) -> None:
     """
-    Notify buyer when admin marks order as completed.
+    Short buyer notification after admin marks order as completed.
+    Public message does not expose provider names.
     """
     try:
-        if str(getattr(order, "status", "")) != "completed":
+        from datetime import timedelta
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        from app.models.models import User, OrderItem, ProductVariation
+        from app.services.notifications import send_telegram_message_sync
+
+        user_id = getattr(order, "user_id", None)
+        if not user_id:
+            print("KADI completed notify: no user_id")
             return
 
-        user = getattr(order, "user", None)
+        user_result = await session.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = user_result.scalar_one_or_none()
 
-        if user is None and session is not None:
+        if not user or not getattr(user, "telegram_id", None):
+            print("KADI completed notify: telegram_id not found for user_id", user_id)
+            return
+
+        order_model = type(order)
+
+        order_result = await session.execute(
+            select(order_model)
+            .where(order_model.id == order.id)
+            .options(
+                selectinload(order_model.items)
+                .selectinload(OrderItem.variation)
+                .selectinload(ProductVariation.product)
+            )
+        )
+        full_order = order_result.scalar_one_or_none() or order
+
+        short_id = getattr(full_order, "id", None) or "?"
+
+        created_at = getattr(full_order, "created_at", None)
+        date_text = ""
+        if created_at:
+            # DB time is UTC, Uzbekistan is UTC+5
+            date_text = (created_at + timedelta(hours=5)).strftime("%d.%m.%Y, %H:%M")
+
+        product_name = None
+        item_lines = []
+
+        for item in getattr(full_order, "items", []) or []:
+            variation = getattr(item, "variation", None)
+            item_name = getattr(variation, "name", None) if variation else None
+            item_name = item_name or "Товар"
+
+            product = getattr(variation, "product", None) if variation else None
+            if product and getattr(product, "name", None) and not product_name:
+                product_name = product.name
+
+            qty = getattr(item, "quantity", 1) or 1
             try:
-                try:
-                    from app.models.user import User
-                except Exception:
-                    try:
-                        from app.models.users import User
-                    except Exception:
-                        from app.models.models import User
+                qty_int = int(qty)
+            except Exception:
+                qty_int = 1
 
-                user = await session.get(User, getattr(order, "user_id", None))
-            except Exception as exc:
-                _kadi_log_warning("KADI cannot load order user: %s", exc)
-                user = None
+            if qty_int > 1:
+                item_lines.append(f"📦 {item_name} x{qty_int}")
+            else:
+                item_lines.append(f"📦 {item_name}")
 
-        telegram_id = getattr(user, "telegram_id", None) if user else None
-        if not telegram_id:
-            _kadi_log_warning("KADI buyer telegram_id not found for order_id=%s", getattr(order, "id", None))
-            return
+        product_name = product_name or "Товар"
 
-        order_number = getattr(order, "order_number", None) or getattr(order, "id", "unknown")
-        amount = getattr(order, "total_amount", 0)
-
-        message = (
-            "✅ Заказ выполнен\n\n"
-            f"Заказ: #{order_number}\n"
-            f"Сумма: {_kadi_format_uzs(amount)} UZS\n\n"
-            "Спасибо за покупку в KADI."
+        region = (
+            getattr(full_order, "target_region_label", None)
+            or getattr(full_order, "target_region", None)
         )
 
-        _kadi_send_telegram_safe(telegram_id, message)
+        recipient = (
+            getattr(full_order, "verified_target_name", None)
+            or getattr(full_order, "target_username", None)
+            or getattr(full_order, "target_id", None)
+        )
+
+        category_line = f"📂 {product_name}"
+        if region:
+            category_line += f" · {region}"
+
+        lines = [
+            f"✅ Заказ #{short_id} доставлен!",
+            "",
+        ]
+
+        if date_text:
+            lines.append(f"📅 {date_text}")
+
+        lines.append(category_line)
+
+        if item_lines:
+            lines.extend(item_lines)
+
+        if recipient:
+            lines.append(f"👤 {recipient}")
+
+        lines.extend([
+            "",
+            "Заказ выполнен.",
+        ])
+
+        message = "\n".join(lines)
+
+        send_telegram_message_sync(str(user.telegram_id), message)
+
+        print("KADI completed buyer notify sent:", user.telegram_id, short_id)
+
     except Exception as exc:
-        _kadi_log_warning("KADI buyer completed notification failed: %s", exc)
+        print("KADI completed buyer notify failed:", exc)
 
-
-# KADI_ORDER_DIRECT_TELEGRAM_NOTIFY_V1
 def _kadi_format_uzs(value) -> str:
     try:
         return f"{int(float(value or 0)):,}".replace(",", " ")
