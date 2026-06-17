@@ -3611,3 +3611,65 @@ window.closeModal = closeModal;
 
     console.log(MARKER + ' loaded');
 })();
+
+
+// KADI_REMOVE_EMPTY_PROFILE_HISTORY_CARD_V1
+function kadiRemoveEmptyProfileHistoryCard() {
+    try {
+        if (state.currentPage !== 'profile') return;
+
+        const page = document.getElementById('page-content') || document.body;
+        const allowedTexts = [
+            'Реферальная программа',
+            'Поддержка',
+            'Админ-панель',
+            'Настройки',
+            'Язык',
+            'Условия',
+            'Политика'
+        ];
+
+        const candidates = page.querySelectorAll('.profile-menu-item, .menu-item, .profile-option, .profile-action, button, a, div');
+
+        candidates.forEach((el) => {
+            const text = (el.innerText || '').replace(/\s+/g, ' ').trim();
+
+            if (!text) return;
+
+            const isAllowed = allowedTexts.some((word) => text.includes(word));
+            const looksLikeOldHistory =
+                text === '📦' ||
+                text === '📦 ›' ||
+                text === '📦 >' ||
+                text.includes('Моя история') ||
+                text.includes('My history') ||
+                text.includes('My History');
+
+            if (looksLikeOldHistory && !isAllowed) {
+                el.remove();
+            }
+        });
+
+        // дополнительная защита: удаляем большую пустую карточку перед "Реферальная программа"
+        const allCards = Array.from(page.querySelectorAll('.profile-menu-item, .menu-item, .profile-option, .profile-action, .card'));
+        allCards.forEach((el) => {
+            const text = (el.innerText || '').replace(/\s+/g, ' ').trim();
+            const hasReferralAfter = el.nextElementSibling && (el.nextElementSibling.innerText || '').includes('Реферальная программа');
+
+            if (hasReferralAfter && (text === '' || text === '📦' || text === '📦 ›')) {
+                el.remove();
+            }
+        });
+    } catch (e) {
+        console.warn('KADI remove empty profile history card failed:', e);
+    }
+}
+
+const kadiOldLoadProfilePageV1 = loadProfilePage;
+loadProfilePage = async function(...args) {
+    const result = await kadiOldLoadProfilePageV1.apply(this, args);
+    setTimeout(kadiRemoveEmptyProfileHistoryCard, 50);
+    setTimeout(kadiRemoveEmptyProfileHistoryCard, 300);
+    return result;
+};
+
