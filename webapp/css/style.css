@@ -5770,3 +5770,309 @@ textarea:focus {
 #page-home .home-subtitle {
     display: none !important;
 }
+
+/* KADI_CLEAN_UI_V1 — final visual foundation: dark navy + blue/purple neon */
+:root {
+    --bg-primary: #06091a;
+    --bg-secondary: #0b1024;
+    --bg-card: rgba(13, 20, 45, 0.72);
+    --bg-glass: rgba(255, 255, 255, 0.065);
+    --neon-blue: #35d7ff;
+    --neon-purple: #8b5cf6;
+    --neon-pink: #d946ef;
+    --neon-cyan: #22d3ee;
+    --neon-green: #34d399;
+    --neon-yellow: #facc15;
+    --neon-red: #fb7185;
+    --text-primary: #f8fbff;
+    --text-secondary: #aab7d6;
+    --text-muted: #6f7c9d;
+    --border-color: rgba(130, 180, 255, 0.16);
+    --shadow-glow: 0 0 32px rgba(53, 215, 255, 0.18), 0 0 42px rgba(139, 92, 246, 0.12);
+    --kadi-card: rgba(13, 20, 45, 0.72);
+    --kadi-border: rgba(130, 180, 255, 0.16);
+    --kadi-border-gold: rgba(139, 92, 246, 0.32);
+    --kadi-accent: var(--neon-blue);
+    --kadi-accent-soft: rgba(53, 215, 255, 0.12);
+}
+
+html,
+body {
+    background:
+        radial-gradient(circle at 14% 0%, rgba(53, 215, 255, 0.16), transparent 30%),
+        radial-gradient(circle at 88% 10%, rgba(139, 92, 246, 0.20), transparent 34%),
+        linear-gradient(180deg, #050817 0%, #081026 48%, #050817 100%) !important;
+    color: var(--text-primary) !important;
+}
+
+#app {
+    background: transparent !important;
+    padding-bottom: calc(110px + env(safe-area-inset-bottom));
+}
+
+.top-bar {
+    background: rgba(6, 9, 26, 0.78) !important;
+    border-bottom: 1px solid rgba(53, 215, 255, 0.12) !important;
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.22);
+}
+
+.logo-mark,
+.k12-logo {
+    background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple)) !important;
+    color: #04111f !important;
+    box-shadow: 0 0 28px rgba(53, 215, 255, 0.22), 0 0 34px rgba(139, 92, 246, 0.18) !important;
+}
+
+.logo-text,
+.k12-brand-title {
+    background: linear-gradient(135deg, #ffffff, #bfeeff 48%, #c4b5fd) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+.logo-subtitle,
+.k12-brand-sub,
+.k12-eyebrow {
+    color: var(--neon-blue) !important;
+}
+
+.wallet-pill,
+.icon-btn,
+.language-select,
+.category-card,
+.product-card,
+.cart-item,
+.cart-summary,
+.checkout-summary,
+.form-section,
+.payment-instructions,
+.order-card,
+.order-detail-header,
+.order-item-detail,
+.profile-header,
+.stat-card,
+.stat-card-large,
+.menu-list,
+.menu-item,
+.admin-order-item,
+.modal-sheet,
+.p2p-box,
+.k12-panel,
+.k12-summary,
+.k12-bank-card,
+.k12-rules,
+.k12-pay-amount {
+    background: linear-gradient(145deg, rgba(16, 25, 56, 0.82), rgba(8, 13, 33, 0.72)) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.hero-section,
+.promo-banner {
+    background:
+        radial-gradient(circle at 18% 0%, rgba(53, 215, 255, 0.18), transparent 34%),
+        radial-gradient(circle at 86% 26%, rgba(139, 92, 246, 0.22), transparent 38%),
+        linear-gradient(145deg, rgba(16, 25, 56, 0.86), rgba(8, 13, 33, 0.78)) !important;
+    border: 1px solid rgba(97, 178, 255, 0.20) !important;
+    box-shadow: var(--shadow-glow) !important;
+}
+
+.hero-title {
+    background: linear-gradient(135deg, #ffffff, #8be9ff 46%, #c4b5fd) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+.quick-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.quick-actions > .quick-action:first-child,
+.quick-actions > button.quick-action:first-child {
+    display: flex !important;
+}
+
+.quick-action,
+.tab,
+.filter-btn,
+.admin-tab,
+.btn-secondary,
+.k12-method,
+.k12-chips button {
+    background: rgba(255, 255, 255, 0.055) !important;
+    border: 1px solid rgba(130, 180, 255, 0.15) !important;
+    color: var(--text-secondary) !important;
+}
+
+.hero-cta,
+.btn-primary,
+.checkout-btn,
+.btn-glow,
+.k12-main-btn,
+.k12-timer,
+.kadi-pay-paid-btn-v15 {
+    background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 58%, var(--neon-pink) 100%) !important;
+    color: #ffffff !important;
+    border-color: rgba(152, 202, 255, 0.52) !important;
+    box-shadow: 0 0 30px rgba(53, 215, 255, 0.24), 0 0 34px rgba(139, 92, 246, 0.18) !important;
+}
+
+.hero-ghost,
+.tab.active,
+.filter-btn.active,
+.admin-tab.active,
+.nav-item.active,
+.k12-method.active,
+.k12-chips button.active {
+    background: rgba(53, 215, 255, 0.12) !important;
+    border-color: rgba(53, 215, 255, 0.40) !important;
+    color: #dff9ff !important;
+    box-shadow: 0 0 24px rgba(53, 215, 255, 0.14), 0 0 28px rgba(139, 92, 246, 0.12) !important;
+}
+
+.bottom-nav {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    min-height: 72px;
+    padding: 7px !important;
+    background: rgba(6, 9, 26, 0.86) !important;
+    border: 1px solid rgba(130, 180, 255, 0.18) !important;
+    border-radius: 26px !important;
+}
+
+.nav-item {
+    border-radius: 20px !important;
+    min-width: 0;
+    color: var(--text-muted) !important;
+}
+
+.nav-item span {
+    font-size: 10px;
+    line-height: 1.05;
+}
+
+.nav-item.active {
+    color: #ffffff !important;
+}
+
+.nav-item.active::before {
+    display: none !important;
+}
+
+.pages-container {
+    padding-bottom: calc(116px + env(safe-area-inset-bottom)) !important;
+}
+
+.product-card .image,
+.cart-item .image,
+.product-hero {
+    background: radial-gradient(circle at 30% 0%, rgba(53, 215, 255, 0.18), transparent 34%), linear-gradient(135deg, rgba(139, 92, 246, 0.16), rgba(53, 215, 255, 0.08)) !important;
+    overflow: hidden;
+}
+
+.product-card .image img,
+.cart-item .image img,
+.product-hero img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.kadi-product-fallback {
+    width: 100%;
+    height: 100%;
+    min-height: 78px;
+    display: grid;
+    place-items: center;
+    gap: 4px;
+    align-content: center;
+    background:
+        radial-gradient(circle at 50% 18%, rgba(53, 215, 255, 0.24), transparent 36%),
+        radial-gradient(circle at 70% 88%, rgba(139, 92, 246, 0.26), transparent 38%);
+}
+
+.kadi-product-fallback-mark {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 15px;
+    background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+    color: #04111f;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 900;
+}
+
+.kadi-product-fallback-name {
+    color: rgba(248, 251, 255, 0.82);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+}
+
+.amount,
+.total,
+.stat-value,
+.product-card .price,
+.order-card .total,
+.summary-row.total span:last-child {
+    color: var(--neon-green) !important;
+    text-shadow: 0 0 20px rgba(52, 211, 153, 0.18) !important;
+}
+
+#kadi-pay-v12 {
+    background:
+        radial-gradient(circle at 50% -12%, rgba(53, 215, 255, 0.16), transparent 30%),
+        radial-gradient(circle at 86% 92%, rgba(139, 92, 246, 0.18), transparent 34%),
+        linear-gradient(180deg, #050817 0%, #070b1f 100%) !important;
+    color: var(--text-primary) !important;
+}
+
+.home-balance-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 14px 0 12px;
+    padding: 16px;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 18% 0%, rgba(53, 215, 255, 0.18), transparent 34%),
+        linear-gradient(145deg, rgba(16, 25, 56, 0.84), rgba(8, 13, 33, 0.74));
+    border: 1px solid rgba(130, 180, 255, 0.18);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.home-balance-label {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+#home-balance-value {
+    display: block;
+    color: var(--neon-green);
+    font-size: 22px;
+    line-height: 1.1;
+    font-family: var(--font-display);
+    text-shadow: 0 0 22px rgba(52, 211, 153, 0.20);
+}
+
+.home-balance-card .btn-primary {
+    width: auto;
+    min-height: 42px;
+    padding: 0 14px;
+    white-space: nowrap;
+}
