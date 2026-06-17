@@ -103,6 +103,12 @@ def get_lang(user: types.User | None) -> str:
     return _normalize_lang(getattr(user, "language_code", None))
 
 
+
+def build_webapp_url(lang=None):
+    lang = lang or "ru"
+    sep = "&" if "?" in WEBAPP_URL else "?"
+    return f"{WEBAPP_URL}{sep}lang={lang}"
+
 def bt(user: types.User | None, key: str, **kwargs) -> str:
     lang = get_lang(user)
     text = BOT_TEXTS.get(lang, BOT_TEXTS["ru"]).get(key) or BOT_TEXTS["ru"].get(key) or key
@@ -180,13 +186,13 @@ async def cmd_start(message: types.Message):
         chat_id=message.chat.id,
         menu_button=MenuButtonWebApp(
             text=bt(message.from_user, "open_shop"),
-            web_app=WebAppInfo(url=f"{WEBAPP_URL}?lang={get_lang(message.from_user)}")
+            web_app=WebAppInfo(url=build_webapp_url(get_lang(message.from_user)))
         )
     )
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text=bt(message.from_user, "open_shop"), web_app=WebAppInfo(url=f"{WEBAPP_URL}?lang={get_lang(message.from_user)}"))],
+            [types.InlineKeyboardButton(text=bt(message.from_user, "open_shop"), web_app=WebAppInfo(url=build_webapp_url(get_lang(message.from_user))))],
             [types.InlineKeyboardButton(text=bt(message.from_user, "language"), callback_data="language")],
             [types.InlineKeyboardButton(text=bt(message.from_user, "support"), url=f"https://t.me/{SUPPORT_USERNAME}")]
         ]
@@ -293,7 +299,7 @@ async def handle_any_message(message: types.Message):
             [
                 types.InlineKeyboardButton(
                     text=bt(message.from_user, "open_shop"),
-                    web_app=WebAppInfo(url=f"{WEBAPP_URL}?lang={get_lang(message.from_user)}")
+                    web_app=WebAppInfo(url=build_webapp_url(get_lang(message.from_user)))
                 )
             ],
             [
