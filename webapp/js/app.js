@@ -303,7 +303,7 @@ async function loadHomePage() {
 function renderCategories(categories) {
     const grid = document.getElementById('categories-grid');
     if (!grid || !categories) return;
-    
+
     const icons = {
         'telegram': '⭐',
         'games': '🎮',
@@ -313,10 +313,23 @@ function renderCategories(categories) {
         'music': '🎵',
         'premium': '💎',
     };
+
+    const categoryIconVisual = (cat) => {
+        const rawIcon = String(cat.icon || '').trim();
+        const fallback = icons[cat.slug] || '🎮';
+        const value = rawIcon || fallback;
+        const isImage = value.startsWith('/') || value.startsWith('http://') || value.startsWith('https://');
+
+        if (isImage) {
+            return `<img src="${escapeHtml(value)}" alt="${escapeHtml(cat.name)}" loading="lazy" style="width:64px;height:64px;object-fit:cover;border-radius:16px;display:block;margin:0 auto 2px;box-shadow:0 0 18px rgba(6,182,212,.22);">`;
+        }
+
+        return escapeHtml(value);
+    };
     
     grid.innerHTML = categories.map(cat => `
         <div class="category-card" data-category="${cat.id}">
-            <div class="icon">${icons[cat.slug] || '🎮'}</div>
+            <div class="icon">${categoryIconVisual(cat)}</div>
             <div class="name">${escapeHtml(cat.name)}</div>
             <div class="category-hint">Открыть</div>
         </div>
