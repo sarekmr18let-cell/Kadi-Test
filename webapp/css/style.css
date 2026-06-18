@@ -6373,3 +6373,77 @@ body {
 #page-profile .profile-topup-mini-btn:active {
     transform: scale(0.98) !important;
 }
+
+.kadi-product-visual,
+.kadi-product-fallback-wrap {
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+}
+
+.kadi-product-visual {
+    display: block;
+}
+
+.kadi-product-fallback-wrap {
+    display: block;
+}
+
+/* KADI_CATALOG_GRID_2COL_V1: scoped catalog storefront layout */
+#page-catalog #catalog-products {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    align-items: stretch;
+    width: 100%;
+    overflow: visible;
+}
+
+#page-catalog #catalog-products .product-card {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#page-catalog #catalog-products .product-card .image {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 0.78;
+    flex: 0 0 auto;
+}
+
+#page-catalog #catalog-products .product-card .info {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    padding: 10px 2px 0;
+}
+
+#page-catalog #catalog-products .product-card .name {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: clip;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    min-height: 34px;
+    overflow-wrap: anywhere;
+}
+
+#page-catalog #catalog-products .product-card .price {
+    margin-top: auto;
+    padding-top: 8px;
+}
+
+@media (max-width: 360px) {
+    #page-catalog #catalog-products {
+        gap: 10px !important;
+    }
+
+    #page-catalog #catalog-products .product-card .info {
+        padding-top: 8px;
+    }
+}

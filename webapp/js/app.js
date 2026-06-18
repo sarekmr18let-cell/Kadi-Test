@@ -211,11 +211,7 @@ function navigateTo(page, data = null) {
             tg.BackButton.show();
         }
         
-        if (page === 'cart' && state.cart.length > 0) {
-            tg.MainButton.show();
-        } else {
-            tg.MainButton.hide();
-        }
+        if (tg.MainButton) tg.MainButton.hide();
     }
     
     // Load page data
@@ -262,15 +258,44 @@ async function updateHeaderBalance() {
     }
 }
 
-function productVisual(name, imageUrl = null) {
-    const src = String(imageUrl || '').trim();
-    if (src) {
-        return `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)}" loading="lazy">`;
-    }
+function productFallbackVisual(name = 'KADI') {
     return `<div class="kadi-product-fallback" aria-label="${escapeHtml(name || 'KADI')}">
         <span class="kadi-product-fallback-mark">K</span>
         <span class="kadi-product-fallback-name">KADI</span>
     </div>`;
+}
+
+function productVisual(name, imageUrl = null) {
+    const src = String(imageUrl || '').trim();
+    const fallback = productFallbackVisual(name);
+
+    if (src) {
+        return `<div class="kadi-product-visual">
+            <img class="kadi-product-img" src="${escapeHtml(src)}" alt="KADI" loading="lazy">
+            <div class="kadi-product-fallback-wrap hidden">${fallback}</div>
+        </div>`;
+    }
+
+    return fallback;
+}
+
+function hydrateProductVisuals(root = document) {
+    root.querySelectorAll('.kadi-product-visual').forEach(visual => {
+        const img = visual.querySelector('.kadi-product-img');
+        const fallback = visual.querySelector('.kadi-product-fallback-wrap');
+        if (!img || !fallback) return;
+
+        const showFallback = () => {
+            img.classList.add('hidden');
+            fallback.classList.remove('hidden');
+        };
+
+        img.addEventListener('error', showFallback, { once: true });
+
+        if (img.complete && img.naturalWidth === 0) {
+            showFallback();
+        }
+    });
 }
 
 function productBadge(name) {
@@ -358,6 +383,8 @@ function renderPopularProducts(products) {
         </div>
     `).join('');
     
+    hydrateProductVisuals(container);
+
     container.querySelectorAll('.product-card').forEach(card => {
         card.addEventListener('click', () => {
             openProductDetail(parseInt(card.dataset.id));
@@ -430,6 +457,8 @@ function renderCatalogProducts(products) {
         </div>
     `).join('');
     
+    hydrateProductVisuals(grid);
+
     grid.querySelectorAll('.product-card').forEach(card => {
         card.addEventListener('click', () => {
             openProductDetail(parseInt(card.dataset.id));
@@ -564,6 +593,8 @@ function renderProductDetail(product) {
             <button class="btn-primary" id="sticky-add-to-cart-btn" disabled>${tr('choose_package')}</button>
         </div>
     `;
+
+    hydrateProductVisuals(content);
 
     let selectedVariation = null;
     let selectedRegion = firstRegion;
@@ -1034,7 +1065,7 @@ function loadCartPage() {
             <div class="image">${productVisual(item.product_name || item.name, item.product_image_url)}</div>
             <div class="details">
                 <div class="name">${escapeHtml(item.name)}</div>
-                <div class="meta">Qty: ${escapeHtml(item.quantity)}</div>
+                <div class="meta">Кол-во: ${escapeHtml(item.quantity)}</div>
                 ${renderCartTargetSummary(item)}
                 <div class="price">${formatMoney(item.price * item.quantity, 'UZS')}</div>
             </div>
@@ -1042,6 +1073,8 @@ function loadCartPage() {
         </div>
     `).join('');
     
+    hydrateProductVisuals(container);
+
     container.querySelectorAll('.remove-btn').forEach(btn => {
         btn.addEventListener('click', () => removeFromCart(parseInt(btn.dataset.id)));
     });
