@@ -299,12 +299,9 @@
                 <!-- Orders Page -->
                 <div id="page-orders" class="page">
                     <h1 data-i18n="history">История</h1>
-                    <div class="orders-filter">
-                        <button class="filter-btn active" data-filter="all" data-i18n="all_filter">Все</button>
-                        <button class="filter-btn" data-filter="awaiting_payment" data-i18n="waiting">Ожидание</button>
-                        <button class="filter-btn" data-filter="payment_submitted" data-i18n="check">Проверка</button>
-                        <button class="filter-btn" data-filter="paid" data-i18n="paid">Оплачено</button>
-                        <button class="filter-btn" data-filter="completed" data-i18n="ready">Готово</button>
+                    <div class="orders-filter history-tabs" role="tablist" aria-label="История">
+                        <button class="filter-btn active" data-history-tab="orders" type="button" role="tab" aria-selected="true">Покупки</button>
+                        <button class="filter-btn" data-history-tab="topups" type="button" role="tab" aria-selected="false">Пополнения</button>
                     </div>
                     <div id="orders-list" class="orders-list">
                         <div class="skeleton-order"></div>

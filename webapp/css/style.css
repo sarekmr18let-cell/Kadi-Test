@@ -6169,3 +6169,123 @@ body {
     opacity: 0.62;
     box-shadow: none !important;
 }
+
+
+/* KADI_HISTORY_TWO_TABS_UX_V1_START */
+#page-orders {
+    padding-bottom: calc(180px + env(safe-area-inset-bottom)) !important;
+}
+
+#page-orders .history-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    margin-bottom: 14px !important;
+    overflow: visible !important;
+}
+
+#page-orders .history-tabs .filter-btn {
+    width: 100% !important;
+    height: 44px !important;
+    padding: 0 14px !important;
+    border-radius: 16px !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    text-transform: none !important;
+}
+
+#page-orders .orders-list {
+    gap: 10px !important;
+    padding-bottom: calc(100px + env(safe-area-inset-bottom)) !important;
+}
+
+#page-orders .history-card {
+    padding: 14px !important;
+    margin-bottom: 10px !important;
+    border-radius: 18px !important;
+    background: linear-gradient(145deg, rgba(16, 25, 56, 0.88), rgba(8, 13, 33, 0.76)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    overflow: hidden !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.26) !important;
+}
+
+#page-orders .history-card::before,
+#page-orders .history-card .header,
+#page-orders .history-card .header::before {
+    display: none !important;
+    content: none !important;
+    background: transparent !important;
+}
+
+#page-orders .history-card-main {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+}
+
+#page-orders .history-card-meta {
+    display: flex !important;
+    margin-top: 9px !important;
+}
+
+#page-orders .history-card .order-number {
+    font-size: 16px !important;
+    line-height: 1.25 !important;
+    font-weight: 900 !important;
+    color: #fff !important;
+}
+
+#page-orders .history-card .items {
+    margin: 4px 0 0 !important;
+    font-size: 12px !important;
+    color: rgba(255,255,255,0.55) !important;
+}
+
+#page-orders .history-card .total {
+    flex: 0 0 auto !important;
+    font-size: 15px !important;
+    line-height: 1.25 !important;
+    font-weight: 900 !important;
+    text-align: right !important;
+    color: var(--neon-green) !important;
+}
+
+#page-orders .history-card .status {
+    padding: 6px 10px !important;
+    border-radius: 999px !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+    text-transform: none !important;
+}
+
+#page-orders .history-empty {
+    padding: 36px 16px 120px !important;
+    color: var(--text-muted) !important;
+}
+
+.status-paid,
+.status-completed,
+.status-done {
+    color: var(--neon-green) !important;
+    background: rgba(52, 211, 153, 0.14) !important;
+}
+
+.status-pending,
+.status-awaiting_payment,
+.status-checking,
+.status-payment_submitted,
+.status-processing {
+    color: var(--neon-yellow) !important;
+    background: rgba(245, 212, 0, 0.13) !important;
+}
+
+.status-failed,
+.status-cancelled,
+.status-expired,
+.status-rejected {
+    color: #ff4d7d !important;
+    background: rgba(255, 77, 125, 0.14) !important;
+}
+/* KADI_HISTORY_TWO_TABS_UX_V1_END */

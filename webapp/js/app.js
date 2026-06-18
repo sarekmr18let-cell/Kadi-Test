@@ -45,6 +45,8 @@ const state = {
     categories: [],
     products: [],
     orders: [],
+    topups: [],
+    historyTab: "orders",
     paymentMethods: [],
     promo: null,
     currentPage: 'home',
@@ -1259,67 +1261,183 @@ function closeModal() {
 }
 
 // ===== Orders =====
-async function loadOrdersPage() {
+
+// KADI_HISTORY_TWO_TABS_JS_V1_START
+function getHistoryStatusLabel(status, type = 'order') {
+    const s = String(status || '').toLowerCase();
+
+    const orderLabels = {
+        paid: 'Оплачен',
+        completed: 'Выполнен',
+        done: 'Выполнен',
+        pending: 'Ожидание',
+        awaiting_payment: 'Ожидание',
+        checking: 'Проверка',
+        payment_submitted: 'Проверка',
+        failed: 'Ошибка',
+        cancelled: 'Отменён',
+        refunded: 'Возврат',
+        processing: 'В работе'
+    };
+
+    const topupLabels = {
+        paid: 'Пополнен',
+        completed: 'Пополнен',
+        done: 'Пополнен',
+        pending: 'Ожидание',
+        awaiting_payment: 'Ожидание',
+        checking: 'Проверка',
+        payment_submitted: 'Проверка',
+        failed: 'Ошибка',
+        cancelled: 'Отменён',
+        expired: 'Истёк',
+        rejected: 'Отклонён'
+    };
+
+    const labels = type === 'topup' ? topupLabels : orderLabels;
+    return labels[s] || String(status || '—').replace(/_/g, ' ');
+}
+
+function getHistoryStatusClass(status) {
+    return String(status || 'pending').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+}
+
+function getHistoryDate(value) {
     try {
-        const orders = await api('GET', '/orders/my');
-        state.orders = orders || [];
-        renderOrders(orders, 'all');
-    } catch (error) {
-        console.error('Orders error:', error);
+        return new Date(value || Date.now()).toLocaleDateString();
+    } catch (e) {
+        return '';
     }
-    
-    // Filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
+}
+
+function getTopupAmount(topup) {
+    return topup.amount || topup.amount_uzs || topup.total_amount || topup.value || 0;
+}
+
+function getOrderItemsLabel(count) {
+    const n = Number(count || 0);
+    if (n % 10 === 1 && n % 100 !== 11) return `${n} товар`;
+    if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return `${n} товара`;
+    return `${n} товаров`;
+}
+// KADI_HISTORY_TWO_TABS_JS_V1_END
+
+async function loadOrdersPage() {
+    const ordersResult = await Promise.allSettled([
+        api('GET', '/orders/my'),
+        api('GET', '/payments/topups/my')
+    ]);
+
+    const ordersResponse = ordersResult[0];
+    const topupsResponse = ordersResult[1];
+
+    state.orders = ordersResponse.status === 'fulfilled' && Array.isArray(ordersResponse.value)
+        ? ordersResponse.value
+        : [];
+
+    state.topups = topupsResponse.status === 'fulfilled' && Array.isArray(topupsResponse.value)
+        ? topupsResponse.value
+        : [];
+
+    state.historyTab = state.historyTab || 'orders';
+
+    renderOrders(state.historyTab);
+
+    document.querySelectorAll('[data-history-tab]').forEach(btn => {
+        if (btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderOrders(state.orders, btn.dataset.filter);
+            state.historyTab = btn.dataset.historyTab || 'orders';
+
+            document.querySelectorAll('[data-history-tab]').forEach(b => {
+                const active = b === btn;
+                b.classList.toggle('active', active);
+                b.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+
+            renderOrders(state.historyTab);
         });
     });
 }
 
-function renderOrders(orders, filter) {
+function renderOrders(tabOrOrders = 'orders', filter = null) {
     const container = document.getElementById('orders-list');
     if (!container) return;
-    
-    let filtered = orders || [];
-    if (filter !== 'all') {
-        filtered = filtered.filter(o => o.status === filter);
-    }
-    
-    if (filtered.length === 0) {
-        container.innerHTML = `<div class="text-center" style="padding: 40px; color: var(--text-muted);">${tr('no_orders')}</div>`;
+
+    const tab = tabOrOrders === 'topups' || tabOrOrders === 'orders'
+        ? tabOrOrders
+        : (state.historyTab || 'orders');
+
+    state.historyTab = tab;
+
+    document.querySelectorAll('[data-history-tab]').forEach(btn => {
+        const active = btn.dataset.historyTab === tab;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+
+    if (tab === 'topups') {
+        const topups = state.topups || [];
+
+        if (!topups.length) {
+            container.innerHTML = `<div class="text-center history-empty">Пополнений пока нет</div>`;
+            return;
+        }
+
+        container.innerHTML = topups.map(topup => {
+            const status = getHistoryStatusClass(topup.status);
+            const amount = getTopupAmount(topup);
+            const date = getHistoryDate(topup.created_at || topup.paid_at || topup.expires_at);
+
+            return `
+                <div class="order-card history-card topup-card">
+                    <div class="history-card-main">
+                        <div>
+                            <div class="order-number">Пополнение #${escapeHtml(topup.id || '')}</div>
+                            <div class="items">${date}</div>
+                        </div>
+                        <div class="total">${formatMoney(amount, 'UZS')}</div>
+                    </div>
+                    <div class="history-card-meta">
+                        <div class="status status-${status}">${escapeHtml(getHistoryStatusLabel(topup.status, 'topup'))}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
         return;
     }
-    
-    container.innerHTML = filtered.map(order => {
-        const statusEmojis = {
-            'created': '🆕',
-            'awaiting_payment': '⏳',
-            'payment_submitted': '🧾',
-            'paid': '✅',
-            'processing': '🔄',
-            'completed': '🎉',
-            'cancelled': '❌',
-            'refunded': '💰',
-        };
-        
+
+    const orders = state.orders || [];
+
+    if (!orders.length) {
+        container.innerHTML = `<div class="text-center history-empty">${tr('no_orders')}</div>`;
+        return;
+    }
+
+    container.innerHTML = orders.map(order => {
+        const status = getHistoryStatusClass(order.status);
+        const count = order.items?.length || 0;
+        const date = getHistoryDate(order.created_at);
+
         return `
-            <div class="order-card" data-id="${order.id}">
-                <div class="header">
-                    <div class="order-number">#${escapeHtml(order.order_number)}</div>
-                    <div class="status status-${order.status}">${statusEmojis[order.status] || '📦'} ${escapeHtml(order.status).replace('_', ' ')}</div>
+            <div class="order-card history-card" data-id="${order.id}">
+                <div class="history-card-main">
+                    <div>
+                        <div class="order-number">#${escapeHtml(order.order_number || order.id || '')}</div>
+                        <div class="items">${getOrderItemsLabel(count)} • ${date}</div>
+                    </div>
+                    <div class="total">${formatMoney(order.total_amount || 0, 'UZS')}</div>
                 </div>
-                <div class="items">${order.items?.length || 0} items</div>
-                <div class="footer">
-                    <div class="total">${formatMoney(order.total_amount, 'UZS')}</div>
-                    <div class="date">${new Date(order.created_at).toLocaleDateString()}</div>
+                <div class="history-card-meta">
+                    <div class="status status-${status}">${escapeHtml(getHistoryStatusLabel(order.status, 'order'))}</div>
                 </div>
             </div>
         `;
     }).join('');
-    
-    container.querySelectorAll('.order-card').forEach(card => {
+
+    container.querySelectorAll('.order-card[data-id]').forEach(card => {
         card.addEventListener('click', () => {
             openOrderDetail(parseInt(card.dataset.id));
         });
