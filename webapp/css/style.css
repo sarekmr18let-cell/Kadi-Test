@@ -6373,3 +6373,18 @@ body {
 #page-profile .profile-topup-mini-btn:active {
     transform: scale(0.98) !important;
 }
+
+.kadi-product-visual,
+.kadi-product-fallback-wrap {
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+}
+
+.kadi-product-visual {
+    display: block;
+}
+
+.kadi-product-fallback-wrap {
+    display: block;
+}
