@@ -45,6 +45,8 @@ const state = {
     categories: [],
     products: [],
     orders: [],
+    topups: [],
+    historyTab: 'orders',
     paymentMethods: [],
     promo: null,
     currentPage: 'home',
@@ -1254,70 +1256,147 @@ function closeModal() {
 
 // ===== Orders =====
 async function loadOrdersPage() {
+    const activeTab = state.historyTab || 'orders';
+    setupHistoryTabs();
+
     try {
+        if (activeTab === 'topups') {
+            const topups = await api('GET', '/payments/topups/my');
+            state.topups = topups || [];
+            renderTopups(state.topups);
+            return;
+        }
+
         const orders = await api('GET', '/orders/my');
         state.orders = orders || [];
-        renderOrders(orders, 'all');
+        renderOrders(state.orders);
     } catch (error) {
-        console.error('Orders error:', error);
+        console.error('History error:', error);
+        const container = document.getElementById('orders-list');
+        if (container) {
+            container.innerHTML = `<div class="text-center" style="padding: 28px; color: var(--text-muted);">Не удалось загрузить историю</div>`;
+        }
     }
-    
-    // Filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
+}
+
+function setupHistoryTabs() {
+    const tabs = document.querySelectorAll('[data-history-tab]');
+    if (!tabs.length) return;
+
+    tabs.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.historyTab === (state.historyTab || 'orders'));
+        if (btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderOrders(state.orders, btn.dataset.filter);
+            state.historyTab = btn.dataset.historyTab || 'orders';
+            tabs.forEach(tab => tab.classList.toggle('active', tab === btn));
+            loadOrdersPage();
         });
     });
 }
 
-function renderOrders(orders, filter) {
+function getStatusLabel(status, type = 'order') {
+    const normalized = String(status || '').toLowerCase();
+    if (type === 'topup' && ['paid', 'completed', 'done', 'matched'].includes(normalized)) return 'Пополнен';
+
+    const labels = {
+        paid: 'Оплачен',
+        completed: 'Выполнен',
+        done: 'Выполнен',
+        pending: 'Ожидание',
+        awaiting_payment: 'Ожидание',
+        checking: 'Проверка',
+        payment_submitted: 'Проверка',
+        failed: 'Ошибка',
+        rejected: 'Ошибка',
+        expired: 'Ошибка',
+        cancelled: 'Отменён',
+        created: 'Ожидание',
+        processing: 'В работе',
+        refunded: 'Возврат',
+    };
+
+    return labels[normalized] || (status ? String(status).replace(/_/g, ' ') : '—');
+}
+
+function getHistoryStatusClass(status) {
+    const normalized = String(status || '').toLowerCase();
+    if (['paid', 'completed', 'done', 'matched'].includes(normalized)) return 'status-completed';
+    if (['payment_submitted', 'checking', 'processing'].includes(normalized)) return 'status-processing';
+    if (['failed', 'cancelled', 'rejected', 'expired'].includes(normalized)) return 'status-cancelled';
+    return `status-${normalized || 'created'}`;
+}
+
+function formatHistoryDate(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function getOrderItemLabel(count) {
+    const n = Number(count || 0);
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return `${n} товар`;
+    if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return `${n} товара`;
+    return `${n} товаров`;
+}
+
+function renderOrders(orders) {
     const container = document.getElementById('orders-list');
     if (!container) return;
-    
-    let filtered = orders || [];
-    if (filter !== 'all') {
-        filtered = filtered.filter(o => o.status === filter);
-    }
-    
-    if (filtered.length === 0) {
-        container.innerHTML = `<div class="text-center" style="padding: 40px; color: var(--text-muted);">${tr('no_orders')}</div>`;
+
+    const list = orders || [];
+    if (list.length === 0) {
+        container.innerHTML = `<div class="text-center" style="padding: 28px; color: var(--text-muted);">${tr('no_orders')}</div>`;
         return;
     }
-    
-    container.innerHTML = filtered.map(order => {
-        const statusEmojis = {
-            'created': '🆕',
-            'awaiting_payment': '⏳',
-            'payment_submitted': '🧾',
-            'paid': '✅',
-            'processing': '🔄',
-            'completed': '🎉',
-            'cancelled': '❌',
-            'refunded': '💰',
-        };
-        
-        return `
-            <div class="order-card" data-id="${order.id}">
-                <div class="header">
-                    <div class="order-number">#${escapeHtml(order.order_number)}</div>
-                    <div class="status status-${order.status}">${statusEmojis[order.status] || '📦'} ${escapeHtml(order.status).replace('_', ' ')}</div>
-                </div>
-                <div class="items">${order.items?.length || 0} items</div>
-                <div class="footer">
-                    <div class="total">${formatMoney(order.total_amount, 'UZS')}</div>
-                    <div class="date">${new Date(order.created_at).toLocaleDateString()}</div>
-                </div>
+
+    container.innerHTML = list.map(order => `
+        <div class="order-card history-card" data-id="${order.id}">
+            <div class="history-card-header">
+                <div class="order-number">#${escapeHtml(order.order_number || order.id)}</div>
+                <div class="status ${getHistoryStatusClass(order.status)}">${escapeHtml(getStatusLabel(order.status))}</div>
             </div>
-        `;
-    }).join('');
-    
+            <div class="items">${getOrderItemLabel(order.items?.length || 0)}</div>
+            <div class="footer">
+                <div class="total">${formatMoney(order.total_amount, 'UZS')}</div>
+                <div class="date">${formatHistoryDate(order.created_at)}</div>
+            </div>
+        </div>
+    `).join('');
+
     container.querySelectorAll('.order-card').forEach(card => {
         card.addEventListener('click', () => {
             openOrderDetail(parseInt(card.dataset.id));
         });
     });
+}
+
+function renderTopups(topups) {
+    const container = document.getElementById('orders-list');
+    if (!container) return;
+
+    const list = topups || [];
+    if (list.length === 0) {
+        container.innerHTML = `<div class="text-center" style="padding: 28px; color: var(--text-muted);">Пополнений пока нет</div>`;
+        return;
+    }
+
+    container.innerHTML = list.map(topup => `
+        <div class="order-card history-card topup-history-card">
+            <div class="history-card-header">
+                <div class="order-number">Пополнение #${escapeHtml(topup.id)}</div>
+                <div class="status ${getHistoryStatusClass(topup.status)}">${escapeHtml(getStatusLabel(topup.status, 'topup'))}</div>
+            </div>
+            <div class="items">Баланс KADI</div>
+            <div class="footer">
+                <div class="total">${formatMoney(topup.amount, 'UZS')}</div>
+                <div class="date">${formatHistoryDate(topup.paid_at || topup.created_at)}</div>
+            </div>
+        </div>
+    `).join('');
 }
 
 async function openOrderDetail(orderId) {
@@ -1346,7 +1425,7 @@ async function openOrderDetail(orderId) {
     }
     content.innerHTML = `
         <div class="order-detail-header">
-            <div class="status-badge status-${order.status}">${statusEmojis[order.status] || '📦'} ${escapeHtml(order.status).replace('_', ' ')}</div>
+            <div class="status-badge ${getHistoryStatusClass(order.status)}">${statusEmojis[order.status] || '📦'} ${escapeHtml(getStatusLabel(order.status))}</div>
             <div class="order-number">Order #${escapeHtml(order.order_number)}</div>
             <div class="order-date">${new Date(order.created_at).toLocaleString()}</div>
         </div>
