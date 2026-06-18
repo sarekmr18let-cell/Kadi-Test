@@ -163,6 +163,7 @@ async function authenticate() {
             // Get user profile
             const profile = await api('GET', '/auth/me');
             state.user = profile;
+    applyTelegramAvatarPhoto(profile);
             
             // Show admin button if admin
             if (profile?.is_admin) {
@@ -1551,6 +1552,38 @@ async function openOrderDetail(orderId) {
 }
 
 // ===== Profile / Wallet =====
+
+// KADI_PROFILE_AVATAR_PHOTO_V1
+function getTelegramPhotoUrl() {
+    try {
+        const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        return tgUser?.photo_url || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function applyTelegramAvatarPhoto(profile = {}) {
+    const photoUrl = profile.photo_url || profile.photoUrl || getTelegramPhotoUrl();
+
+    if (!photoUrl) return;
+
+    document.querySelectorAll('.profile-avatar, .user-avatar, .avatar, #profile-avatar').forEach(el => {
+        el.classList.add('has-photo');
+        el.style.backgroundImage = `url("${photoUrl}")`;
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        el.style.backgroundRepeat = 'no-repeat';
+
+        const icon = el.querySelector('svg, img, span, i');
+        if (icon) icon.style.display = 'none';
+
+        if (el.textContent && el.children.length === 0) {
+            el.textContent = '';
+        }
+    });
+}
+
 async function loadProfilePage() {
     try {
         const profile = await api('GET', '/users/profile');
@@ -1558,6 +1591,12 @@ async function loadProfilePage() {
 
         document.getElementById('profile-name').textContent = profile.first_name || 'User';
         document.getElementById('profile-username').textContent = profile.username ? `@${escapeHtml(profile.username)}` : `ID: ${escapeHtml(profile.telegram_id)}`;
+    // KADI_PROFILE_ID_TOPUP_V1
+    const profileTelegramIdEl = document.getElementById('profile-telegram-id');
+    if (profileTelegramIdEl) {
+        const telegramId = profile.telegram_id || profile.id || state.telegramUser?.id || '';
+        profileTelegramIdEl.textContent = telegramId ? `ID: ${telegramId}` : 'ID: —';
+    }
         document.getElementById('profile-balance').textContent = formatMoney(balance.balance, 'UZS');
         document.getElementById('profile-orders').textContent = profile.orders_count || 0;
         document.getElementById('profile-spent').textContent = formatMoney(profile.total_spent || 0, 'UZS');
@@ -1565,6 +1604,11 @@ async function loadProfilePage() {
         if (headerBalanceEl) headerBalanceEl.textContent = formatMoney(balance.balance || 0, 'UZS');
 
         document.getElementById('create-topup-btn')?.addEventListener('click', createBalanceTopup);
+    const profileTopupBtn = document.getElementById('profile-topup-btn');
+    if (profileTopupBtn && !profileTopupBtn.dataset.bound) {
+        profileTopupBtn.dataset.bound = '1';
+        profileTopupBtn.addEventListener('click', createBalanceTopup);
+    }
         await loadActiveTopupBox();
 
         // Show admin panel if admin

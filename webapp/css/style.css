@@ -6289,3 +6289,87 @@ body {
     background: rgba(255, 77, 125, 0.14) !important;
 }
 /* KADI_HISTORY_TWO_TABS_UX_V1_END */
+
+/* KADI_PROFILE_AVATAR_PHOTO_V1 */
+.profile-avatar.has-photo,
+.user-avatar.has-photo,
+.avatar.has-photo,
+#profile-avatar.has-photo {
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
+/* KADI_PROFILE_SAFE_CLEAN_V1 */
+#page-profile .avatar,
+#page-profile .profile-avatar,
+#page-profile .user-avatar {
+    background-size: cover !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+}
+
+#page-profile #referral-btn {
+    display: none !important;
+}
+
+#page-profile .stats-cards {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    margin-bottom: 14px !important;
+}
+
+#page-profile .stats-cards .stat-card:nth-child(2),
+#page-profile .stats-cards .stat-card:nth-child(3) {
+    display: none !important;
+}
+
+#page-profile .stats-cards .stat-card:first-child {
+    padding: 18px !important;
+    text-align: left !important;
+}
+
+#page-profile .stats-cards .stat-card:first-child .stat-value {
+    font-size: 26px !important;
+    line-height: 1.1 !important;
+    margin-bottom: 6px !important;
+}
+
+#page-profile .profile-header {
+    margin-bottom: 16px !important;
+}
+
+#page-profile .menu-list {
+    margin-top: 12px !important;
+}
+
+#page-profile {
+    padding-bottom: calc(130px + env(safe-area-inset-bottom)) !important;
+}
+
+
+/* KADI_PROFILE_ID_TOPUP_V1 */
+#page-profile .profile-telegram-id {
+    margin-top: 6px !important;
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+    font-weight: 700 !important;
+    color: rgba(255,255,255,0.42) !important;
+}
+
+#page-profile .profile-topup-mini-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    margin-top: 14px !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 16px !important;
+    background: rgba(255,255,255,0.075) !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.02em !important;
+}
+
+#page-profile .profile-topup-mini-btn:active {
+    transform: scale(0.98) !important;
+}
