@@ -6076,3 +6076,96 @@ body {
     padding: 0 14px;
     white-space: nowrap;
 }
+
+/* KADI_PRODUCT_UX_V1 — product detail paste, saved account and sticky CTA */
+.last-account-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: rgba(53, 215, 255, 0.10);
+    border: 1px solid rgba(53, 215, 255, 0.22);
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.last-account-chip b {
+    color: var(--text-primary);
+}
+
+.last-account-chip button {
+    width: auto;
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: 999px !important;
+    color: #dff9ff !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(53, 215, 255, 0.24) !important;
+    font-size: 12px;
+}
+
+#page-product {
+    padding-bottom: calc(204px + env(safe-area-inset-bottom));
+}
+
+.product-sticky-bar {
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: calc(94px + env(safe-area-inset-bottom));
+    z-index: 950;
+    max-width: 402px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 22px;
+    background: rgba(6, 9, 26, 0.92);
+    border: 1px solid rgba(130, 180, 255, 0.22);
+    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.46), 0 0 28px rgba(53, 215, 255, 0.12);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+}
+
+.product-sticky-info {
+    min-width: 0;
+}
+
+.product-sticky-info span,
+.product-sticky-info strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.product-sticky-info span {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.product-sticky-info strong {
+    margin-top: 2px;
+    color: var(--neon-green);
+    font-family: var(--font-display);
+    font-size: 15px;
+}
+
+.product-sticky-bar .btn-primary {
+    width: auto;
+    min-width: 138px;
+    min-height: 44px;
+    padding: 0 14px;
+    white-space: nowrap;
+}
+
+.product-sticky-bar .btn-primary:disabled {
+    opacity: 0.62;
+    box-shadow: none !important;
+}

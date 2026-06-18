@@ -104,10 +104,22 @@ def get_lang(user: types.User | None) -> str:
 
 
 
-def build_webapp_url(lang=None):
-    lang = lang or "ru"
-    sep = "&" if "?" in WEBAPP_URL else "?"
-    return f"{WEBAPP_URL}{sep}lang={lang}"
+def build_webapp_url(lang: str | None = None) -> str:
+    """
+    Build Mini App URL for Telegram.
+    Adds cache-buster only if WEBAPP_URL does not already contain v=...
+    """
+    from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
+    parts = urlsplit(WEBAPP_URL)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+
+    query.setdefault("v", "productux1")
+
+    if lang:
+        query["lang"] = lang
+
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 def bt(user: types.User | None, key: str, **kwargs) -> str:
     lang = get_lang(user)
