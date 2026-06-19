@@ -1060,7 +1060,7 @@ function loadCartPage() {
             <div class="empty-cart">
                 <div class="empty-icon">🛒</div>
                 <p>${tr('empty_cart')}</p>
-                <button class="btn-primary" onclick="navigateTo('catalog')">${tr('open_catalog')}</button>
+                <button class="btn-primary" onclick="navigateTo('home')">${tr('home')}</button>
             </div>
         `;
         summary.classList.add('hidden');

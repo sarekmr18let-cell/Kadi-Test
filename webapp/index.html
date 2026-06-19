@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=1781828807">
+    <link rel="stylesheet" href="css/style.css?v=1781832403">
 </head>
 <body>
     <div id="app">
@@ -77,12 +77,6 @@
                     </svg>
                     <span data-i18n="home">Главная</span>
                 </button>
-                <button class="nav-item" data-page="catalog">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-                    </svg>
-                    <span data-i18n="catalog">Каталог</span>
-                </button>
                 <button class="nav-item" data-page="cart">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>
@@ -122,7 +116,6 @@
                     <div class="categories-section">
                         <div class="section-header">
                             <h2 data-i18n="categories">Категории</h2>
-                            <button class="see-all" data-page="catalog" data-i18n="see_all">Все →</button>
                         </div>
                         <div class="categories-grid" id="categories-grid">
                             <div class="skeleton-card"></div>
@@ -192,7 +185,7 @@
                         <div class="empty-cart">
                             <div class="empty-icon">🛒</div>
                             <p data-i18n="empty_cart">Корзина пуста</p>
-                            <button class="btn-primary" data-page="catalog" data-i18n="open_catalog">Открыть каталог</button>
+                            <button class="btn-primary" data-page="home" data-i18n="home">Главная</button>
                         </div>
                     </div>
                     <div id="cart-summary" class="cart-summary hidden">
@@ -476,6 +469,6 @@
     </div>
     
     <script src="js/i18n.js"></script>
-    <script src="js/app.js?v=1781831286"></script>
+    <script src="js/app.js?v=1781832403"></script>
 </body>
 </html>
