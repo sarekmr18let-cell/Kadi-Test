@@ -320,7 +320,6 @@ async function loadHomePage() {
         state.products = products || [];
 
         renderCategories(state.categories);
-        renderPopularProducts(state.products.slice(0, 5));
     } catch (error) {
         console.error('Home page error:', error);
     }
