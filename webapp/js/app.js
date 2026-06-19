@@ -202,6 +202,7 @@ function navigateTo(page, data = null) {
     }
     
     state.currentPage = page;
+    document.body.dataset.currentPage = page;
     
     // Update Telegram buttons
     if (tg) {
@@ -277,6 +278,36 @@ function productVisual(name, imageUrl = null) {
     }
 
     return fallback;
+}
+
+
+function getProductDetailImageUrl(product = {}) {
+    const name = String(product.name || '').toLowerCase();
+    if (name.includes('mobile legends') || name.includes('mlbb')) {
+        return '/assets/products/mobile-legends-next-icon-512.webp';
+    }
+    return product.image_url || null;
+}
+
+function variationThumbnailVisual(product = {}, variation = {}) {
+    const src = String(
+        variation.image_url ||
+        variation.image ||
+        variation.icon ||
+        variation.thumbnail_url ||
+        getProductDetailImageUrl(product) ||
+        ''
+    ).trim();
+
+    if (src) {
+        return `<div class="variation-thumb">
+            <img src="${escapeHtml(src)}" alt="" loading="lazy">
+        </div>`;
+    }
+
+    return `<div class="variation-thumb variation-thumb-fallback">
+        ${productFallbackVisual(product.name || variation.name || 'KADI')}
+    </div>`;
 }
 
 function hydrateProductVisuals(root = document) {
@@ -536,13 +567,19 @@ function renderProductDetail(product) {
     }
 
     content.innerHTML = `
-        <div class="product-hero">
-            ${productVisual(product.name, product.image_url)}
+        <div class="product-compact-hero">
+            <div class="product-compact-cover">
+                ${productVisual(product.name, getProductDetailImageUrl(product))}
+            </div>
+            <div class="product-compact-copy">
+                <div class="product-compact-kicker">Top-up checkout</div>
+                <h1 class="product-name">${escapeHtml(product.name)}</h1>
+                <p class="product-description">${escapeHtml(product.description || tr('default_description'))}</p>
+            </div>
         </div>
-        <h1 class="product-name">${escapeHtml(product.name)}</h1>
-        <p class="product-description">${escapeHtml(product.description || tr('default_description'))}</p>
 
         <div class="product-requirements">
+            <div class="product-block-title">Данные аккаунта</div>
             ${product.input_help_text ? `<div class="requirement-help">${escapeHtml(product.input_help_text)}</div>` : ''}
             ${(product.requires_target_id || product.requires_server_id) ? `
                 <div id="last-account-chip" class="last-account-chip hidden"></div>
@@ -582,7 +619,7 @@ function renderProductDetail(product) {
             ` : ''}
         </div>
 
-        <h3 style="margin-bottom: 12px; font-size: 16px;">${tr('choose_package')}</h3>
+        <h3 class="product-section-title">${tr('choose_package')}</h3>
         <div class="variations-list" id="product-variations-list"></div>
 
         <div class="quantity-selector">
@@ -755,6 +792,7 @@ function renderProductDetail(product) {
 
         variationsList.innerHTML = filteredVariations.map((v, i) => `
             <div class="variation-item ${i === 0 ? 'selected' : ''}" data-id="${v.id}" data-price="${escapeHtml(v.price)}">
+                ${variationThumbnailVisual(product, v)}
                 <div class="info">
                     <div class="name">${escapeHtml(v.name)}</div>
                     <div class="stock">${v.stock_status === 'instock' ? tr('in_stock') : tr('out_of_stock')}</div>
