@@ -1105,6 +1105,87 @@ function renderCartTargetSummary(item) {
     return bits.length ? `<div class="meta target-summary">${bits.join(' • ')}</div>` : '';
 }
 
+
+function getCartItemImageUrl(item = {}) {
+    const direct = String(item.image_url || item.variation_image_url || item.product_image_url || '').trim();
+    if (direct) return direct;
+
+    const label = String(`${item.product_name || ''} ${item.name || ''} ${item.variation_name || ''}`).toLowerCase();
+
+    if (
+        label.includes('mobile legends') ||
+        label.includes('mlbb') ||
+        label.includes('diamonds') ||
+        label.includes('diamond')
+    ) {
+        return '/assets/products/mlbb-cart-icon.svg';
+    }
+
+    return null;
+}
+
+
+function getCartVariationName(item = {}) {
+    const productName = String(item.product_name || '').trim();
+    const fullName = String(item.name || '').trim();
+
+    if (!fullName) return '';
+    if (productName && fullName.toLowerCase().startsWith(`${productName.toLowerCase()} - `)) {
+        return fullName.slice(productName.length + 3).trim();
+    }
+    if (productName && fullName.toLowerCase() === productName.toLowerCase()) return '';
+
+    return fullName;
+}
+
+function renderCartMetaRow(label, value, extraClass = '') {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    return `<div class="cart-line ${extraClass}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(text)}</strong></div>`;
+}
+
+
+function isMlbbCartItem(item = {}, productName = '') {
+    const label = String(`${item.product_name || ''} ${item.name || ''} ${item.variation_name || ''} ${productName || ''}`).toLowerCase();
+    return label.includes('mobile legends') || label.includes('mlbb') || label.includes('diamonds') || label.includes('diamond');
+}
+
+function cartProductVisual(item = {}, productName = '', imageUrl = '') {
+    if (isMlbbCartItem(item, productName)) {
+        return `
+            <div class="image cart-mlbb-icon" aria-label="MLBB Diamonds">
+                <svg viewBox="0 0 64 64" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="cartMlbbBg" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#35d7ff"/>
+                            <stop offset="52%" stop-color="#5b5fff"/>
+                            <stop offset="100%" stop-color="#10152f"/>
+                        </linearGradient>
+                        <linearGradient id="cartDiamond" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="40%" stop-color="#67e8f9"/>
+                            <stop offset="100%" stop-color="#8b5cf6"/>
+                        </linearGradient>
+                    </defs>
+                    <rect x="1" y="1" width="62" height="62" rx="17" fill="url(#cartMlbbBg)"/>
+                    <path d="M18 24 L26 14 H39 L47 24 L32 48 Z" fill="url(#cartDiamond)" stroke="rgba(255,255,255,.75)" stroke-width="2"/>
+                    <path d="M18 24 H47 M26 14 L32 48 M39 14 L32 48" stroke="rgba(6,18,45,.38)" stroke-width="1.7"/>
+                    <text x="32" y="57" text-anchor="middle" font-size="10" font-weight="900" font-family="Arial, sans-serif" fill="#ffffff">MLBB</text>
+                </svg>
+            </div>
+        `;
+    }
+
+    return `${cartProductVisual(item, productName, imageUrl)}`;
+}
+
+
+function formatCartItemsCount(items = []) {
+    const positions = items.length;
+    const quantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    return `${positions} поз. • ${quantity} тов.`;
+}
+
 // ===== Cart =====
 function addToCart(item) {
     const first = state.cart[0];
@@ -1209,19 +1290,56 @@ function loadCartPage() {
     const subtotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const discount = state.promo?.discount_amount || 0;
     const total = Math.max(0, subtotal - discount);
+    const itemsCountLabel = formatCartItemsCount(state.cart);
     
-    container.innerHTML = state.cart.map(item => `
-        <div class="cart-item">
-            <div class="image">${productVisual(item.product_name || item.name, item.product_image_url)}</div>
-            <div class="details">
-                <div class="name">${escapeHtml(item.name)}</div>
-                <div class="meta">Кол-во: ${escapeHtml(item.quantity)}</div>
-                ${renderCartTargetSummary(item)}
-                <div class="price">${formatMoney(item.price * item.quantity, 'UZS')}</div>
+    container.innerHTML = state.cart.map(item => {
+        const imageUrl = getCartItemImageUrl(item);
+        const productName = item.product_name || item.name || tr('product');
+        const variationName = getCartVariationName(item);
+        const targetIdLabel = item.requirements?.target_id_label || 'ID';
+        const serverLabel = item.requirements?.target_server_label || 'Server';
+        const targetLine = [item.target_id, item.target_server ? `${serverLabel}: ${item.target_server}` : ''].filter(Boolean).join(' • ');
+        const regionLabel = item.requirements?.target_region_label || 'Регион';
+        const regionLine = item.target_region_label || item.target_region || '';
+        const itemTotal = Number(item.price || 0) * Number(item.quantity || 0);
+
+        return `
+            <div class="cart-item cart-checkout-item">
+                <div class="cart-item-media">
+                    <div class="image cart-real-image">
+                        ${imageUrl
+                            ? `${productVisual(productName, imageUrl)}`
+                            : productVisual(productName, imageUrl)
+                        }
+                    </div>
+                    <span class="cart-qty-badge">x${escapeHtml(item.quantity)}</span>
+                </div>
+
+                <div class="details cart-item-details">
+                    <div class="cart-item-heading">
+                        <div>
+                            <div class="name cart-product-name">${escapeHtml(productName)}</div>
+                            ${variationName ? `<div class="cart-variation-name">${escapeHtml(variationName)}</div>` : ''}
+                        </div>
+                        <button class="remove-btn cart-remove-btn" type="button" aria-label="Удалить" data-id="${item.variation_id}">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    </div>
+
+                    <div class="cart-meta-grid">
+                        ${renderCartMetaRow(targetIdLabel, targetLine)}
+                        ${renderCartMetaRow('Игрок', item.verified_target_name, 'is-verified')}
+                        ${renderCartMetaRow(regionLabel, regionLine)}
+                    </div>
+
+                    <div class="cart-item-footer">
+                        <span>Сумма</span>
+                        <div class="price">${formatMoney(itemTotal, 'UZS')}</div>
+                    </div>
+                </div>
             </div>
-            <button class="remove-btn" data-id="${item.variation_id}">✕</button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     hydrateProductVisuals(container);
 
@@ -1229,9 +1347,36 @@ function loadCartPage() {
         btn.addEventListener('click', () => removeFromCart(parseInt(btn.dataset.id)));
     });
     
+    summary.innerHTML = `
+        <div class="cart-summary-head">
+            <div>
+                <div class="cart-summary-kicker">Checkout</div>
+                <h2>${tr('total')}</h2>
+            </div>
+            <span id="cart-items-count" class="cart-summary-count">0 товаров</span>
+        </div>
+        <div class="summary-row cart-summary-subtotal">
+            <span>${tr('subtotal')}</span>
+            <span id="cart-subtotal">0 UZS</span>
+        </div>
+        <div class="summary-row cart-summary-discount">
+            <span>${tr('discount')}</span>
+            <span id="cart-discount">0 UZS</span>
+        </div>
+        <div class="summary-row total cart-summary-total">
+            <span>${tr('total')}</span>
+            <span id="cart-total">0 UZS</span>
+        </div>
+        <button class="btn-primary btn-glow checkout-btn" id="checkout-btn">
+            <span>${tr('proceed_checkout')}</span>
+        </button>
+    `;
+    summary.classList.add('cart-checkout-summary');
     summary.classList.remove('hidden');
     document.getElementById('cart-subtotal').textContent = formatMoney(subtotal, 'UZS');
     document.getElementById('cart-discount').textContent = formatMoney(discount, 'UZS');
+    const cartItemsCountEl = document.getElementById('cart-items-count');
+    if (cartItemsCountEl) cartItemsCountEl.textContent = itemsCountLabel;
     document.getElementById('cart-total').textContent = formatMoney(total, 'UZS');
     
     document.getElementById('checkout-btn').addEventListener('click', () => {
