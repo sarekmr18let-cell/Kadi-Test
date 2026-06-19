@@ -6077,6 +6077,102 @@ body {
     white-space: nowrap;
 }
 
+
+/* Compact home top-up layout */
+#page-home .home-balance-card {
+    align-items: stretch;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 12px;
+    border-radius: 18px;
+}
+
+#page-home .home-balance-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+#page-home .home-balance-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    margin-bottom: 0;
+}
+
+#page-home #home-balance-value {
+    font-size: 18px;
+    white-space: nowrap;
+}
+
+#page-home .home-balance-card {
+    flex-direction: column;
+}
+
+#page-home .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px;
+    margin: 0;
+}
+
+#page-home .quick-action {
+    min-height: 38px;
+    border-radius: 14px;
+    flex-direction: row;
+    gap: 6px;
+}
+
+#page-home .quick-action span {
+    font-size: 15px;
+}
+
+#page-home .quick-action b {
+    font-size: 11px;
+}
+
+#page-home .quick-action small {
+    display: none;
+}
+
+#page-home .categories-section {
+    margin-top: 0;
+    margin-bottom: 18px;
+}
+
+#page-home .categories-section .section-header {
+    margin-bottom: 10px;
+}
+
+#page-home .categories-section .section-header h2 {
+    font-size: 18px;
+}
+
+#page-home .categories-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 9px;
+}
+
+#page-home .category-card {
+    min-height: 82px;
+    border-radius: 18px;
+    padding: 10px 6px;
+}
+
+#page-home .category-card .icon {
+    font-size: 23px;
+    margin-bottom: 4px;
+}
+
+#page-home .category-card .name {
+    font-size: 11px;
+    line-height: 1.15;
+}
+
+#page-home .category-hint {
+    display: none;
+}
+
 /* KADI_PRODUCT_UX_V1 — product detail paste, saved account and sticky CTA */
 .last-account-chip {
     display: flex;

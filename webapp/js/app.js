@@ -2555,14 +2555,24 @@ function initEventListeners() {
         }
     });
     
-    // Support button
-    document.getElementById('support-btn')?.addEventListener('click', () => {
+    const openSupport = () => {
         if (tg) {
             const SUPPORT_USERNAME = state.user?.support_username || 'your_support';
             tg.openTelegramLink(`https://t.me/${SUPPORT_USERNAME}`);
         }
-    });
+    };
+
+    // Support button
+    document.getElementById('support-btn')?.addEventListener('click', openSupport);
+    document.getElementById('quick-support-btn')?.addEventListener('click', openSupport);
     
+    // Home quick actions with data-page
+    document.querySelectorAll('#page-home .quick-action[data-page]').forEach(item => {
+        item.addEventListener('click', () => {
+            navigateTo(item.dataset.page);
+        });
+    });
+
     // Menu items with data-page
     document.querySelectorAll('.menu-item[data-page]').forEach(item => {
         item.addEventListener('click', () => {
