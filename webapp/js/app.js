@@ -311,15 +311,16 @@ function productBadge(name) {
 async function loadHomePage() {
     try {
         updateHeaderBalance();
-        // Load categories
-        const categories = await api('GET', '/products/categories');
+        const [categories, products] = await Promise.all([
+            api('GET', '/products/categories'),
+            api('GET', '/products'),
+        ]);
+
         state.categories = categories || [];
-        renderCategories(categories);
-        
-        // Load popular products
-        const products = await api('GET', '/products');
         state.products = products || [];
-        renderPopularProducts(products.slice(0, 5));
+
+        renderCategories(state.categories);
+        renderPopularProducts(state.products.slice(0, 5));
     } catch (error) {
         console.error('Home page error:', error);
     }
@@ -362,8 +363,18 @@ function renderCategories(categories) {
     
     grid.querySelectorAll('.category-card').forEach(card => {
         card.addEventListener('click', () => {
+            const categoryId = Number(card.dataset.category);
+            const categoryProducts = state.products.filter(
+                product => Number(product.category_id) === categoryId
+            );
+
+            if (categoryProducts.length === 1) {
+                openProductDetail(categoryProducts[0].id);
+                return;
+            }
+
             navigateTo('catalog');
-            filterCatalogByCategory(parseInt(card.dataset.category));
+            filterCatalogByCategory(categoryId);
         });
     });
 }
