@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=1781859226">
+    <link rel="stylesheet" href="css/style.css?v=1781865423">
 </head>
 <body>
     <div id="app">
@@ -228,71 +228,111 @@
                 
                 <!-- Checkout Page -->
                 <div id="page-checkout" class="page">
-                    <button class="back-btn" id="checkout-back">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="m15 18-6-6 6-6"/>
-                        </svg>
-                        <span data-i18n="back_to_cart">Назад в корзину</span>
-                    </button>
-                    <h1 data-i18n="payment">Оплата</h1>
-                    
-                    <div class="checkout-form">
-                        <div class="form-section">
-                            <h3 data-i18n="recipient_details">🎮 Данные получателя</h3>
-                            <div class="form-group">
-                                <label data-i18n="player_id_label">ID игрока / Telegram username</label>
-                                <input type="text" id="target-id" placeholder="Введите ID" data-i18n-placeholder="enter_id">
+                    <div class="checkout-shell checkout-simple-shell">
+                        <div class="checkout-simple-head">
+                            <button class="back-btn checkout-back-compact" id="checkout-back">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m15 18-6-6 6-6"/>
+                                </svg>
+                                <span>Назад</span>
+                            </button>
+
+                            <div class="checkout-title-mini">
+                                <span>KADI CHECKOUT</span>
+                                <h1 data-i18n="payment">Оплата</h1>
                             </div>
-                            <div class="form-group" id="server-field">
-                                <label data-i18n="server_if_needed">Сервер, если нужен</label>
-                                <input type="text" id="target-server" placeholder="Введите Server ID" data-i18n-placeholder="enter_server_id">
+
+                            <div class="checkout-lock-badge checkout-balance-pay-badge">
+                                <span>●</span>
+                                <strong>С баланса</strong>
                             </div>
                         </div>
-                        
-                        <div class="form-section">
-                            <h3 data-i18n="promo_code">🎟️ Промокод</h3>
-                            <div class="promo-input-group">
-                                <input type="text" id="promo-code" placeholder="Введите промокод" data-i18n-placeholder="promo_placeholder">
-                                <button class="btn-secondary" id="apply-promo" data-i18n="apply">Применить</button>
+
+                        <section class="checkout-card checkout-unified-card">
+                            <div class="checkout-section-head checkout-unified-head">
+                                <div>
+                                    <span>Детали заказа</span>
+                                    <strong id="checkout-order-title">MLBB Diamonds</strong>
+                                </div>
+                                <em id="checkout-order-count">0 товаров</em>
+                            </div>
+
+                            <div class="checkout-person-line" id="checkout-nickname-row">
+                                <span>Игрок</span>
+                                <strong id="checkout-recipient-title">Аккаунт игрока</strong>
+                                <em id="checkout-recipient-status">Проверено</em>
+                                <strong id="checkout-target-name" class="hidden">—</strong>
+                            </div>
+
+                            <div class="checkout-meta-inline">
+                                <div>
+                                    <span>ID</span>
+                                    <strong id="checkout-target-id-text">—</strong>
+                                </div>
+                                <div id="server-field">
+                                    <span>Server</span>
+                                    <strong id="checkout-target-server-text">—</strong>
+                                </div>
+                                <div id="checkout-region-row">
+                                    <span>Регион</span>
+                                    <strong id="checkout-target-region-text">—</strong>
+                                </div>
+                            </div>
+
+                            <div id="checkout-order-items" class="checkout-order-items checkout-order-items-simple"></div>
+
+                            <div class="checkout-hidden-inputs" aria-hidden="true">
+                                <input type="text" id="target-id" placeholder="Введите ID" data-i18n-placeholder="enter_id" tabindex="-1">
+                                <input type="text" id="target-server" placeholder="Введите Server ID" data-i18n-placeholder="enter_server_id" tabindex="-1">
+                            </div>
+                        </section>
+
+                        <section class="checkout-card checkout-pay-options-card">
+                            <div class="checkout-balance-compact-row">
+                                <div>
+                                    <span data-i18n="wallet_balance">Баланс</span>
+                                    <strong id="checkout-balance">0 UZS</strong>
+                                </div>
+                                <em id="checkout-balance-status">Проверяем</em>
+                            </div>
+
+                            <div class="checkout-balance-after-row">
+                                <span id="checkout-balance-hint" data-i18n="order_paid_from_balance_hint">После оплаты останется</span>
+                                <strong id="checkout-balance-after">—</strong>
+                            </div>
+
+                            <div class="checkout-promo-compact">
+                                <input type="text" id="promo-code" placeholder="Промокод" data-i18n-placeholder="promo_placeholder">
+                                <button class="btn-secondary" id="apply-promo" data-i18n="apply">OK</button>
                             </div>
                             <div id="promo-message" class="promo-message"></div>
-                        </div>
-                        
-                        <div class="form-section">
-                            <h3 data-i18n="wallet_balance">💰 Баланс</h3>
-                            <div class="payment-instructions">
-                                <p data-i18n="order_paid_from_balance_hint">Заказ будет оплачен с баланса.</p>
-                                <p><strong data-i18n="available">Доступно:</strong> <span id="checkout-balance">0 UZS</span></p>
-                                <p style="color: var(--text-muted); font-size: 13px;" data-i18n="topup_profile_hint">Пополните баланс в профиле перед покупкой.</p>
-                            </div>
-                        </div>
-                        
-                        <div class="checkout-summary">
+                        </section>
+
+                        <div class="checkout-summary checkout-summary-legacy" aria-hidden="true">
                             <div class="summary-row">
                                 <span data-i18n="items">Товары</span>
-                                <span id="checkout-items-count">0</span>
+                                <span id="checkout-items-count-legacy">0</span>
                             </div>
                             <div class="summary-row">
                                 <span data-i18n="subtotal">Сумма</span>
-                                <span id="checkout-subtotal">$0.00</span>
+                                <span id="checkout-subtotal-legacy">0 UZS</span>
                             </div>
-                            <div class="summary-row" id="checkout-discount-row">
+                            <div class="summary-row">
                                 <span data-i18n="discount">Скидка</span>
-                                <span id="checkout-discount">$0.00</span>
+                                <span id="checkout-discount-legacy">0 UZS</span>
                             </div>
                             <div class="summary-row total">
                                 <span data-i18n="total_to_pay">К оплате</span>
-                                <span id="checkout-total">$0.00</span>
+                                <span id="checkout-total-legacy">0 UZS</span>
                             </div>
                         </div>
-                        
-                        <button class="btn-primary btn-glow btn-large" id="place-order-btn">
+
+                        <button class="btn-primary btn-glow btn-large checkout-main-cta" id="place-order-btn">
                             <span data-i18n="buy_from_balance">Купить с баланса</span>
                         </button>
                     </div>
                 </div>
-                
-                <!-- Orders Page -->
+
                 <div id="page-orders" class="page">
                     <h1 data-i18n="history">История</h1>
                     <div class="orders-filter history-tabs" role="tablist" aria-label="История">
@@ -488,6 +528,6 @@
     </div>
     
     <script src="js/i18n.js"></script>
-    <script src="js/app.js?v=1781859226"></script>
+    <script src="js/app.js?v=1781865423"></script>
 </body>
 </html>

@@ -1093,9 +1093,109 @@ function getCartTargetInfo() {
         target_server: first.target_server || '',
         target_region: first.target_region || '',
         target_region_label: first.target_region_label || '',
+        verified_target_name: first.verified_target_name || '',
         requirements: first.requirements || {},
     };
 }
+
+
+function setTextIfExists(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function setVisibleIfExists(id, isVisible) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isVisible ? '' : 'none';
+}
+
+function getCheckoutTotals() {
+    const subtotal = state.cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+    const discount = Number(state.promo?.discount_amount || 0);
+    const total = Math.max(0, subtotal - discount);
+    const itemsCount = state.cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+    return { subtotal, discount, total, itemsCount };
+}
+
+function updateCheckoutAmounts(balanceValue = null) {
+    const { subtotal, discount, total, itemsCount } = getCheckoutTotals();
+    const itemsLabel = `${itemsCount} ${itemsCount === 1 ? 'товар' : 'тов.'}`;
+
+    setTextIfExists('checkout-items-count', itemsLabel);
+    setTextIfExists('checkout-items-count-legacy', String(itemsCount));
+    setTextIfExists('checkout-order-count', itemsLabel);
+
+    setTextIfExists('checkout-subtotal', formatMoney(subtotal, 'UZS'));
+    setTextIfExists('checkout-subtotal-legacy', formatMoney(subtotal, 'UZS'));
+
+    setTextIfExists('checkout-discount', discount ? `-${formatMoney(discount, 'UZS')}` : formatMoney(0, 'UZS'));
+    setTextIfExists('checkout-discount-legacy', formatMoney(discount, 'UZS'));
+
+    setTextIfExists('checkout-total', formatMoney(total, 'UZS'));
+    setTextIfExists('checkout-total-inline', formatMoney(total, 'UZS'));
+    setTextIfExists('checkout-total-legacy', formatMoney(total, 'UZS'));
+
+    setVisibleIfExists('checkout-discount-row', discount > 0);
+    setVisibleIfExists('checkout-pay-grid', discount > 0);
+
+    const placeBtn = document.getElementById('place-order-btn');
+    if (placeBtn) {
+        if (balanceValue !== null && Number(balanceValue || 0) < total) {
+            placeBtn.textContent = tr('not_enough_topup');
+        } else {
+            placeBtn.textContent = `Оплатить ${formatMoney(total, 'UZS')}`;
+        }
+    }
+}
+
+function updateCheckoutBalanceState(balanceValue = null) {
+    const { total } = getCheckoutTotals();
+
+    if (balanceValue === null || Number.isNaN(Number(balanceValue))) {
+        setTextIfExists('checkout-balance-status', 'Проверяем');
+        setTextIfExists('checkout-balance-after', '—');
+        return;
+    }
+
+    const balance = Number(balanceValue || 0);
+    setTextIfExists('checkout-balance', formatMoney(balance, 'UZS'));
+
+    if (balance >= total) {
+        setTextIfExists('checkout-balance-status', 'Хватает');
+        setTextIfExists('checkout-balance-hint', 'После оплаты останется');
+        setTextIfExists('checkout-balance-after', formatMoney(balance - total, 'UZS'));
+    } else {
+        setTextIfExists('checkout-balance-status', 'Не хватает');
+        setTextIfExists('checkout-balance-hint', 'Пополните баланс перед покупкой');
+        setTextIfExists('checkout-balance-after', `-${formatMoney(total - balance, 'UZS')}`);
+    }
+
+    updateCheckoutAmounts(balance);
+}
+
+function renderCheckoutOrderItems() {
+    const container = document.getElementById('checkout-order-items');
+    if (!container) return;
+
+    container.innerHTML = state.cart.map(item => {
+        const productName = item.product_name || item.name || tr('product');
+        const variationName = typeof getCartVariationName === 'function' ? getCartVariationName(item) : (item.name || '');
+        const itemTotal = Number(item.price || 0) * Number(item.quantity || 0);
+
+        return `
+            <div class="checkout-order-item">
+                <div>
+                    <strong>${escapeHtml(productName)}</strong>
+                    ${variationName ? `<span>${escapeHtml(variationName)}</span>` : ''}
+                </div>
+                <em>x${escapeHtml(item.quantity || 1)}</em>
+                <b>${formatMoney(itemTotal, 'UZS')}</b>
+            </div>
+        `;
+    }).join('');
+}
+
 
 function renderCartTargetSummary(item) {
     const bits = [];
@@ -1435,44 +1535,59 @@ async function copyText(text) {
 
 // ===== Оплата =====
 async function loadОплатаPage() {
-    // Calculate totals
-    const subtotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const discount = state.promo?.discount_amount || 0;
-    const total = Math.max(0, subtotal - discount);
+    if (!state.cart.length) {
+        navigateTo('cart');
+        return;
+    }
 
-    document.getElementById('checkout-items-count').textContent = state.cart.reduce((sum, item) => sum + item.quantity, 0);
-    document.getElementById('checkout-subtotal').textContent = formatMoney(subtotal, 'UZS');
-    document.getElementById('checkout-discount').textContent = formatMoney(discount, 'UZS');
-    document.getElementById('checkout-total').textContent = formatMoney(total, 'UZS');
+    updateCheckoutAmounts();
+    renderCheckoutOrderItems();
 
     const targetInfo = getCartTargetInfo();
     const targetIdEl = document.getElementById('target-id');
     const targetServerEl = document.getElementById('target-server');
+
     if (targetIdEl && targetInfo.target_id) targetIdEl.value = targetInfo.target_id;
     if (targetServerEl && targetInfo.target_server) targetServerEl.value = targetInfo.target_server;
 
+    const targetIdLabel = targetInfo.requirements?.target_id_label || 'ID';
+    const targetServerLabel = targetInfo.requirements?.target_server_label || 'Server ID';
+    const targetRegionLabel = targetInfo.requirements?.target_region_label || 'Регион';
+    const targetRegion = targetInfo.target_region_label || targetInfo.target_region || '';
+
+    setTextIfExists('checkout-recipient-title', targetInfo.verified_target_name || 'Аккаунт игрока');
+    setTextIfExists('checkout-recipient-status', targetInfo.verified_target_name ? 'Проверено' : 'Данные заказа');
+    setTextIfExists('checkout-target-name', targetInfo.verified_target_name || '—');
+    setTextIfExists('checkout-target-id-text', targetInfo.target_id || '—');
+    setTextIfExists('checkout-target-server-text', targetInfo.target_server || '—');
+    setTextIfExists('checkout-target-region-text', targetRegion || '—');
+    setTextIfExists('checkout-order-title', state.cart[0]?.product_name || tr('products'));
+
+    setVisibleIfExists('checkout-nickname-row', !!targetInfo.verified_target_name);
+    setVisibleIfExists('server-field', !!targetInfo.target_server || !!targetInfo.requirements?.requires_server_id);
+    setVisibleIfExists('checkout-region-row', !!targetRegion || !!targetInfo.requirements?.requires_region);
+
+    const targetIdText = document.querySelector('#checkout-target-id-text')?.previousElementSibling;
+    const targetServerText = document.querySelector('#checkout-target-server-text')?.previousElementSibling;
+    const targetRegionText = document.querySelector('#checkout-target-region-text')?.previousElementSibling;
+
+    if (targetIdText) targetIdText.textContent = 'ID';
+    if (targetServerText) targetServerText.textContent = targetServerLabel;
+    if (targetRegionText) targetRegionText.textContent = targetRegionLabel;
+
     try {
         const balance = await api('GET', '/users/balance');
-        document.getElementById('checkout-balance').textContent = formatMoney(balance.balance, 'UZS');
-        const placeBtn = document.getElementById('place-order-btn');
-        if (Number(balance.balance || 0) < total) {
-            placeBtn.textContent = tr('not_enough_topup');
-        } else {
-            placeBtn.textContent = tr('buy_from_balance');
-        }
+        updateCheckoutBalanceState(Number(balance?.balance || 0));
     } catch (error) {
-        console.error('Balance load error:', error);
+        setTextIfExists('checkout-balance-status', 'Не удалось');
+        setTextIfExists('checkout-balance-after', '—');
     }
 
-    // Promo code
-    document.getElementById('apply-promo').onclick = applyPromo;
-
-    // Place order
-    document.getElementById('place-order-btn').onclick = placeOrder;
-
-    // Back button
-    document.getElementById('checkout-back').onclick = () => navigateTo('cart');
+    document.getElementById('apply-promo')?.addEventListener('click', applyPromo);
+    document.getElementById('place-order-btn')?.addEventListener('click', placeOrder);
+    document.getElementById('checkout-back')?.addEventListener('click', () => navigateTo('cart'));
 }
+
 
 function renderPaymentMethods(methods) {
     // Legacy helper kept for compatibility. Wallet balance is now the main flow.
@@ -1482,10 +1597,10 @@ function renderPaymentMethods(methods) {
 }
 
 async function applyPromo() {
-    const code = document.getElementById('promo-code').value.trim();
+    const code = document.getElementById('promo-code')?.value.trim() || '';
     if (!code) return;
 
-    const subtotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const subtotal = getCheckoutTotals().subtotal;
 
     try {
         const result = await api('POST', '/orders/apply-promo', {
@@ -1494,21 +1609,19 @@ async function applyPromo() {
         });
 
         const msgEl = document.getElementById('promo-message');
+        if (!msgEl) return;
+
         if (result.is_valid) {
             state.promo = result;
             msgEl.textContent = `✓ ${result.message} (-${formatMoney(result.discount_amount, 'UZS')})`;
             msgEl.className = 'promo-message success';
 
-            // Update totals
-            const discount = result.discount_amount;
-            const total = Math.max(0, subtotal - discount);
-            document.getElementById('checkout-discount').textContent = formatMoney(discount, 'UZS');
-            document.getElementById('checkout-total').textContent = formatMoney(total, 'UZS');
             try {
                 const balance = await api('GET', '/users/balance');
-                const placeBtn = document.getElementById('place-order-btn');
-                placeBtn.textContent = Number(balance.balance || 0) < total ? tr('not_enough_topup') : tr('buy_from_balance');
-            } catch (_) {}
+                updateCheckoutBalanceState(Number(balance?.balance || 0));
+            } catch (_) {
+                updateCheckoutAmounts();
+            }
         } else {
             msgEl.textContent = `✗ ${result.message}`;
             msgEl.className = 'promo-message error';
@@ -1517,6 +1630,7 @@ async function applyPromo() {
         showToast('error', tr('invalid_promo'));
     }
 }
+
 
 async function placeOrder() {
     const targetInfo = getCartTargetInfo();
