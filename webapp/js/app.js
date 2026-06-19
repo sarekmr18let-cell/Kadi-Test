@@ -2546,7 +2546,7 @@ function initEventListeners() {
     
     // Product back button
     document.getElementById('product-back')?.addEventListener('click', () => {
-        navigateTo('catalog');
+        navigateTo('home');
     });
     
     // Referral button
