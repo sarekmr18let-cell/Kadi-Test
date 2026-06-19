@@ -8180,3 +8180,65 @@ body[data-current-page="product"] #page-product {
     height: 38px !important;
 }
 
+
+
+/* KADI_PRODUCT_AUTO_ID_STAGE2 — auto ID validation */
+#page-product #verify-mlbb-btn {
+    display: none !important;
+}
+
+#page-product #verify-mlbb-status {
+    min-height: 18px !important;
+    margin: 2px 0 0 !important;
+    font-size: 10.5px !important;
+    line-height: 1.2 !important;
+}
+
+
+/* KADI auto ID nickname status */
+#page-product #verify-mlbb-status {
+    display: block !important;
+    min-height: 18px !important;
+    margin-top: 3px !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* KADI_AUTO_ID_STATUS_STYLE — premium verified player pill */
+#page-product #verify-mlbb-status {
+    grid-column: 1 / -1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    min-height: 30px !important;
+    margin-top: 3px !important;
+    padding: 7px 11px !important;
+    border-radius: 999px !important;
+    background:
+        radial-gradient(circle at 10% 0%, rgba(34, 197, 94, 0.24), transparent 44%),
+        linear-gradient(135deg, rgba(8, 20, 26, 0.88), rgba(18, 30, 52, 0.72)) !important;
+    border: 1px solid rgba(34, 197, 94, 0.35) !important;
+    box-shadow:
+        0 0 0 1px rgba(34, 197, 94, 0.08) inset,
+        0 10px 24px rgba(0, 0, 0, 0.22),
+        0 0 18px rgba(34, 197, 94, 0.10) !important;
+    color: #4ade80 !important;
+    font-size: 11.5px !important;
+    font-weight: 900 !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.01em !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* While checking / neutral status still looks clean */
+#page-product #verify-mlbb-status:empty {
+    display: none !important;
+}
+
