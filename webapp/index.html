@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=1781836697">
+    <link rel="stylesheet" href="css/style.css?v=1781847085">
 </head>
 <body>
     <div id="app">
@@ -106,10 +106,40 @@
                             <span class="home-balance-label">АКТИВНЫЙ БАЛАНС</span>
                             <strong id="home-balance-value">0 UZS</strong>
                         </div>
+                        <img class="home-balance-watermark-img" src="/assets/products/kadi-balance-watermark.svg" alt="" aria-hidden="true">
                         <div class="quick-actions kadi-quick-actions">
-                            <button class="quick-action" data-open-kadi-topup="1"><span>💳</span><b data-i18n="topup">Пополнить</b></button>
-                            <button class="quick-action" data-page="orders"><span>🧾</span><b data-i18n="history">История</b></button>
-                            <button class="quick-action" id="quick-support-btn"><span>💬</span><b data-i18n="help">Помощь</b></button>
+                            <button class="quick-action" data-open-kadi-topup="1">
+                                <span class="quick-action-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none">
+                                        <rect x="3.5" y="6" width="17" height="12" rx="3" />
+                                        <path d="M3.5 10h17" />
+                                        <path d="M7.5 14.5h4" />
+                                    </svg>
+                                </span>
+                                <b data-i18n="topup">Пополнить</b>
+                            </button>
+                            <button class="quick-action" data-page="orders">
+                                <span class="quick-action-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none">
+                                        <path d="M7 4.5h10a2 2 0 0 1 2 2v13l-2.5-1.4-2.25 1.4L12 18.1l-2.25 1.4-2.25-1.4L5 19.5v-13a2 2 0 0 1 2-2Z" />
+                                        <path d="M8.5 9h7" />
+                                        <path d="M8.5 12.5h7" />
+                                        <path d="M8.5 16h4" />
+                                    </svg>
+                                </span>
+                                <b data-i18n="history">История</b>
+                            </button>
+                            <button class="quick-action" id="quick-support-btn">
+                                <span class="quick-action-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none">
+                                        <path d="M5.5 6.5h13a2.5 2.5 0 0 1 2.5 2.5v5.25a2.5 2.5 0 0 1-2.5 2.5h-6.8L7.5 20v-3.25h-2A2.5 2.5 0 0 1 3 14.25V9a2.5 2.5 0 0 1 2.5-2.5Z" />
+                                        <path d="M8 11.5h.01" />
+                                        <path d="M12 11.5h.01" />
+                                        <path d="M16 11.5h.01" />
+                                    </svg>
+                                </span>
+                                <b data-i18n="help">Помощь</b>
+                            </button>
                         </div>
                     </div>
 
