@@ -68,9 +68,6 @@ def is_unsupported_gamedrops_error(exc: GameDropsError) -> bool:
         "not supported",
         "not available",
         "verification unavailable",
-        "check-game-data",
-        "check game data",
-        "game data",
         "не поддерж",
         "недоступ",
     )

@@ -1343,7 +1343,11 @@ function renderProductDetail(product) {
 
                 saveLastAccount();
                 renderLastAccountChip(readLastAccount());
-            } else if (result?.supported === false && canFallbackAfterUnsupported()) {
+            } else if (
+                result?.supported === false &&
+                String(result?.status || '').toUpperCase() === 'UNSUPPORTED' &&
+                canFallbackAfterUnsupported()
+            ) {
                 acceptFallbackVerification();
             } else {
                 verifiedTarget = null;
@@ -1355,13 +1359,8 @@ function renderProductDetail(product) {
         } catch (error) {
             if (requestSeq !== verifyRequestSeq) return;
 
-            if (!isStrictVerificationProduct() && canFallbackAfterUnsupported()) {
-                acceptFallbackVerification();
-                return;
-            }
-
             verifiedTarget = null;
-            renderVerificationStatus('error', { message: 'ID не найден / проверьте данные' });
+            renderVerificationStatus('error', { message: 'Ошибка проверки. Попробуйте ещё раз.' });
             if (!silent) showToast('error', 'Ошибка проверки. Попробуйте ещё раз.');
         } finally {
             if (requestSeq === verifyRequestSeq) {
