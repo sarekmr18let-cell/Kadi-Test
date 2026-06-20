@@ -100,6 +100,7 @@ const state = {
     promo: null,
     currentPage: 'home',
     telegramUser: null,
+    isPlacingOrder: false,
 };
 
 // Safe localStorage initialization
@@ -2008,7 +2009,17 @@ async function loadОплатаPage() {
     }
 
     document.getElementById('apply-promo')?.addEventListener('click', applyPromo);
-    document.getElementById('place-order-btn')?.addEventListener('click', placeOrder);
+
+    const placeOrderBtn = document.getElementById('place-order-btn');
+    if (placeOrderBtn) {
+        placeOrderBtn.removeEventListener('click', placeOrder);
+        placeOrderBtn.addEventListener('click', placeOrder);
+        if (state.isPlacingOrder) {
+            placeOrderBtn.disabled = true;
+            placeOrderBtn.textContent = tr('processing');
+        }
+    }
+
     document.getElementById('checkout-back')?.addEventListener('click', () => navigateTo('cart'));
 }
 
@@ -2057,6 +2068,8 @@ async function applyPromo() {
 
 
 async function placeOrder() {
+    if (state.isPlacingOrder) return;
+
     const targetInfo = getCartTargetInfo();
     const targetId = targetInfo.target_id || document.getElementById('target-id').value.trim();
     if (targetInfo.requirements?.requires_target_id && !targetId) {
@@ -2071,6 +2084,23 @@ async function placeOrder() {
         variation_id: item.variation_id,
         quantity: item.quantity,
     }));
+
+    const placeOrderBtn = document.getElementById('place-order-btn');
+    const originalButtonText = placeOrderBtn?.textContent || '';
+
+    state.isPlacingOrder = true;
+    if (placeOrderBtn) {
+        placeOrderBtn.disabled = true;
+        placeOrderBtn.textContent = tr('processing');
+    }
+
+    const restorePlaceOrderButton = () => {
+        state.isPlacingOrder = false;
+        if (placeOrderBtn) {
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.textContent = originalButtonText;
+        }
+    };
 
     try {
         const result = await api('POST', '/orders', {
@@ -2094,8 +2124,11 @@ async function placeOrder() {
             if (tg?.HapticFeedback) {
                 tg.HapticFeedback.notificationOccurred('success');
             }
+        } else {
+            restorePlaceOrderButton();
         }
     } catch (error) {
+        restorePlaceOrderButton();
         if ((error.message || '').toLowerCase().includes('insufficient balance')) {
             showToast('error', tr('not_enough_balance'));
             navigateTo('profile');
