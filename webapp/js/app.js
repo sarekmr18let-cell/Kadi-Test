@@ -1544,7 +1544,7 @@ function getCheckoutTotals() {
 
 function updateCheckoutAmounts(balanceValue = null) {
     const { subtotal, discount, total, itemsCount } = getCheckoutTotals();
-    const itemsLabel = `${itemsCount} ${itemsCount === 1 ? 'товар' : 'тов.'}`;
+    const itemsLabel = tr('items_count', { count: itemsCount });
 
     setTextIfExists('checkout-items-count', itemsLabel);
     setTextIfExists('checkout-items-count-legacy', String(itemsCount));
@@ -1568,7 +1568,7 @@ function updateCheckoutAmounts(balanceValue = null) {
         if (balanceValue !== null && Number(balanceValue || 0) < total) {
             placeBtn.textContent = tr('not_enough_topup');
         } else {
-            placeBtn.textContent = `Оплатить ${formatMoney(total, 'UZS')}`;
+            placeBtn.textContent = tr('pay_amount', { amount: formatMoney(total, 'UZS') });
         }
     }
 }
@@ -1577,7 +1577,7 @@ function updateCheckoutBalanceState(balanceValue = null) {
     const { total } = getCheckoutTotals();
 
     if (balanceValue === null || Number.isNaN(Number(balanceValue))) {
-        setTextIfExists('checkout-balance-status', 'Проверяем');
+        setTextIfExists('checkout-balance-status', tr('checking'));
         setTextIfExists('checkout-balance-after', '—');
         return;
     }
@@ -1586,12 +1586,12 @@ function updateCheckoutBalanceState(balanceValue = null) {
     setTextIfExists('checkout-balance', formatMoney(balance, 'UZS'));
 
     if (balance >= total) {
-        setTextIfExists('checkout-balance-status', 'Хватает');
-        setTextIfExists('checkout-balance-hint', 'После оплаты останется');
+        setTextIfExists('checkout-balance-status', tr('enough_balance'));
+        setTextIfExists('checkout-balance-hint', tr('balance_after_payment'));
         setTextIfExists('checkout-balance-after', formatMoney(balance - total, 'UZS'));
     } else {
-        setTextIfExists('checkout-balance-status', 'Не хватает');
-        setTextIfExists('checkout-balance-hint', 'Пополните баланс перед покупкой');
+        setTextIfExists('checkout-balance-status', tr('not_enough_balance_short'));
+        setTextIfExists('checkout-balance-hint', tr('topup_balance_before_buy'));
         setTextIfExists('checkout-balance-after', `-${formatMoney(total - balance, 'UZS')}`);
     }
 
@@ -1976,11 +1976,11 @@ async function loadОплатаPage() {
 
     const targetIdLabel = targetInfo.requirements?.target_id_label || 'ID';
     const targetServerLabel = targetInfo.requirements?.target_server_label || 'Server ID';
-    const targetRegionLabel = targetInfo.requirements?.target_region_label || 'Регион';
+    const targetRegionLabel = targetInfo.requirements?.target_region_label || tr('target_region');
     const targetRegion = targetInfo.target_region_label || targetInfo.target_region || '';
 
-    setTextIfExists('checkout-recipient-title', targetInfo.verified_target_name || 'Аккаунт игрока');
-    setTextIfExists('checkout-recipient-status', targetInfo.verified_target_name ? 'Проверено' : 'Данные заказа');
+    setTextIfExists('checkout-recipient-title', targetInfo.verified_target_name || tr('player_account'));
+    setTextIfExists('checkout-recipient-status', targetInfo.verified_target_name ? tr('verified') : tr('order_details'));
     setTextIfExists('checkout-target-name', targetInfo.verified_target_name || '—');
     setTextIfExists('checkout-target-id-text', targetInfo.target_id || '—');
     setTextIfExists('checkout-target-server-text', targetInfo.target_server || '—');
@@ -2003,7 +2003,7 @@ async function loadОплатаPage() {
         const balance = await api('GET', '/users/balance');
         updateCheckoutBalanceState(Number(balance?.balance || 0));
     } catch (error) {
-        setTextIfExists('checkout-balance-status', 'Не удалось');
+        setTextIfExists('checkout-balance-status', tr('balance_load_failed'));
         setTextIfExists('checkout-balance-after', '—');
     }
 
@@ -2117,11 +2117,11 @@ function showOrderConfirmation(order) {
             <div style="text-align: center; padding: 20px 0;">
                 <div style="font-size: 48px; margin-bottom: 16px;">🚀</div>
                 <h3 style="font-size: 20px; margin-bottom: 8px;">${tr('order')} #${escapeHtml(order.order_number)}</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 20px;">Оплачено с баланса: <strong style="color: var(--neon-green);">${formatMoney(order.total_amount, 'UZS')}</strong></p>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">${tr('paid_from_balance')} <strong style="color: var(--neon-green);">${formatMoney(order.total_amount, 'UZS')}</strong></p>
                 <div class="payment-instructions" style="text-align: left;">
                     <h3>${tr('auto_delivery')}</h3>
-                    <p>Заказ оплачен и передан админу на выполнение.</p>
-                    <p>Статус можно отслеживать в разделе «Мои заказы».</p>
+                    <p>${tr('order_sent_to_admin_hint')}</p>
+                    <p>${tr('track_status_hint')}</p>
                 </div>
                 <button class="btn-primary" style="margin-top: 16px;" onclick="closeModal()">${tr('view_my_orders')}</button>
             </div>
