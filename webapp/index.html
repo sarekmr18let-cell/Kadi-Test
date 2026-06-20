@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=1781956279">
+    <link rel="stylesheet" href="css/style.css?v=1782000001">
 </head>
 <body>
     <div id="app">
@@ -37,11 +37,16 @@
                     </span>
                 </div>
                 <div class="header-actions">
-                    <select id="language-select" class="language-select" aria-label="Language">
-                        <option value="ru">RU</option>
-                        <option value="en">EN</option>
-                        <option value="uz">UZ</option>
-                    </select>
+                    <div class="language-switcher" id="language-switcher">
+                        <button type="button" class="language-toggle" id="language-toggle" aria-label="Language" aria-expanded="false" aria-haspopup="true">
+                            <span id="language-current" class="language-current">RU</span>
+                        </button>
+                        <div class="language-menu" id="language-menu" role="menu" aria-label="Language menu">
+                            <button type="button" class="language-option" data-lang="ru" role="menuitem">RU</button>
+                            <button type="button" class="language-option" data-lang="uz" role="menuitem">UZ</button>
+                            <button type="button" class="language-option" data-lang="en" role="menuitem">EN</button>
+                        </div>
+                    </div>
                     <button class="wallet-pill" id="header-wallet-btn" data-page="profile">
                         <span class="wallet-pill-label" data-i18n="balance">Баланс</span>
                         <span id="header-balance">0 UZS</span>
@@ -537,7 +542,7 @@
         <div id="toast-container" class="toast-container"></div>
     </div>
     
-    <script src="js/i18n.js"></script>
-    <script src="js/app.js?v=1781956279"></script>
+    <script src="js/i18n.js?v=1782000001"></script>
+    <script src="js/app.js?v=1782000001"></script>
 </body>
 </html>

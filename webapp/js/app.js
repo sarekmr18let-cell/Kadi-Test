@@ -14,11 +14,60 @@ const tr = (key, params = {}) => window.I18N?.t(key, params) || key;
 const applyTranslations = (root = document) => window.I18N?.apply(root);
 
 function initLanguageSwitcher() {
+    const toggle = document.getElementById('language-toggle');
+    const current = document.getElementById('language-current');
+    const menu = document.getElementById('language-menu');
+    const options = menu ? Array.from(menu.querySelectorAll('[data-lang]')) : [];
     const selector = document.getElementById('language-select');
-    if (!selector) return;
-    selector.value = window.I18N?.getLang?.() || 'ru';
-    selector.addEventListener('change', (e) => window.I18N?.setLang(e.target.value));
+
+    const getCurrentLang = () => window.I18N?.getLang?.() || 'ru';
+    const setCurrentLabel = (lang = getCurrentLang()) => {
+        const normalized = String(lang || 'ru').toLowerCase();
+        const label = normalized.toUpperCase();
+
+        if (current) current.textContent = label;
+        if (selector) selector.value = normalized;
+        options.forEach((option) => {
+            const isActive = option.dataset.lang === normalized;
+            option.classList.toggle('active', isActive);
+            option.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    };
+    const closeMenu = () => {
+        if (!menu || !toggle) return;
+        menu.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+    };
+
+    setCurrentLabel();
+
+    if (toggle && menu) {
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = menu.classList.toggle('open');
+            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+
+        options.forEach((option) => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const lang = option.dataset.lang;
+                if (!lang) return;
+                window.I18N?.setLang(lang);
+                setCurrentLabel(lang);
+                closeMenu();
+            });
+        });
+
+        document.addEventListener('click', closeMenu);
+    }
+
+    if (selector) {
+        selector.addEventListener('change', (e) => window.I18N?.setLang(e.target.value));
+    }
+
     window.addEventListener('languageChanged', () => {
+        setCurrentLabel();
         applyTranslations(document);
         refreshCurrentPageText();
         if (tg && tg.MainButton) tg.MainButton.hide();
