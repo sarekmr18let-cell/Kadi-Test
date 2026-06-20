@@ -162,13 +162,17 @@
 
   function getLang() {
     try {
+      const storedLang = localStorage.getItem('app_language');
+      if (storedLang) return normalize(storedLang);
+
       const urlLang = new URLSearchParams(window.location.search).get('lang');
       if (urlLang && LANGS.includes(normalize(urlLang))) {
         const normalizedUrlLang = normalize(urlLang);
         localStorage.setItem('app_language', normalizedUrlLang);
         return normalizedUrlLang;
       }
-      return normalize(localStorage.getItem('app_language') || detectTelegramLanguage());
+
+      return normalize(detectTelegramLanguage());
     } catch (_) {
       return 'ru';
     }
@@ -201,7 +205,9 @@
 
   function setLang(lang) {
     const next = normalize(lang);
-    try { localStorage.setItem('app_language', next); } catch (_) {}
+    try {
+      localStorage.setItem('app_language', next);
+    } catch (_) {}
     apply(document);
     window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang: next } }));
   }
@@ -262,7 +268,11 @@
       target_username_placeholder: 'Введите Telegram username, например @username',
       target_id_placeholder: 'Введите ID',
       default_description: 'Моментальная цифровая выдача',
-      target_region: 'Регион'
+      target_region: 'Регион',
+      open: 'Открыть',
+      player: 'Игрок',
+      items_count: '{count} товаров',
+      cart_items_summary: '{positions} поз. • {quantity} тов.'
     },
     en: {
       kadi_tagline: 'TOP UP. PLAY MORE.',
@@ -317,7 +327,11 @@
       target_username_placeholder: 'Enter Telegram username, e.g. @username',
       target_id_placeholder: 'Enter ID',
       default_description: 'Instant digital delivery',
-      target_region: 'Region'
+      target_region: 'Region',
+      open: 'Open',
+      player: 'Player',
+      items_count: '{count} items',
+      cart_items_summary: '{positions} items • {quantity} pcs'
     },
     uz: {
       kadi_tagline: 'TOP UP. PLAY MORE.',
@@ -372,7 +386,11 @@
       target_username_placeholder: 'Telegram usernameni kiriting, masalan @username',
       target_id_placeholder: 'ID kiriting',
       default_description: 'Tez raqamli yetkazib berish',
-      target_region: 'Hudud'
+      target_region: 'Hudud',
+      open: 'Ochish',
+      player: 'O‘yinchi',
+      items_count: '{count} ta mahsulot',
+      cart_items_summary: '{positions} poz. • {quantity} dona'
     }
   };
   for (const lang of LANGS) Object.assign(dict[lang], extra[lang] || {});

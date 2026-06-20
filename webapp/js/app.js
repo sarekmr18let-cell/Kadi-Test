@@ -387,7 +387,7 @@ function renderCategories(categories) {
         <div class="category-card" data-category="${cat.id}">
             <div class="icon">${categoryIconVisual(cat)}</div>
             <div class="name">${escapeHtml(cat.name)}</div>
-            <div class="category-hint">Открыть</div>
+            <div class="category-hint">${tr('open')}</div>
         </div>
     `).join('');
     
@@ -1576,7 +1576,7 @@ function renderCartTargetSummary(item) {
     const bits = [];
     if (item.target_id) bits.push(`${escapeHtml(item.requirements?.target_id_label || 'ID')}: ${escapeHtml(item.target_id)}`);
     if (item.target_server) bits.push(`${escapeHtml(item.requirements?.target_server_label || 'Server')}: ${escapeHtml(item.target_server)}`);
-    if (item.target_region_label || item.target_region) bits.push(`${escapeHtml(item.requirements?.target_region_label || 'Регион')}: ${escapeHtml(item.target_region_label || item.target_region)}`);
+    if (item.target_region_label || item.target_region) bits.push(`${escapeHtml(item.requirements?.target_region_label || tr('target_region'))}: ${escapeHtml(item.target_region_label || item.target_region)}`);
     return bits.length ? `<div class="meta target-summary">${bits.join(' • ')}</div>` : '';
 }
 
@@ -1658,7 +1658,7 @@ function cartProductVisual(item = {}, productName = '', imageUrl = '') {
 function formatCartItemsCount(items = []) {
     const positions = items.length;
     const quantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    return `${positions} поз. • ${quantity} тов.`;
+    return tr('cart_items_summary', { positions, quantity });
 }
 
 // ===== Cart =====
@@ -1774,7 +1774,7 @@ function loadCartPage() {
         const targetIdLabel = item.requirements?.target_id_label || 'ID';
         const serverLabel = item.requirements?.target_server_label || 'Server';
         const targetLine = [item.target_id, item.target_server ? `${serverLabel}: ${item.target_server}` : ''].filter(Boolean).join(' • ');
-        const regionLabel = item.requirements?.target_region_label || 'Регион';
+        const regionLabel = item.requirements?.target_region_label || tr('target_region');
         const regionLine = item.target_region_label || item.target_region || '';
         const itemTotal = Number(item.price || 0) * Number(item.quantity || 0);
 
@@ -1803,12 +1803,12 @@ function loadCartPage() {
 
                     <div class="cart-meta-grid">
                         ${renderCartMetaRow(targetIdLabel, targetLine)}
-                        ${renderCartMetaRow('Игрок', item.verified_target_name, 'is-verified')}
+                        ${renderCartMetaRow(tr('player'), item.verified_target_name, 'is-verified')}
                         ${renderCartMetaRow(regionLabel, regionLine)}
                     </div>
 
                     <div class="cart-item-footer">
-                        <span>Сумма</span>
+                        <span>${tr('subtotal')}</span>
                         <div class="price">${formatMoney(itemTotal, 'UZS')}</div>
                     </div>
                 </div>
@@ -1825,10 +1825,10 @@ function loadCartPage() {
     summary.innerHTML = `
         <div class="cart-summary-head">
             <div>
-                <div class="cart-summary-kicker">Checkout</div>
+                <div class="cart-summary-kicker">${tr('checkout')}</div>
                 <h2>${tr('total')}</h2>
             </div>
-            <span id="cart-items-count" class="cart-summary-count">0 товаров</span>
+            <span id="cart-items-count" class="cart-summary-count">${itemsCountLabel}</span>
         </div>
         <div class="summary-row cart-summary-subtotal">
             <span>${tr('subtotal')}</span>
@@ -4345,14 +4345,14 @@ function startTimer(topup) {
     let waitTimer = null;
 
     function paidText() {
-        const lang = (localStorage.getItem('lang') || document.documentElement.lang || 'ru').toLowerCase();
+        const lang = (window.I18N?.getLang?.() || document.documentElement.lang || 'ru').toLowerCase();
         if (lang.startsWith('uz')) return "To‘lov qildim";
         if (lang.startsWith('en')) return "I paid";
         return "Я оплатил";
     }
 
     function waitText() {
-        const lang = (localStorage.getItem('lang') || document.documentElement.lang || 'ru').toLowerCase();
+        const lang = (window.I18N?.getLang?.() || document.documentElement.lang || 'ru').toLowerCase();
         if (lang.startsWith('uz')) return "To‘lov tasdig‘i kutilmoqda...";
         if (lang.startsWith('en')) return "Waiting for payment confirmation...";
         return "Ожидаем подтверждение оплаты...";
