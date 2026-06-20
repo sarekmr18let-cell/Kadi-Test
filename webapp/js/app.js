@@ -4609,13 +4609,20 @@ function startTimer(topup) {
     let waitTimer = null;
 
     function isPaymentScreen() {
-        const text = document.body.innerText || '';
-        return /HUMO|UZCARD/i.test(text)
-            && /Сумма к оплате|Сумма перевода|UZS/i.test(text)
-            && /Отменить пополнение/i.test(text);
+        const overlay = document.getElementById('kadi-pay-v12');
+        const root = overlay || document;
+        return !!(
+            root.querySelector('.k12-pay-panel') &&
+            root.querySelector('.k12-pay-amount') &&
+            root.querySelector('.k12-pay-card-row') &&
+            (root.querySelector('#k12-paid') || root.querySelector('#k12-cancel'))
+        );
     }
 
     function findCancelButton() {
+        const k12Cancel = document.getElementById('k12-cancel');
+        if (k12Cancel) return k12Cancel;
+
         const buttons = Array.from(document.querySelectorAll('button'));
         return buttons.find(btn => /Отменить пополнение|Отменить/i.test(btn.innerText || ''));
     }
@@ -4771,10 +4778,13 @@ function startTimer(topup) {
     }
 
     function isPayScreenVisible() {
-        const text = document.body.innerText || '';
-        return /HUMO|UZCARD/i.test(text)
-            && /Сумма к оплате|Сумма перевода|UZS/i.test(text)
-            && /Отменить пополнение/i.test(text);
+        const overlay = document.getElementById('kadi-pay-v12');
+        if (!overlay) return false;
+
+        return !!(
+            overlay.querySelector('.k12-pay-panel') &&
+            (overlay.querySelector('#k12-paid') || overlay.querySelector('#k12-cancel'))
+        );
     }
 
     function closePayOverlay() {
