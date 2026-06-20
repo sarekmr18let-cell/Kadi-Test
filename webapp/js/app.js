@@ -3622,7 +3622,7 @@ function initEventListeners() {
     
     const openSupport = () => {
         if (tg) {
-            const SUPPORT_USERNAME = state.user?.support_username || 'your_support';
+            const SUPPORT_USERNAME = state.user?.support_username || 'kadiiita';
             tg.openTelegramLink(`https://t.me/${SUPPORT_USERNAME}`);
         }
     };
