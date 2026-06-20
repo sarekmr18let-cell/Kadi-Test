@@ -2147,31 +2147,31 @@ function getHistoryStatusLabel(status, type = 'order') {
     const s = String(status || '').toLowerCase();
 
     const orderLabels = {
-        paid: 'Оплачен',
-        completed: 'Выполнен',
-        done: 'Выполнен',
-        pending: 'Ожидание',
-        awaiting_payment: 'Ожидание',
-        checking: 'Проверка',
-        payment_submitted: 'Проверка',
-        failed: 'Ошибка',
-        cancelled: 'Отменён',
-        refunded: 'Возврат',
-        processing: 'В работе'
+        paid: tr('paid'),
+        completed: tr('completed'),
+        done: tr('completed'),
+        pending: tr('pending'),
+        awaiting_payment: tr('pending'),
+        checking: tr('checking'),
+        payment_submitted: tr('checking'),
+        failed: tr('failed'),
+        cancelled: tr('cancelled'),
+        refunded: tr('refunded'),
+        processing: tr('processing')
     };
 
     const topupLabels = {
-        paid: 'Пополнен',
-        completed: 'Пополнен',
-        done: 'Пополнен',
-        pending: 'Ожидание',
-        awaiting_payment: 'Ожидание',
-        checking: 'Проверка',
-        payment_submitted: 'Проверка',
-        failed: 'Ошибка',
-        cancelled: 'Отменён',
-        expired: 'Истёк',
-        rejected: 'Отклонён'
+        paid: tr('topup_paid'),
+        completed: tr('topup_paid'),
+        done: tr('topup_paid'),
+        pending: tr('pending'),
+        awaiting_payment: tr('pending'),
+        checking: tr('checking'),
+        payment_submitted: tr('checking'),
+        failed: tr('failed'),
+        cancelled: tr('cancelled'),
+        expired: tr('expired'),
+        rejected: tr('rejected')
     };
 
     const labels = type === 'topup' ? topupLabels : orderLabels;
@@ -2361,7 +2361,7 @@ function renderOrders(tabOrOrders = 'orders', filter = null) {
         const topups = state.topups || [];
 
         if (!topups.length) {
-            container.innerHTML = `<div class="text-center history-empty">Пополнений пока нет</div>`;
+            container.innerHTML = `<div class="text-center history-empty">${tr('no_topups')}</div>`;
             return;
         }
 
@@ -2375,7 +2375,7 @@ function renderOrders(tabOrOrders = 'orders', filter = null) {
                     <div class="history-card-main history-card-main-with-icon">
                         ${getOrderHistoryIcon(topup, 'topup')}
                         <div class="history-card-copy">
-                            <div class="history-card-title">Пополнение баланса</div>
+                            <div class="history-card-title">${tr('balance_topup')}</div>
                             <div class="items history-card-subtitle">${escapeHtml(date || '—')}</div>
                         </div>
                         <div class="total">${formatMoney(amount, 'UZS')}</div>
@@ -3813,7 +3813,7 @@ window.closeModal = closeModal;
     function header(back) {
         return `
             <div class="k12-header">
-                <button class="k12-pill" data-back="${back}">Назад</button>
+                <button class="k12-pill" data-back="${back}">${tr('back')}</button>
                 <div class="k12-brand">
                     <div class="k12-logo">K</div>
                     <div>
@@ -3846,13 +3846,13 @@ window.closeModal = closeModal;
 
                 <section class="k12-headline">
                     <div class="k12-eyebrow">KADI WALLET</div>
-                    <h1>Пополнение баланса</h1>
-                    <p>Введи сумму и получи свободную карту для оплаты.</p>
+                    <h1>${tr('topup_amount_title')}</h1>
+                    <p>${tr('topup_amount_subtitle')}</p>
                 </section>
 
                 <section class="k12-panel">
                     <div class="k12-field-top">
-                        <span>Сумма</span>
+                        <span>${tr('amount')}</span>
                         <b>UZS</b>
                     </div>
 
@@ -3869,12 +3869,12 @@ window.closeModal = closeModal;
                     </div>
 
                     <div class="k12-limits">
-                        <div><span>Минимум</span><b>3 000 UZS</b></div>
-                        <div><span>Максимум</span><b>2 000 000 UZS</b></div>
-                        <div><span>Время оплаты</span><b>5 минут</b></div>
+                        <div><span>${tr('minimum')}</span><b>3 000 UZS</b></div>
+                        <div><span>${tr('maximum')}</span><b>2 000 000 UZS</b></div>
+                        <div><span>${tr('payment_time')}</span><b>${tr('five_minutes')}</b></div>
                     </div>
 
-                    <button class="k12-main-btn" id="k12-next">Продолжить</button>
+                    <button class="k12-main-btn" id="k12-next">${tr('continue')}</button>
                     <div class="k12-error" id="k12-error"></div>
                 </section>
             </div>`;
@@ -3901,11 +3901,11 @@ window.closeModal = closeModal;
         el.querySelector('#k12-next').addEventListener('click', () => {
             const amount = parseAmount(input.value);
             if (amount < MIN_AMOUNT) {
-                error.textContent = 'Минимальная сумма: 3 000 UZS';
+                error.textContent = tr('min_amount_error', { amount: '3 000 UZS' });
                 return;
             }
             if (amount > MAX_AMOUNT) {
-                error.textContent = 'Максимальная сумма: 2 000 000 UZS';
+                error.textContent = tr('max_amount_error', { amount: '2 000 000 UZS' });
                 return;
             }
             flowAmount = amount;
@@ -3924,31 +3924,31 @@ window.closeModal = closeModal;
                 ${header('amount')}
 
                 <section class="k12-headline compact center">
-                    <h1>Способ пополнения</h1>
-                    <p>Выбери вариант оплаты. Сейчас активна оплата с карты.</p>
+                    <h1>${tr('topup_method_title')}</h1>
+                    <p>${tr('topup_method_subtitle')}</p>
                 </section>
 
                 <div class="k12-summary">
-                    <span>К оплате</span>
+                    <span>${tr('payable')}</span>
                     <b>${money(amount)}</b>
                 </div>
 
                 <section class="k12-method-grid">
                     <button class="k12-method active" data-method="card">
                         <div class="k12-method-icon">${icon('card')}</div>
-                        <b>С карты</b>
+                        <b>${tr('pay_by_card')}</b>
                     </button>
                     <button class="k12-method disabled" disabled>
                         <div class="k12-method-icon">${icon('atm')}</div>
-                        <b>Банкомат</b>
+                        <b>${tr('atm')}</b>
                     </button>
                     <button class="k12-method disabled wide" disabled>
                         <div class="k12-method-icon">${icon('support')}</div>
-                        <b>Через поддержку</b>
+                        <b>${tr('via_support')}</b>
                     </button>
                 </section>
 
-                <button class="k12-main-btn" id="k12-create">Продолжить</button>
+                <button class="k12-main-btn" id="k12-create">${tr('continue')}</button>
                 <div class="k12-error" id="k12-method-error"></div>
             </div>`;
 
@@ -3978,7 +3978,7 @@ window.closeModal = closeModal;
         const error = el.querySelector('#k12-method-error') || el.querySelector('#k12-error');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = 'Получаем карту...';
+            btn.textContent = tr('getting_card');
         }
         if (error) error.textContent = '';
 
@@ -4006,10 +4006,10 @@ window.closeModal = closeModal;
                 }
             } catch (_) {}
 
-            if (error) error.textContent = e?.message || 'Не удалось получить карту';
+            if (error) error.textContent = e?.message || tr('failed_get_card');
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = 'Продолжить';
+                btn.textContent = tr('continue');
             }
         }
     }
@@ -4029,7 +4029,7 @@ window.closeModal = closeModal;
 
                 <section class="k12-pay-panel">
                     <div class="k12-pay-timer">
-                        <span>Осталось</span>
+                        <span>${tr('time_left')}</span>
                         <b id="k12-timer">00:00</b>
                     </div>
 
@@ -4039,28 +4039,28 @@ window.closeModal = closeModal;
                             <div class="k12-card-number">${safe(formatCard(cardNumber))}</div>
                             <div class="k12-holder">${safe(holder || 'CARD HOLDER')}</div>
                         </div>
-                        <button class="k12-copy-btn" id="k12-copy-card">Копировать</button>
+                        <button class="k12-copy-btn" id="k12-copy-card">${tr('copy')}</button>
                     </div>
 
                     <div class="k12-pay-amount">
                         <div>
-                            <span>Сумма к оплате</span>
+                            <span>${tr('amount_to_pay')}</span>
                             <b>${money(amount)}</b>
                         </div>
-                        <button class="k12-copy-btn" id="k12-copy-amount">Копировать</button>
+                        <button class="k12-copy-btn" id="k12-copy-amount">${tr('copy')}</button>
                     </div>
 
                     <div class="k12-rules">
-                        <div class="k12-rules-title">Правила:</div>
-                        <p class="ok"><b>✓</b> Оплатить в течение 5 минут</p>
-                        <p class="ok"><b>✓</b> Отправить точно указанную сумму</p>
-                        <p class="bad"><b>×</b> Не оплачивать с банкомата</p>
-                        <p class="bad"><b>×</b> Не отправлять другую сумму</p>
+                        <div class="k12-rules-title">${tr('rules')}</div>
+                        <p class="ok"><b>✓</b> ${tr('pay_within_5_minutes')}</p>
+                        <p class="ok"><b>✓</b> ${tr('send_exact_amount')}</p>
+                        <p class="bad"><b>×</b> ${tr('do_not_pay_from_atm')}</p>
+                        <p class="bad"><b>×</b> ${tr('do_not_send_other_amount')}</p>
                     </div>
 
-                    <div class="k12-expired-note" id="k12-expired-note" hidden>Время оплаты истекло. Не оплачивайте эту карту — создайте новое пополнение.</div>
-                    <button class="k12-main-btn kadi-pay-paid-btn-v15" id="k12-paid" type="button">Я оплатил</button>
-                    <button class="k12-cancel" id="k12-cancel">Отменить пополнение</button>
+                    <div class="k12-expired-note" id="k12-expired-note" hidden>${tr('payment_expired_note')}</div>
+                    <button class="k12-main-btn kadi-pay-paid-btn-v15" id="k12-paid" type="button">${tr('i_paid')}</button>
+                    <button class="k12-cancel" id="k12-cancel">${tr('cancel_topup')}</button>
                 </section>
             </div>`;
 
@@ -4119,14 +4119,14 @@ function startTimer(topup) {
         function setExpiredState() {
             el.classList.add('k12-topup-expired');
 
-            if (timerLabel) timerLabel.textContent = 'Статус';
-            if (timerEl) timerEl.textContent = 'Время истекло';
+            if (timerLabel) timerLabel.textContent = tr('status');
+            if (timerEl) timerEl.textContent = tr('time_expired');
             if (expiredNote) expiredNote.hidden = false;
-            if (cancelBtn) cancelBtn.textContent = 'Назад к сумме';
+            if (cancelBtn) cancelBtn.textContent = tr('back_to_amount');
 
             el.querySelectorAll('.kadi-pay-paid-btn-v15, .kadi-paid-btn, .kadi-paid-btn-v13, #k12-paid').forEach(btn => {
                 btn.disabled = true;
-                btn.textContent = 'Время истекло';
+                btn.textContent = tr('time_expired');
             });
         }
 
@@ -4140,7 +4140,7 @@ function startTimer(topup) {
             }
 
             el.classList.remove('k12-topup-expired');
-            if (timerLabel) timerLabel.textContent = 'Осталось';
+            if (timerLabel) timerLabel.textContent = tr('time_left');
             if (timerEl) timerEl.textContent = mmss(secondsLeft);
             if (expiredNote) expiredNote.hidden = true;
         }
@@ -4394,17 +4394,11 @@ function startTimer(topup) {
     let waitTimer = null;
 
     function paidText() {
-        const lang = (window.I18N?.getLang?.() || document.documentElement.lang || 'ru').toLowerCase();
-        if (lang.startsWith('uz')) return "To‘lov qildim";
-        if (lang.startsWith('en')) return "I paid";
-        return "Я оплатил";
+        return tr('i_paid');
     }
 
     function waitText() {
-        const lang = (window.I18N?.getLang?.() || document.documentElement.lang || 'ru').toLowerCase();
-        if (lang.startsWith('uz')) return "To‘lov tasdig‘i kutilmoqda...";
-        if (lang.startsWith('en')) return "Waiting for payment confirmation...";
-        return "Ожидаем подтверждение оплаты...";
+        return tr('waiting_confirmation');
     }
 
     function insertPaidButton() {
@@ -4440,8 +4434,8 @@ function startTimer(topup) {
         const notice = document.createElement('div');
         notice.className = 'kadi-paid-wait-v13';
         notice.innerHTML = `
-            <b>Проверяем оплату</b>
-            <span>Обычно это занимает 10–60 секунд. Баланс зачислится автоматически после уведомления банка.</span>
+            <b>${tr('checking_payment_title')}</b>
+            <span>${tr('checking_payment_hint')}</span>
         `;
         box.prepend(notice);
     }
@@ -4637,7 +4631,7 @@ function startTimer(topup) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'kadi-pay-paid-btn-v15';
-        btn.textContent = 'Я оплатил';
+        btn.textContent = tr('i_paid');
         btn.onclick = function () {
             waitForPayment();
         };
@@ -4654,8 +4648,8 @@ function startTimer(topup) {
         const block = document.createElement('div');
         block.className = 'kadi-pay-wait-v15';
         block.innerHTML = `
-            <b>Проверяем оплату</b>
-            <span>Обычно это занимает 10–60 секунд. После подтверждения баланс обновится автоматически.</span>
+            <b>${tr('checking_payment_title')}</b>
+            <span>${tr('checking_payment_hint')}</span>
         `;
 
         cancelBtn.parentNode.insertBefore(block, cancelBtn);
@@ -4664,7 +4658,7 @@ function startTimer(topup) {
     function setWaiting(waiting) {
         document.querySelectorAll('.kadi-pay-paid-btn-v15').forEach(btn => {
             btn.disabled = waiting;
-            btn.textContent = waiting ? 'Ожидаем подтверждение...' : 'Я оплатил';
+            btn.textContent = waiting ? tr('waiting_confirmation') : tr('i_paid');
         });
     }
 
@@ -5146,4 +5140,3 @@ loadProfilePage = async function(...args) {
     setTimeout(kadiRemoveEmptyProfileHistoryCard, 300);
     return result;
 };
-
