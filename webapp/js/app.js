@@ -2010,19 +2010,59 @@ function renderOrders(tabOrOrders = 'orders', filter = null) {
 async function openOrderDetail(orderId) {
     const order = state.orders.find(o => o.id === orderId);
     if (!order) return;
-    
+
     const content = document.getElementById('order-detail-content');
-    const statusEmojis = {
-        'created': '🆕',
-        'awaiting_payment': '⏳',
-        'payment_submitted': '🧾',
-        'paid': '✅',
-        'processing': '🔄',
-        'completed': '🎉',
-        'cancelled': '❌',
-        'refunded': '💰',
+    const firstItem = getOrderFirstItem(order) || {};
+    const statusClass = getHistoryStatusClass(order.status);
+    const statusLabel = getHistoryStatusLabel(order.status, 'order');
+    const orderNumber = getOrderDisplayNumber(order);
+    const productName = getOrderProductName(order);
+    const variationName = getOrderVariationName(order);
+    const quantity = Number(firstItem.quantity || firstItem.qty || 0);
+    const unitPrice = Number(firstItem.unit_price || firstItem.price || firstItem.variation?.price || 0);
+    const itemTotal = Number(
+        firstItem.total_price ??
+        firstItem.total_amount ??
+        (unitPrice && quantity ? unitPrice * quantity : 0)
+    );
+    const discountAmount = Number(order.discount_amount || 0);
+    const totalAmount = Number(order.total_amount || 0);
+    const subtotalAmount = Number(order.subtotal_amount || (totalAmount + discountAmount));
+    const createdAt = order.created_at ? new Date(order.created_at).toLocaleString() : '—';
+
+    const recipient = {
+        nickname: order.verified_target_name ||
+            order.target_name ||
+            order.player_name ||
+            firstItem.verified_target_name ||
+            firstItem.target_name ||
+            '',
+        targetId: order.target_id ||
+            order.game_id ||
+            firstItem.target_id ||
+            firstItem.game_id ||
+            '',
+        targetServer: order.target_server ||
+            order.server_id ||
+            firstItem.target_server ||
+            firstItem.server_id ||
+            '',
+        targetRegion: order.target_region_label ||
+            order.target_region ||
+            firstItem.target_region_label ||
+            firstItem.target_region ||
+            ''
     };
-    
+
+    const hasRecipient = Object.values(recipient).some(Boolean);
+
+    const renderDetailRow = (label, value, extraClass = '') => value ? `
+        <div class="order-detail-info-row ${extraClass}">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(value)}</strong>
+        </div>
+    ` : '';
+
     let p2pSession = null;
     if (order.status === 'awaiting_payment' || order.status === 'payment_submitted') {
         try {
@@ -2031,85 +2071,128 @@ async function openOrderDetail(orderId) {
             console.error('P2P session load error:', e);
         }
     }
+
     content.innerHTML = `
-        <div class="order-detail-header">
-            <div class="status-badge status-${order.status}">${statusEmojis[order.status] || '📦'} ${escapeHtml(order.status).replace('_', ' ')}</div>
-            <div class="order-number">Order #${escapeHtml(order.order_number)}</div>
-            <div class="order-date">${new Date(order.created_at).toLocaleString()}</div>
-        </div>
-        
-        <div class="order-items-list">
-            ${order.items?.map(item => `
-                <div class="order-item-detail">
-                    <span>${item.variation?.name || tr('product')}</span>
-                    <span>${formatMoney(item.total_price, 'UZS')}</span>
+        <div class="order-detail-shell">
+            <section class="order-detail-card order-detail-header-card">
+                <div class="order-detail-header-copy">
+                    <div class="order-detail-kicker">Детали заказа</div>
+                    <h1>Заказ ${escapeHtml(orderNumber || `#${order.id || ''}`)}</h1>
+                    <div class="order-detail-date">${escapeHtml(createdAt)}</div>
                 </div>
-            `).join('') || ''}
-        </div>
-        
-        ${(order.status === 'awaiting_payment' || order.status === 'payment_submitted') ? `
-            ${p2pSession ? renderP2PSession(p2pSession) : `
-            <div class="payment-instructions">
-                <h3>${tr('complete_payment')}</h3>
-                <div class="amount">${formatMoney(order.total_amount, 'UZS')}</div>
-                <div class="details">
-                    <p>No active payment card is assigned. Try refreshing this order or contact support.</p>
-                    <p><strong>Order ID:</strong> ${escapeHtml(order.order_number)}</p>
+                <div class="status status-${statusClass} order-detail-status">${escapeHtml(statusLabel)}</div>
+            </section>
+
+            <section class="order-detail-card order-detail-product-card">
+                <div class="order-detail-product-main">
+                    ${getOrderHistoryIcon(order, 'order')}
+                    <div class="order-detail-product-copy">
+                        <div class="order-detail-product-title">${escapeHtml(productName)}</div>
+                        ${variationName ? `<div class="order-detail-product-subtitle">${escapeHtml(variationName)}</div>` : ''}
+                    </div>
                 </div>
-            </div>`}
-            <div class="action-buttons">
-                <button class="btn-primary" id="check-payment-btn">${tr('check_payment')}</button>
-                <button class="btn-secondary" id="mark-paid-btn">${tr('manual_check')}</button>
-            </div>
-        ` : ''}
-        
-        <div class="checkout-summary">
-            <div class="summary-row">
-                <span>${tr('subtotal')}</span>
-                <span>${formatMoney(order.total_amount + (order.discount_amount || 0), 'UZS')}</span>
-            </div>
-            ${order.discount_amount ? `
-                <div class="summary-row">
-                    <span>${tr('discount')}</span>
-                    <span>-${formatMoney(order.discount_amount, 'UZS')}</span>
+
+                <div class="order-detail-product-meta">
+                    ${quantity ? `
+                        <div class="order-detail-info-row">
+                            <span>Количество</span>
+                            <strong>${escapeHtml(String(quantity))}</strong>
+                        </div>
+                    ` : ''}
+                    ${unitPrice ? `
+                        <div class="order-detail-info-row">
+                            <span>Цена</span>
+                            <strong>${formatMoney(unitPrice, 'UZS')}</strong>
+                        </div>
+                    ` : ''}
+                    <div class="order-detail-info-row order-detail-info-row-total">
+                        <span>Сумма товара</span>
+                        <strong>${formatMoney(itemTotal || totalAmount, 'UZS')}</strong>
+                    </div>
+                </div>
+            </section>
+
+            ${hasRecipient ? `
+                <section class="order-detail-card order-detail-recipient-card">
+                    <div class="order-detail-section-title">Получатель</div>
+                    <div class="order-detail-recipient-list">
+                        ${renderDetailRow('Игрок', recipient.nickname, 'is-verified')}
+                        ${renderDetailRow('User ID / Game ID', recipient.targetId)}
+                        ${renderDetailRow('Server ID', recipient.targetServer)}
+                        ${renderDetailRow('Регион', recipient.targetRegion)}
+                    </div>
+                </section>
+            ` : ''}
+
+            ${(order.status === 'awaiting_payment' || order.status === 'payment_submitted') ? `
+                <div class="order-detail-payment-block">
+                    ${p2pSession ? renderP2PSession(p2pSession) : `
+                    <div class="payment-instructions">
+                        <h3>${tr('complete_payment')}</h3>
+                        <div class="amount">${formatMoney(order.total_amount, 'UZS')}</div>
+                        <div class="details">
+                            <p>Активная карта для оплаты не назначена. Обновите заказ или обратитесь в поддержку.</p>
+                            <p><strong>Заказ:</strong> ${escapeHtml(order.order_number || order.id || '')}</p>
+                        </div>
+                    </div>`}
+                    <div class="action-buttons">
+                        <button class="btn-primary" id="check-payment-btn">${tr('check_payment')}</button>
+                        <button class="btn-secondary" id="mark-paid-btn">${tr('manual_check')}</button>
+                    </div>
                 </div>
             ` : ''}
-            <div class="summary-row total">
-                <span>${tr('total')}</span>
-                <span>${formatMoney(order.total_amount, 'UZS')}</span>
-            </div>
+
+            <section class="order-detail-card order-detail-summary-card">
+                <div class="order-detail-section-title">Оплата</div>
+                <div class="order-detail-info-row">
+                    <span>Сумма</span>
+                    <strong>${formatMoney(subtotalAmount, 'UZS')}</strong>
+                </div>
+                ${discountAmount > 0 ? `
+                    <div class="order-detail-info-row order-detail-discount-row">
+                        <span>Скидка</span>
+                        <strong>-${formatMoney(discountAmount, 'UZS')}</strong>
+                    </div>
+                ` : ''}
+                <div class="order-detail-info-row order-detail-grand-total">
+                    <span>Итого</span>
+                    <strong>${formatMoney(totalAmount, 'UZS')}</strong>
+                </div>
+            </section>
         </div>
     `;
-    
+
     document.getElementById('order-detail-back').addEventListener('click', () => navigateTo('orders'));
-    
+
     const checkPaymentBtn = document.getElementById('check-payment-btn');
     if (checkPaymentBtn) {
         checkPaymentBtn.addEventListener('click', async () => {
             showToast('info', tr('checking_payment_status'));
             await loadOrdersPage();
-            navigateTo('orders');
         });
     }
 
-    // Manual check request. This does not auto-confirm money.
     const markPaidBtn = document.getElementById('mark-paid-btn');
     if (markPaidBtn) {
         markPaidBtn.addEventListener('click', async () => {
             try {
-                await api('POST', `/orders/${order.id}/pay`, {
-                    payment_method: 'p2p_manual_check',
-                    payment_amount: p2pSession?.assigned_amount || order.total_amount,
-                });
-                showToast('success', tr('sent_manual_check'));
-                loadOrdersPage();
-                navigateTo('orders');
-            } catch (error) {
-                showToast('error', tr('failed_submit_payment'));
+                markPaidBtn.disabled = true;
+                markPaidBtn.textContent = tr('sending');
+
+                await api('POST', `/payments/p2p/submit/${order.id}`, {});
+                showToast('success', tr('payment_sent_for_check'));
+                await loadOrdersPage();
+                await openOrderDetail(order.id);
+            } catch (e) {
+                console.error('Manual payment submit error:', e);
+                showToast('error', e.message || tr('error'));
+            } finally {
+                markPaidBtn.disabled = false;
+                markPaidBtn.textContent = tr('manual_check');
             }
         });
     }
-    
+
     navigateTo('order-detail');
 }
 
