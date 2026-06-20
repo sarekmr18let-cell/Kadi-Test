@@ -9863,3 +9863,192 @@ body[data-current-page="product"] #page-product {
     width: 100% !important;
     text-align: center !important;
 }
+
+/* KADI_HISTORY_PRODUCT_FIRST_CARDS */
+#page-orders {
+    padding-bottom: calc(170px + env(safe-area-inset-bottom)) !important;
+}
+
+#page-orders .orders-list,
+#page-orders #orders-list {
+    gap: 10px !important;
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
+}
+
+#page-orders .history-card {
+    padding: 12px 13px !important;
+    margin-bottom: 8px !important;
+    border-radius: 18px !important;
+    background: linear-gradient(145deg, rgba(16, 25, 56, 0.88), rgba(8, 13, 33, 0.76)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+#page-orders .history-card-main {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+}
+
+#page-orders .history-card-copy {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+}
+
+#page-orders .history-card-title {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 15px !important;
+    line-height: 1.25 !important;
+    font-weight: 900 !important;
+    color: #fff !important;
+}
+
+#page-orders .history-card .items,
+#page-orders .history-card-subtitle {
+    margin: 3px 0 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+    color: rgba(255,255,255,0.55) !important;
+}
+
+#page-orders .history-card .total {
+    flex: 0 0 auto !important;
+    font-size: 15px !important;
+    line-height: 1.25 !important;
+    font-weight: 900 !important;
+    color: var(--neon-green) !important;
+    white-space: nowrap !important;
+    text-align: right !important;
+}
+
+#page-orders .history-card-meta {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    margin-top: 8px !important;
+}
+
+#page-orders .history-card-order-id {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+    font-weight: 800 !important;
+    color: rgba(255,255,255,0.46) !important;
+}
+
+#page-orders .history-card .order-number {
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+    font-weight: 800 !important;
+    color: rgba(255,255,255,0.48) !important;
+}
+
+#page-orders .history-card .status {
+    flex: 0 0 auto !important;
+    padding: 6px 10px !important;
+    border-radius: 999px !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+}
+
+
+/* KADI_HISTORY_PRODUCT_ICONS */
+#page-orders .history-card-main-with-icon {
+    display: grid !important;
+    grid-template-columns: 46px minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+#page-orders .history-card-icon {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 15px !important;
+    flex: 0 0 44px !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 10px 22px rgba(0,0,0,.24) !important;
+}
+
+#page-orders .history-card-icon svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+}
+
+#page-orders .history-card-icon svg rect {
+    stroke: rgba(255,255,255,.18);
+    stroke-width: 1.2;
+}
+
+#page-orders .history-card-icon-topup {
+    background: radial-gradient(circle at 35% 25%, rgba(52, 211, 153, .28), rgba(12, 18, 42, .95)) !important;
+    border: 1px solid rgba(52, 211, 153, .20) !important;
+}
+
+#page-orders .history-card-icon-topup svg rect {
+    fill: rgba(52, 211, 153, .10);
+}
+
+#page-orders .history-card-icon-topup svg path {
+    stroke: #34d399;
+    stroke-width: 3.2;
+    stroke-linecap: round;
+}
+
+#page-orders .history-card-icon-mlbb {
+    background: radial-gradient(circle at 35% 25%, rgba(53, 215, 255, .24), rgba(12, 18, 42, .95)) !important;
+    border: 1px solid rgba(53, 215, 255, .20) !important;
+}
+
+#page-orders .history-card-icon-default {
+    background: linear-gradient(135deg, rgba(53,215,255,.20), rgba(168,85,247,.20)) !important;
+    border: 1px solid rgba(130,180,255,.16) !important;
+}
+
+#page-orders .history-card-icon-default span {
+    color: #dff9ff !important;
+    font-size: 18px !important;
+    font-weight: 1000 !important;
+}
+
+#page-orders .history-card-main-with-icon .history-card-copy {
+    min-width: 0 !important;
+}
+
+#page-orders .history-card-main-with-icon .total {
+    align-self: start !important;
+    padding-top: 2px !important;
+}
+
+@media (max-width: 380px) {
+    #page-orders .history-card-main-with-icon {
+        grid-template-columns: 42px minmax(0, 1fr) !important;
+    }
+
+    #page-orders .history-card-main-with-icon .total {
+        grid-column: 2 !important;
+        text-align: left !important;
+        padding-top: 0 !important;
+    }
+
+    #page-orders .history-card-icon {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 14px !important;
+    }
+}

@@ -1776,6 +1776,106 @@ function getOrderItemsLabel(count) {
     if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return `${n} товара`;
     return `${n} товаров`;
 }
+
+function getOrderFirstItem(order = {}) {
+    return Array.isArray(order.items) && order.items.length ? order.items[0] : null;
+}
+
+function getOrderVariationName(order = {}) {
+    const item = getOrderFirstItem(order);
+    if (!item) return '';
+
+    return String(
+        item.variation?.name ||
+        item.variation_name ||
+        item.name ||
+        ''
+    ).trim();
+}
+
+function getOrderProductName(order = {}) {
+    const item = getOrderFirstItem(order);
+    const variationName = getOrderVariationName(order);
+
+    const productName = String(
+        item?.product_name ||
+        item?.product?.name ||
+        order.product_name ||
+        order.product?.name ||
+        ''
+    ).trim();
+
+    if (productName) return productName;
+    if (/diamonds?/i.test(variationName)) return 'MLBB Diamonds';
+    if (/weekly|недель/i.test(variationName)) return 'MLBB Weekly Pass';
+
+    return 'Покупка';
+}
+
+function getOrderPackageLine(order = {}, count = 0, date = '') {
+    const parts = [];
+    const variationName = getOrderVariationName(order);
+
+    if (variationName) parts.push(variationName);
+    if (Number(count || 0) > 1) parts.push(getOrderItemsLabel(count));
+    if (date) parts.push(date);
+
+    return parts.join(' • ');
+}
+
+function getOrderDisplayNumber(order = {}) {
+    const value = order.order_number || order.id || '';
+    return value ? `#${value}` : '';
+}
+
+
+function getOrderHistoryIcon(order = {}, type = 'order') {
+    if (type === 'topup') {
+        return `
+            <div class="history-card-icon history-card-icon-topup" aria-hidden="true">
+                <svg viewBox="0 0 48 48">
+                    <rect x="1" y="1" width="46" height="46" rx="15"></rect>
+                    <path d="M24 14v20M14 24h20"></path>
+                </svg>
+            </div>
+        `;
+    }
+
+    const productName = typeof getOrderProductName === 'function' ? getOrderProductName(order) : '';
+    const variationName = typeof getOrderVariationName === 'function' ? getOrderVariationName(order) : '';
+    const label = `${productName} ${variationName}`.toLowerCase();
+
+    if (label.includes('diamond') || label.includes('mlbb') || label.includes('mobile legends')) {
+        return `
+            <div class="history-card-icon history-card-icon-mlbb" aria-hidden="true">
+                <svg viewBox="0 0 48 48">
+                    <defs>
+                        <linearGradient id="historyMlbbBg" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#36d9ff"/>
+                            <stop offset="55%" stop-color="#6766ff"/>
+                            <stop offset="100%" stop-color="#111633"/>
+                        </linearGradient>
+                        <linearGradient id="historyDiamond" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="42%" stop-color="#67e8f9"/>
+                            <stop offset="100%" stop-color="#a855f7"/>
+                        </linearGradient>
+                    </defs>
+                    <rect x="1" y="1" width="46" height="46" rx="15" fill="url(#historyMlbbBg)"></rect>
+                    <path d="M13 19l6-8h10l6 8-11 17z" fill="url(#historyDiamond)" stroke="rgba(255,255,255,.78)" stroke-width="1.7"></path>
+                    <path d="M13 19h22M19 11l5 25M29 11l-5 25" stroke="rgba(8,14,36,.38)" stroke-width="1.35"></path>
+                </svg>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="history-card-icon history-card-icon-default" aria-hidden="true">
+            <span>K</span>
+        </div>
+    `;
+}
+
 // KADI_HISTORY_TWO_TABS_JS_V1_END
 
 async function loadOrdersPage() {
@@ -1848,14 +1948,16 @@ function renderOrders(tabOrOrders = 'orders', filter = null) {
 
             return `
                 <div class="order-card history-card topup-card">
-                    <div class="history-card-main">
-                        <div>
-                            <div class="order-number">Пополнение #${escapeHtml(topup.id || '')}</div>
-                            <div class="items">${date}</div>
+                    <div class="history-card-main history-card-main-with-icon">
+                        ${getOrderHistoryIcon(topup, 'topup')}
+                        <div class="history-card-copy">
+                            <div class="history-card-title">Пополнение баланса</div>
+                            <div class="items history-card-subtitle">${escapeHtml(date || '—')}</div>
                         </div>
                         <div class="total">${formatMoney(amount, 'UZS')}</div>
                     </div>
                     <div class="history-card-meta">
+                        <div class="history-card-order-id">#${escapeHtml(topup.id || '')}</div>
                         <div class="status status-${status}">${escapeHtml(getHistoryStatusLabel(topup.status, 'topup'))}</div>
                     </div>
                 </div>
@@ -1876,17 +1978,22 @@ function renderOrders(tabOrOrders = 'orders', filter = null) {
         const status = getHistoryStatusClass(order.status);
         const count = order.items?.length || 0;
         const date = getHistoryDate(order.created_at);
+        const productName = getOrderProductName(order);
+        const packageLine = getOrderPackageLine(order, count, date);
+        const orderNumber = getOrderDisplayNumber(order);
 
         return `
             <div class="order-card history-card" data-id="${order.id}">
-                <div class="history-card-main">
-                    <div>
-                        <div class="order-number">#${escapeHtml(order.order_number || order.id || '')}</div>
-                        <div class="items">${getOrderItemsLabel(count)} • ${date}</div>
+                <div class="history-card-main history-card-main-with-icon">
+                    ${getOrderHistoryIcon(order, 'order')}
+                    <div class="history-card-copy">
+                        <div class="history-card-title">${escapeHtml(productName)}</div>
+                        <div class="items history-card-subtitle">${escapeHtml(packageLine)}</div>
                     </div>
                     <div class="total">${formatMoney(order.total_amount || 0, 'UZS')}</div>
                 </div>
                 <div class="history-card-meta">
+                    <div class="history-card-order-id">${escapeHtml(orderNumber)}</div>
                     <div class="status status-${status}">${escapeHtml(getHistoryStatusLabel(order.status, 'order'))}</div>
                 </div>
             </div>
