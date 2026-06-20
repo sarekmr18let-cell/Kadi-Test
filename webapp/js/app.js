@@ -292,6 +292,9 @@ function navigateTo(page, data = null) {
         case 'admin':
             loadAdminPage();
             break;
+        case 'legal':
+            renderLegalList();
+            break;
     }
     
     // Scroll to top
@@ -3645,12 +3648,80 @@ function initEventListeners() {
 
 
 
+// ===== KADI Legal / Rules & Policies =====
+const KADI_LEGAL_DOCS = [
+    { id: 'privacy', icon: '🔐', title: 'legal_privacy_title', desc: 'legal_privacy_desc', sections: [['legal_privacy_s1_title','legal_privacy_s1_body'], ['legal_privacy_s2_title','legal_privacy_s2_body'], ['legal_privacy_s3_title','legal_privacy_s3_body']] },
+    { id: 'terms', icon: '📜', title: 'legal_terms_title', desc: 'legal_terms_desc', sections: [['legal_terms_s1_title','legal_terms_s1_body'], ['legal_terms_s2_title','legal_terms_s2_body'], ['legal_terms_s3_title','legal_terms_s3_body']] },
+    { id: 'payment', icon: '💳', title: 'legal_payment_title', desc: 'legal_payment_desc', sections: [['legal_payment_s1_title','legal_payment_s1_body'], ['legal_payment_s2_title','legal_payment_s2_body'], ['legal_payment_s3_title','legal_payment_s3_body']] },
+    { id: 'refund', icon: '↩️', title: 'legal_refund_title', desc: 'legal_refund_desc', sections: [['legal_refund_s1_title','legal_refund_s1_body'], ['legal_refund_s2_title','legal_refund_s2_body'], ['legal_refund_s3_title','legal_refund_s3_body']] },
+    { id: 'support', icon: '🎧', title: 'legal_support_title', desc: 'legal_support_desc', sections: [['legal_support_s1_title','legal_support_s1_body'], ['legal_support_s2_title','legal_support_s2_body'], ['legal_support_s3_title','legal_support_s3_body']] },
+    { id: 'disclaimer', icon: '⚠️', title: 'legal_disclaimer_title', desc: 'legal_disclaimer_desc', sections: [['legal_disclaimer_s1_title','legal_disclaimer_s1_body'], ['legal_disclaimer_s2_title','legal_disclaimer_s2_body'], ['legal_disclaimer_s3_title','legal_disclaimer_s3_body']] }
+];
+let kadiCurrentLegalDocId = null;
+
+function renderLegalList() {
+    const list = document.getElementById('legal-doc-list');
+    if (!list) return;
+    list.innerHTML = KADI_LEGAL_DOCS.map(doc => `
+        <button class="legal-doc-card" type="button" data-legal-doc="${doc.id}">
+            <span class="legal-doc-icon" aria-hidden="true">${doc.icon}</span>
+            <span class="legal-doc-copy">
+                <strong>${tr(doc.title)}</strong>
+                <em>${tr(doc.desc)}</em>
+            </span>
+            <span class="legal-doc-arrow" aria-hidden="true">›</span>
+        </button>
+    `).join('');
+}
+
+function openLegalDocument(docId) {
+    const doc = KADI_LEGAL_DOCS.find(item => item.id === docId) || KADI_LEGAL_DOCS[0];
+    kadiCurrentLegalDocId = doc.id;
+    const icon = document.getElementById('legal-document-icon');
+    const title = document.getElementById('legal-document-title');
+    const content = document.getElementById('legal-document-content');
+    if (icon) icon.textContent = doc.icon;
+    if (title) title.textContent = tr(doc.title);
+    if (content) {
+        content.innerHTML = doc.sections.map(([sectionTitle, sectionBody]) => `
+            <section class="legal-section-card">
+                <h2>${tr(sectionTitle)}</h2>
+                <p>${tr(sectionBody)}</p>
+            </section>
+        `).join('');
+    }
+    navigateTo('legal-document');
+}
+
+function initLegalPages() {
+    renderLegalList();
+    document.getElementById('profile-legal-btn')?.addEventListener('click', () => {
+        renderLegalList();
+        navigateTo('legal');
+    });
+    document.getElementById('legal-back-profile')?.addEventListener('click', () => navigateTo('profile'));
+    document.getElementById('legal-doc-back')?.addEventListener('click', () => navigateTo('legal'));
+    document.getElementById('legal-doc-list')?.addEventListener('click', event => {
+        const card = event.target.closest('[data-legal-doc]');
+        if (!card) return;
+        openLegalDocument(card.dataset.legalDoc);
+    });
+    window.addEventListener('languageChanged', () => {
+        renderLegalList();
+        if (state.currentPage === 'legal-document' && kadiCurrentLegalDocId) {
+            const current = kadiCurrentLegalDocId;
+            openLegalDocument(current);
+        }
+    });
+}
+
 // ===== Initialize =====
 function init() {
     initLanguageSwitcher();
     applyTranslations(document);
     initTelegram();
     initEventListeners();
+    initLegalPages();
     initSearch();
 }
 

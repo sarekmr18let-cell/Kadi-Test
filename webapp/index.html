@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=1782000001">
+    <link rel="stylesheet" href="css/style.css?v=1782000010">
 </head>
 <body>
     <div id="app">
@@ -429,6 +429,15 @@
                             </svg>
                         </button>
                     </div>
+
+                    <button class="profile-legal-entry" id="profile-legal-btn" type="button" aria-label="Rules and policies">
+                        <span class="profile-legal-entry-icon" aria-hidden="true">📄</span>
+                        <span class="profile-legal-entry-copy">
+                            <strong data-i18n="legal_profile_entry_title">📄 Правила и документы</strong>
+                            <em data-i18n="legal_profile_entry_desc">Политика, условия, оплата и возврат</em>
+                        </span>
+                        <span class="profile-legal-entry-arrow" aria-hidden="true">›</span>
+                    </button>
                     
                     <div id="admin-panel-btn" class="hidden">
                         <button class="menu-item admin-item" data-page="admin">
@@ -441,6 +450,36 @@
                     </div>
                 </div>
                 
+                <!-- Legal Policies Page -->
+                <div id="page-legal" class="page legal-page">
+                    <button class="legal-back-btn" id="legal-back-profile" type="button">
+                        <span aria-hidden="true">←</span>
+                        <span data-i18n="back">Назад</span>
+                    </button>
+                    <section class="legal-hero-card">
+                        <span class="legal-hero-kicker">KADI</span>
+                        <h1 data-i18n="legal_page_title">Правила и документы</h1>
+                        <p data-i18n="legal_page_subtitle">Короткие правила сервиса, оплаты, возвратов и поддержки внутри Mini App.</p>
+                    </section>
+                    <div class="legal-doc-list" id="legal-doc-list"></div>
+                </div>
+
+                <!-- Legal Document Page -->
+                <div id="page-legal-document" class="page legal-page legal-document-page">
+                    <button class="legal-back-btn" id="legal-doc-back" type="button">
+                        <span aria-hidden="true">←</span>
+                        <span data-i18n="back">Назад</span>
+                    </button>
+                    <section class="legal-document-hero">
+                        <span class="legal-document-icon" id="legal-document-icon" aria-hidden="true">📄</span>
+                        <div>
+                            <span class="legal-hero-kicker">KADI</span>
+                            <h1 id="legal-document-title">Правила и документы</h1>
+                        </div>
+                    </section>
+                    <div class="legal-document-content" id="legal-document-content"></div>
+                </div>
+
                 <!-- Админ-панель Page -->
                 <div id="page-admin" class="page">
                     <div class="admin-header">
@@ -542,7 +581,7 @@
         <div id="toast-container" class="toast-container"></div>
     </div>
     
-    <script src="js/i18n.js?v=1782000005"></script>
-    <script src="js/app.js?v=1782000006"></script>
+    <script src="js/i18n.js?v=1782000010"></script>
+    <script src="js/app.js?v=1782000010"></script>
 </body>
 </html>
