@@ -556,13 +556,38 @@ function renderProductDetail(product) {
         return allVariations.filter(v => getVariationRegion(v) === code);
     }
 
-    function requiresGameDropsVerify(variation) {
+    function getProductVerificationKey() {
+        const name = String(product.name || '').toLowerCase();
+        const meta = product.provider_meta || {};
+        const providerName = String(meta.game || meta.game_name || meta.slug || meta.code || '').toLowerCase();
+        const source = `${name} ${providerName}`;
+
+        if (source.includes('mobile legends') || source.includes('mlbb')) return 'mlbb';
+        if (source.includes('pubg')) return 'pubg';
+        if (source.includes('free fire')) return 'free_fire';
+        if (source.includes('genshin')) return 'genshin';
+        if (source.includes('magic chess')) return 'magic_chess';
+        if (source.includes('honor of kings')) return 'honor_of_kings';
+
+        return 'generic';
+    }
+
+    function supportsRealVerification(variation) {
         return !!(
+            getProductVerificationKey() === 'mlbb' &&
             variation &&
             variation.provider === 'gamedrops' &&
             variation.provider_variation_id &&
             product.requires_target_id &&
             product.requires_server_id
+        );
+    }
+
+    function canUseFallbackVerification() {
+        return getProductVerificationKey() !== 'mlbb' && (
+            product.requires_target_id ||
+            product.requires_server_id ||
+            product.requires_region
         );
     }
 
@@ -609,12 +634,14 @@ function renderProductDetail(product) {
                 </div>
             ` : ''}
 
-            ${product.requires_target_id && product.requires_server_id ? `
-                <button type="button" class="btn-secondary" id="verify-mlbb-btn" style="width:100%; margin-top:10px;">
-                    🔍 Проверить ID
-                </button>
+            ${(product.requires_target_id || product.requires_server_id || product.requires_region) ? `
+                ${getProductVerificationKey() === 'mlbb' ? `
+                    <button type="button" class="btn-secondary" id="verify-mlbb-btn" style="width:100%; margin-top:10px;">
+                        🔍 Проверить ID
+                    </button>
+                ` : ''}
                 <div id="verify-mlbb-status" class="requirement-help" style="margin-top:10px;">
-                    Сначала выберите пакет и проверьте User ID / Server ID.
+                    ${getProductVerificationKey() === 'mlbb' ? 'Сначала выберите пакет и проверьте User ID / Server ID.' : 'Введите ID'}
                 </div>
             ` : ''}
         </div>
@@ -649,6 +676,7 @@ function renderProductDetail(product) {
     let selectedRegion = firstRegion;
     let selectedRegionLabel = regions[0]?.label || '';
     let quantity = 1;
+    let verificationState = 'idle';
     let verifiedTarget = null;
     let verifyDebounceTimer = null;
     let verifyRequestSeq = 0;
@@ -674,7 +702,7 @@ function renderProductDetail(product) {
     }
 
     function saveLastAccount() {
-        if (!product.requires_target_id && !product.requires_server_id) return;
+        if (!product.requires_target_id && !product.requires_server_id && !product.requires_region) return;
         const data = {
             product_id: product.id,
             target_id: targetIdInput?.value.trim() || '',
@@ -682,6 +710,7 @@ function renderProductDetail(product) {
             target_region: selectedRegion || '',
             target_region_label: selectedRegionLabel || '',
             verified_target_name: verifiedTarget?.nickname || '',
+            verification_status: verificationState,
         };
         if (!data.target_id && !data.target_server) return;
         try { localStorage.setItem(lastAccountKey, JSON.stringify(data)); } catch (_) {}
@@ -742,42 +771,100 @@ function renderProductDetail(product) {
             event.preventDefault();
             targetIdInput.value = nums[0];
             targetServerInput.value = nums[1];
-            scheduleAutoVerification('ID и Server ID вставлены. Проверяем...');
+            scheduleAutoVerification(supportsRealVerification(selectedVariation) ? 'ID и Server ID вставлены. Проверяем...' : 'ID и Server ID вставлены. Проверяем данные...');
             return;
         }
         if (nums.length === 1 && activeInput) {
             event.preventDefault();
             activeInput.value = nums[0];
-            scheduleAutoVerification('Введите ID игрока и сервера');
+            scheduleAutoVerification('Введите ID');
         }
     }
 
-
-    function resetVerification(message = 'Введите ID игрока и сервера') {
-        verifyRequestSeq += 1;
-        verifiedTarget = null;
-        if (verifyStatus) {
-            verifyStatus.textContent = message;
-            verifyStatus.style.color = '';
-        }
-        updateAddButtonState();
-    }
-
-
-    function canAutoVerifySelectedVariation() {
-        return !!(selectedVariation && requiresGameDropsVerify(selectedVariation));
-    }
 
     function getVerificationInputValues() {
         return {
             targetId: targetIdInput?.value.trim() || '',
             targetServer: targetServerInput?.value.trim() || '',
+            targetRegion: selectedRegion || '',
         };
     }
 
+    function getMissingRequirement(values = getVerificationInputValues()) {
+        if (product.requires_target_id && !values.targetId) {
+            return { field: 'target_id', message: 'Введите ID' };
+        }
+        if (product.requires_server_id && !values.targetServer) {
+            return { field: 'target_server', message: 'Введите Server ID' };
+        }
+        if (product.requires_region && !values.targetRegion) {
+            return { field: 'target_region', message: 'Выберите сервер' };
+        }
+        return null;
+    }
+
     function hasCompleteVerificationInputs() {
-        const { targetId, targetServer } = getVerificationInputValues();
-        return !!(targetId && targetServer);
+        return !getMissingRequirement();
+    }
+
+    function isTargetIdFormatValid(targetId) {
+        const value = String(targetId || '').trim();
+        if (!value) return false;
+
+        const key = getProductVerificationKey();
+        if (key === 'genshin') return /^\d{6,12}$/.test(value);
+        if (['pubg', 'free_fire', 'honor_of_kings', 'magic_chess'].includes(key)) return /^[A-Za-z0-9_-]{3,32}$/.test(value);
+
+        return value.length >= 3;
+    }
+
+    function renderVerificationStatus(status, options = {}) {
+        verificationState = status;
+
+        if (!verifyStatus) return;
+
+        verifyStatus.style.color = '';
+        verifyStatus.classList.remove('verification-status-success', 'verification-status-error', 'verification-status-muted');
+
+        if (status === 'checking') {
+            verifyStatus.textContent = 'Проверяем ID...';
+            verifyStatus.classList.add('verification-status-muted');
+            return;
+        }
+
+        if (status === 'verified') {
+            verifyStatus.textContent = `✅ Игрок найден: ${options.nickname || 'аккаунт найден'}`;
+            verifyStatus.style.color = '#22c55e';
+            verifyStatus.classList.add('verification-status-success');
+            return;
+        }
+
+        if (status === 'accepted_without_nickname') {
+            verifyStatus.innerHTML = `
+                <div class="verification-status-main">✅ ID принят</div>
+                <div class="verification-status-hint">Проверка никнейма недоступна</div>
+            `;
+            verifyStatus.style.color = '#22c55e';
+            verifyStatus.classList.add('verification-status-success');
+            return;
+        }
+
+        if (status === 'error') {
+            verifyStatus.textContent = options.message || 'Проверьте данные';
+            verifyStatus.style.color = '#ef4444';
+            verifyStatus.classList.add('verification-status-error');
+            return;
+        }
+
+        verifyStatus.textContent = options.message || '';
+        verifyStatus.classList.add('verification-status-muted');
+    }
+
+    function resetVerification(message = 'Введите ID') {
+        verifyRequestSeq += 1;
+        verifiedTarget = null;
+        renderVerificationStatus('idle', { message });
+        updateAddButtonState();
     }
 
     function clearAutoVerificationTimer() {
@@ -787,32 +874,93 @@ function renderProductDetail(product) {
         }
     }
 
-    function scheduleAutoVerification(message = 'Введите ID игрока и сервера') {
+    function acceptFallbackVerification() {
+        const values = getVerificationInputValues();
+        verifiedTarget = {
+            nickname: '',
+            status: 'accepted_without_nickname',
+            supported: false,
+            raw: {
+                verification_status: 'accepted_without_nickname',
+                message: 'Проверка никнейма недоступна',
+                target_id: values.targetId || null,
+                target_server: values.targetServer || null,
+                target_region: values.targetRegion || null,
+            },
+        };
+        renderVerificationStatus('accepted_without_nickname');
+        saveLastAccount();
+        renderLastAccountChip(readLastAccount());
+        updateAddButtonState();
+    }
+
+    function validateFallbackVerification({ showErrors = false } = {}) {
+        const values = getVerificationInputValues();
+        const missing = getMissingRequirement(values);
+
+        if (missing) {
+            verifiedTarget = null;
+            renderVerificationStatus(showErrors ? 'error' : 'idle', { message: missing.message });
+            updateAddButtonState();
+            return false;
+        }
+
+        if (product.requires_target_id && !isTargetIdFormatValid(values.targetId)) {
+            verifiedTarget = null;
+            renderVerificationStatus(showErrors ? 'error' : 'idle', { message: 'Введите ID' });
+            updateAddButtonState();
+            return false;
+        }
+
+        acceptFallbackVerification();
+        return true;
+    }
+
+    function canAutoVerifySelectedVariation() {
+        return !!selectedVariation && (supportsRealVerification(selectedVariation) || canUseFallbackVerification());
+    }
+
+    function scheduleAutoVerification(message = 'Введите ID') {
         clearAutoVerificationTimer();
         resetVerification(message);
 
-        if (!canAutoVerifySelectedVariation()) return;
+        if (!selectedVariation) return;
 
-        if (!hasCompleteVerificationInputs()) {
-            if (verifyStatus) {
-                verifyStatus.textContent = 'Введите ID игрока и сервера';
-                verifyStatus.style.color = '';
+        if (supportsRealVerification(selectedVariation)) {
+            const missing = getMissingRequirement();
+            if (missing) {
+                renderVerificationStatus('idle', { message: missing.message });
+                return;
             }
+
+            verifyDebounceTimer = setTimeout(() => {
+                verifyDebounceTimer = null;
+                runIdVerification({ silent: true });
+            }, AUTO_VERIFY_DELAY);
             return;
         }
 
-        verifyDebounceTimer = setTimeout(() => {
-            verifyDebounceTimer = null;
-            runIdVerification({ silent: true });
-        }, AUTO_VERIFY_DELAY);
+        if (canUseFallbackVerification()) {
+            validateFallbackVerification({ showErrors: false });
+        }
     }
 
     function updateAddButtonState() {
         const hasVariation = !!selectedVariation;
         const inStock = hasVariation && selectedVariation.stock_status === 'instock';
-        const needsVerify = hasVariation && requiresGameDropsVerify(selectedVariation) && !verifiedTarget;
-        const disabled = !inStock || needsVerify;
-        const text = !hasVariation ? tr('choose_package') : (!inStock ? tr('out_of_stock') : (needsVerify ? 'Сначала проверьте ID' : tr('add_to_cart')));
+        const missing = getMissingRequirement();
+        const needsRealVerification = hasVariation && supportsRealVerification(selectedVariation);
+        const needsFallback = hasVariation && canUseFallbackVerification();
+        const verificationAccepted = verificationState === 'verified' || verificationState === 'accepted_without_nickname';
+        const blockedByVerification = (needsRealVerification || needsFallback) && !verificationAccepted;
+        const disabled = !inStock || !!missing || verificationState === 'checking' || blockedByVerification;
+
+        let text = tr('add_to_cart');
+        if (!hasVariation) text = tr('choose_package');
+        else if (!inStock) text = tr('out_of_stock');
+        else if (missing) text = missing.message;
+        else if (verificationState === 'checking') text = 'Проверяем ID...';
+        else if (blockedByVerification) text = needsRealVerification ? 'Сначала проверьте ID' : 'Введите ID';
 
         addButton.disabled = disabled;
         addButton.textContent = text;
@@ -1016,7 +1164,7 @@ function renderProductDetail(product) {
                 variationsList.querySelectorAll('.variation-item').forEach(i => i.classList.remove('selected'));
                 item.classList.add('selected');
                 selectedVariation = filteredVariations.find(v => v.id === parseInt(item.dataset.id));
-                scheduleAutoVerification('Пакет изменён. Проверяем ID...');
+                scheduleAutoVerification(supportsRealVerification(selectedVariation) ? 'Пакет изменён. Проверяем ID...' : 'Пакет изменён. Проверяем данные...');
             });
         });
 
@@ -1024,7 +1172,7 @@ function renderProductDetail(product) {
             addButton.disabled = true;
             addButton.textContent = tr('out_of_stock');
         } else {
-            scheduleAutoVerification('Введите ID игрока');
+            scheduleAutoVerification('Введите ID');
         }
     }
 
@@ -1037,19 +1185,19 @@ function renderProductDetail(product) {
             renderVariationList();
             scheduleAutoVerification(
                 hasCompleteVerificationInputs()
-                    ? 'Регион изменён. Проверяем ID...'
-                    : 'Введите ID игрока и сервера'
+                    ? (supportsRealVerification(selectedVariation) ? 'Регион изменён. Проверяем ID...' : 'Регион изменён. Проверяем данные...')
+                    : 'Выберите сервер'
             );
         });
     });
 
     if (targetIdInput) {
-        targetIdInput.addEventListener('input', () => scheduleAutoVerification('Введите ID игрока и сервера'));
+        targetIdInput.addEventListener('input', () => scheduleAutoVerification('Введите ID'));
         targetIdInput.addEventListener('paste', (e) => handleAccountPaste(e, targetIdInput));
     }
 
     if (targetServerInput) {
-        targetServerInput.addEventListener('input', () => scheduleAutoVerification('Введите ID игрока и сервера'));
+        targetServerInput.addEventListener('input', () => scheduleAutoVerification('Введите Server ID'));
         targetServerInput.addEventListener('paste', (e) => handleAccountPaste(e, targetServerInput));
     }
 
@@ -1089,19 +1237,17 @@ function renderProductDetail(product) {
             return;
         }
 
-        if (!requiresGameDropsVerify(selectedVariation)) {
-            updateAddButtonState();
+        if (!supportsRealVerification(selectedVariation)) {
+            validateFallbackVerification({ showErrors: !silent });
             return;
         }
 
         const { targetId, targetServer } = getVerificationInputValues();
+        const missing = getMissingRequirement();
 
-        if (!targetId || !targetServer) {
-            resetVerification('Введите ID игрока и сервера');
-            if (!silent) {
-                const label = !targetId ? (product.target_id_label || 'User ID') : (product.target_server_label || 'Server ID');
-                showToast('error', `${label} ${tr('required')}`);
-            }
+        if (missing) {
+            resetVerification(missing.message);
+            if (!silent) showToast('error', missing.message);
             return;
         }
 
@@ -1112,7 +1258,7 @@ function renderProductDetail(product) {
             verifyButton.textContent = 'Проверяем...';
         }
         if (verifyStatus) {
-            verifyStatus.textContent = 'Проверяем...';
+            renderVerificationStatus('checking');
             verifyStatus.style.color = '';
         }
         updateAddButtonState();
@@ -1127,27 +1273,22 @@ function renderProductDetail(product) {
             if (requestSeq !== verifyRequestSeq) return;
 
             if (result?.valid) {
+                verificationState = 'verified';
                 verifiedTarget = {
                     nickname: getVerifiedNickname(result),
                     status: result.status || 'VALID',
+                    supported: true,
                     raw: result.raw || {},
                 };
 
-                if (verifyStatus) {
-                    verifyStatus.textContent = `✅ Игрок найден: ${verifiedTarget.nickname || 'аккаунт найден'}`;
-                    verifyStatus.style.color = '#22c55e';
-                }
+                renderVerificationStatus('verified', { nickname: verifiedTarget.nickname });
 
                 if (!silent) showToast('success', `ID подтверждён: ${verifiedTarget.nickname || 'аккаунт найден'}`);
                 saveLastAccount();
                 renderLastAccountChip(readLastAccount());
             } else {
                 verifiedTarget = null;
-
-                if (verifyStatus) {
-                    verifyStatus.textContent = result?.message || 'ID не найден / проверьте данные';
-                    verifyStatus.style.color = '#ef4444';
-                }
+                renderVerificationStatus('error', { message: result?.message || 'ID не найден / проверьте данные' });
 
                 if (!silent) showToast('error', result?.message || 'Неверный User ID или Server ID');
             }
@@ -1155,10 +1296,7 @@ function renderProductDetail(product) {
             if (requestSeq !== verifyRequestSeq) return;
 
             verifiedTarget = null;
-            if (verifyStatus) {
-                verifyStatus.textContent = 'ID не найден / проверьте данные';
-                verifyStatus.style.color = '#ef4444';
-            }
+            renderVerificationStatus('error', { message: 'ID не найден / проверьте данные' });
             if (!silent) showToast('error', 'Ошибка проверки. Попробуйте ещё раз.');
         } finally {
             if (requestSeq === verifyRequestSeq) {
@@ -1208,9 +1346,16 @@ function renderProductDetail(product) {
             return;
         }
 
-        if (requiresGameDropsVerify(selectedVariation) && !verifiedTarget) {
+        if (supportsRealVerification(selectedVariation) && verificationState !== 'verified') {
             showToast('error', 'Дождитесь успешной проверки ID');
             return;
+        }
+
+        if (canUseFallbackVerification() && verificationState !== 'accepted_without_nickname') {
+            if (!validateFallbackVerification({ showErrors: true })) {
+                showToast('error', getMissingRequirement()?.message || 'Введите ID');
+                return;
+            }
         }
 
         saveLastAccount();
@@ -1227,7 +1372,8 @@ function renderProductDetail(product) {
             target_region: selectedRegion || null,
             target_region_label: selectedRegionLabel || null,
             verified_target_name: verifiedTarget?.nickname || null,
-            verified_target_payload: verifiedTarget || null,
+            verified_target_payload: verifiedTarget ? { ...verifiedTarget, verification_status: verificationState } : null,
+            verification_status: verificationState,
             requirements: {
                 target_type: product.target_type || 'game_id',
                 requires_target_id: !!product.requires_target_id,
