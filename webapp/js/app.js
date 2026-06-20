@@ -572,23 +572,54 @@ function renderProductDetail(product) {
         return 'generic';
     }
 
-    function supportsRealVerification(variation) {
+    function normalizeProvider(value) {
+        return String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+    }
+
+    function isGameDropsProvider(value) {
+        return ['gamedrops', 'gamesdrop', 'gamedrop'].includes(normalizeProvider(value));
+    }
+
+    function hasProviderOfferId(variation) {
+        return !!String(variation?.provider_variation_id || '').trim();
+    }
+
+    function hasAccountRequirements() {
+        return !!(product.requires_target_id || product.requires_server_id || product.requires_region);
+    }
+
+    function isStrictVerificationProduct() {
+        const mode = String(product.provider_meta?.verification_mode || '').trim().toLowerCase();
+        if (mode === 'strict') return true;
+        if (mode === 'fallback' || mode === 'fallback_friendly') return false;
+
+        return getProductVerificationKey() === 'mlbb';
+    }
+
+    function shouldAttemptProviderVerification(variation) {
         return !!(
-            getProductVerificationKey() === 'mlbb' &&
             variation &&
-            variation.provider === 'gamedrops' &&
-            variation.provider_variation_id &&
+            (isGameDropsProvider(variation.provider) || isGameDropsProvider(product.provider)) &&
+            hasProviderOfferId(variation) &&
             product.requires_target_id &&
-            product.requires_server_id
+            hasAccountRequirements()
         );
     }
 
+    function supportsRealVerification(variation) {
+        return shouldAttemptProviderVerification(variation);
+    }
+
+    function canFallbackAfterUnsupported() {
+        return !isStrictVerificationProduct();
+    }
+
+    function requiresStrictVerification() {
+        return isStrictVerificationProduct() && hasAccountRequirements();
+    }
+
     function canUseFallbackVerification() {
-        return getProductVerificationKey() !== 'mlbb' && (
-            product.requires_target_id ||
-            product.requires_server_id ||
-            product.requires_region
-        );
+        return canFallbackAfterUnsupported() && hasAccountRequirements();
     }
 
     content.innerHTML = `
@@ -635,13 +666,13 @@ function renderProductDetail(product) {
             ` : ''}
 
             ${(product.requires_target_id || product.requires_server_id || product.requires_region) ? `
-                ${getProductVerificationKey() === 'mlbb' ? `
+                ${hasAccountRequirements() ? `
                     <button type="button" class="btn-secondary" id="verify-mlbb-btn" style="width:100%; margin-top:10px;">
                         🔍 Проверить ID
                     </button>
                 ` : ''}
                 <div id="verify-mlbb-status" class="requirement-help" style="margin-top:10px;">
-                    ${getProductVerificationKey() === 'mlbb' ? 'Сначала выберите пакет и проверьте User ID / Server ID.' : 'Введите ID'}
+                    ${isStrictVerificationProduct() ? 'Сначала выберите пакет и проверьте User ID / Server ID.' : 'Введите ID'}
                 </div>
             ` : ''}
         </div>
@@ -949,8 +980,8 @@ function renderProductDetail(product) {
         const hasVariation = !!selectedVariation;
         const inStock = hasVariation && selectedVariation.stock_status === 'instock';
         const missing = getMissingRequirement();
-        const needsRealVerification = hasVariation && supportsRealVerification(selectedVariation);
-        const needsFallback = hasVariation && canUseFallbackVerification();
+        const needsRealVerification = hasVariation && (supportsRealVerification(selectedVariation) || requiresStrictVerification());
+        const needsFallback = hasVariation && !needsRealVerification && canUseFallbackVerification();
         const verificationAccepted = verificationState === 'verified' || verificationState === 'accepted_without_nickname';
         const blockedByVerification = (needsRealVerification || needsFallback) && !verificationAccepted;
         const disabled = !inStock || !!missing || verificationState === 'checking' || blockedByVerification;
@@ -1205,21 +1236,25 @@ function renderProductDetail(product) {
     function getVerifiedNickname(result = {}) {
         const candidates = [
             result.nickname,
+            result.gameUserLogin,
             result.username,
             result.player_name,
             result.playerName,
             result.name,
             result.data?.nickname,
+            result.data?.gameUserLogin,
             result.data?.username,
             result.data?.player_name,
             result.data?.playerName,
             result.data?.name,
             result.raw?.nickname,
+            result.raw?.gameUserLogin,
             result.raw?.username,
             result.raw?.player_name,
             result.raw?.playerName,
             result.raw?.name,
             result.raw?.data?.nickname,
+            result.raw?.data?.gameUserLogin,
             result.raw?.data?.username,
             result.raw?.data?.player_name,
             result.raw?.data?.playerName,
@@ -1238,6 +1273,14 @@ function renderProductDetail(product) {
         }
 
         if (!supportsRealVerification(selectedVariation)) {
+            if (requiresStrictVerification()) {
+                verifiedTarget = null;
+                renderVerificationStatus('error', { message: 'Для этого пакета GameDrops-проверка недоступна' });
+                updateAddButtonState();
+                if (!silent) showToast('error', 'Для этого пакета GameDrops-проверка недоступна');
+                return;
+            }
+
             validateFallbackVerification({ showErrors: !silent });
             return;
         }
@@ -1264,36 +1307,58 @@ function renderProductDetail(product) {
         updateAddButtonState();
 
         try {
-            const result = await api('POST', '/verify/mlbb', {
+            const requestPayload = {
                 variation_id: selectedVariation.id,
                 user_id: targetId,
-                server_id: targetServer,
-            });
+            };
+
+            if (targetServer) requestPayload.server_id = targetServer;
+            if (selectedRegion) requestPayload.region = selectedRegion;
+
+            const result = await api('POST', '/verify/gamedrops', requestPayload);
 
             if (requestSeq !== verifyRequestSeq) return;
 
             if (result?.valid) {
-                verificationState = 'verified';
+                const nickname = getVerifiedNickname(result);
                 verifiedTarget = {
-                    nickname: getVerifiedNickname(result),
+                    nickname,
                     status: result.status || 'VALID',
-                    supported: true,
+                    supported: result.supported !== false,
                     raw: result.raw || {},
                 };
 
-                renderVerificationStatus('verified', { nickname: verifiedTarget.nickname });
+                if (nickname) {
+                    verificationState = 'verified';
+                    renderVerificationStatus('verified', { nickname });
+                    if (!silent) showToast('success', `ID подтверждён: ${nickname}`);
+                } else if (isStrictVerificationProduct()) {
+                    verificationState = 'verified';
+                    renderVerificationStatus('verified', { nickname: 'аккаунт найден' });
+                    if (!silent) showToast('success', 'ID подтверждён');
+                } else {
+                    acceptFallbackVerification();
+                    return;
+                }
 
-                if (!silent) showToast('success', `ID подтверждён: ${verifiedTarget.nickname || 'аккаунт найден'}`);
                 saveLastAccount();
                 renderLastAccountChip(readLastAccount());
+            } else if (result?.supported === false && canFallbackAfterUnsupported()) {
+                acceptFallbackVerification();
             } else {
                 verifiedTarget = null;
-                renderVerificationStatus('error', { message: result?.message || 'ID не найден / проверьте данные' });
+                const message = result?.message || 'ID не найден / проверьте данные';
+                renderVerificationStatus('error', { message });
 
-                if (!silent) showToast('error', result?.message || 'Неверный User ID или Server ID');
+                if (!silent) showToast('error', message);
             }
         } catch (error) {
             if (requestSeq !== verifyRequestSeq) return;
+
+            if (!isStrictVerificationProduct() && canFallbackAfterUnsupported()) {
+                acceptFallbackVerification();
+                return;
+            }
 
             verifiedTarget = null;
             renderVerificationStatus('error', { message: 'ID не найден / проверьте данные' });
@@ -1346,12 +1411,17 @@ function renderProductDetail(product) {
             return;
         }
 
-        if (supportsRealVerification(selectedVariation) && verificationState !== 'verified') {
+        if (requiresStrictVerification() && verificationState !== 'verified') {
             showToast('error', 'Дождитесь успешной проверки ID');
             return;
         }
 
-        if (canUseFallbackVerification() && verificationState !== 'accepted_without_nickname') {
+        if (!isStrictVerificationProduct() && supportsRealVerification(selectedVariation) && !['verified', 'accepted_without_nickname'].includes(verificationState)) {
+            showToast('error', 'Дождитесь проверки ID');
+            return;
+        }
+
+        if (!supportsRealVerification(selectedVariation) && canUseFallbackVerification() && verificationState !== 'accepted_without_nickname') {
             if (!validateFallbackVerification({ showErrors: true })) {
                 showToast('error', getMissingRequirement()?.message || 'Введите ID');
                 return;
