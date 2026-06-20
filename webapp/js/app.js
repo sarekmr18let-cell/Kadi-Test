@@ -2500,8 +2500,8 @@ async function openOrderDetail(orderId) {
         <div class="order-detail-shell">
             <section class="order-detail-card order-detail-header-card">
                 <div class="order-detail-header-copy">
-                    <div class="order-detail-kicker">Детали заказа</div>
-                    <h1>Заказ ${escapeHtml(orderNumber || `#${order.id || ''}`)}</h1>
+                    <div class="order-detail-kicker">${tr('order_details')}</div>
+                    <h1>${tr('order_number_title', { number: escapeHtml(orderNumber || `#${order.id || ''}`) })}</h1>
                     <div class="order-detail-date">${escapeHtml(createdAt)}</div>
                 </div>
                 <div class="status status-${statusClass} order-detail-status">${escapeHtml(statusLabel)}</div>
@@ -2519,18 +2519,18 @@ async function openOrderDetail(orderId) {
                 <div class="order-detail-product-meta">
                     ${quantity ? `
                         <div class="order-detail-info-row">
-                            <span>Количество</span>
+                            <span>${tr('quantity')}</span>
                             <strong>${escapeHtml(String(quantity))}</strong>
                         </div>
                     ` : ''}
                     ${unitPrice ? `
                         <div class="order-detail-info-row">
-                            <span>Цена</span>
+                            <span>${tr('price')}</span>
                             <strong>${formatMoney(unitPrice, 'UZS')}</strong>
                         </div>
                     ` : ''}
                     <div class="order-detail-info-row order-detail-info-row-total">
-                        <span>Сумма товара</span>
+                        <span>${tr('item_subtotal')}</span>
                         <strong>${formatMoney(itemTotal || totalAmount, 'UZS')}</strong>
                     </div>
                 </div>
@@ -2538,12 +2538,12 @@ async function openOrderDetail(orderId) {
 
             ${hasRecipient ? `
                 <section class="order-detail-card order-detail-recipient-card">
-                    <div class="order-detail-section-title">Получатель</div>
+                    <div class="order-detail-section-title">${tr('recipient')}</div>
                     <div class="order-detail-recipient-list">
-                        ${renderDetailRow('Игрок', recipient.nickname, 'is-verified')}
+                        ${renderDetailRow(tr('player'), recipient.nickname, 'is-verified')}
                         ${renderDetailRow('User ID / Game ID', recipient.targetId)}
                         ${renderDetailRow('Server ID', recipient.targetServer)}
-                        ${renderDetailRow('Регион', recipient.targetRegion)}
+                        ${renderDetailRow(tr('target_region'), recipient.targetRegion)}
                     </div>
                 </section>
             ` : ''}
@@ -2555,8 +2555,8 @@ async function openOrderDetail(orderId) {
                         <h3>${tr('complete_payment')}</h3>
                         <div class="amount">${formatMoney(order.total_amount, 'UZS')}</div>
                         <div class="details">
-                            <p>Активная карта для оплаты не назначена. Обновите заказ или обратитесь в поддержку.</p>
-                            <p><strong>Заказ:</strong> ${escapeHtml(order.order_number || order.id || '')}</p>
+                            <p>${tr('payment_card_missing')}</p>
+                            <p><strong>${tr('order_label')}:</strong> ${escapeHtml(order.order_number || order.id || '')}</p>
                         </div>
                     </div>`}
                     <div class="action-buttons">
@@ -2567,19 +2567,19 @@ async function openOrderDetail(orderId) {
             ` : ''}
 
             <section class="order-detail-card order-detail-summary-card">
-                <div class="order-detail-section-title">Оплата</div>
+                <div class="order-detail-section-title">${tr('payment')}</div>
                 <div class="order-detail-info-row">
-                    <span>Сумма</span>
+                    <span>${tr('amount')}</span>
                     <strong>${formatMoney(subtotalAmount, 'UZS')}</strong>
                 </div>
                 ${discountAmount > 0 ? `
                     <div class="order-detail-info-row order-detail-discount-row">
-                        <span>Скидка</span>
+                        <span>${tr('discount')}</span>
                         <strong>-${formatMoney(discountAmount, 'UZS')}</strong>
                     </div>
                 ` : ''}
                 <div class="order-detail-info-row order-detail-grand-total">
-                    <span>Итого</span>
+                    <span>${tr('total')}</span>
                     <strong>${formatMoney(totalAmount, 'UZS')}</strong>
                 </div>
             </section>
