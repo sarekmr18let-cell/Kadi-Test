@@ -2069,6 +2069,7 @@ async function applyPromo() {
 
 async function placeOrder() {
     if (state.isPlacingOrder) return;
+    if (!state.cart.length) return;
 
     const targetInfo = getCartTargetInfo();
     const targetId = targetInfo.target_id || document.getElementById('target-id').value.trim();
@@ -2117,6 +2118,7 @@ async function placeOrder() {
             state.promo = null;
             saveCart();
             updateCartBadge();
+            state.isPlacingOrder = false;
 
             // Show confirmation
             showOrderConfirmation(result);
