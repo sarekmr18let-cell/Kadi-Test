@@ -620,6 +620,7 @@ function renderProductDetail(product) {
         </div>
 
         <h3 class="product-section-title">${tr('choose_package')}</h3>
+        <div class="variation-group-tabs hidden" id="variation-group-tabs"></div>
         <div class="variations-list" id="product-variations-list"></div>
 
         <div class="quantity-selector">
@@ -644,6 +645,7 @@ function renderProductDetail(product) {
     hydrateProductVisuals(content);
 
     let selectedVariation = null;
+    let selectedVariationGroup = '';
     let selectedRegion = firstRegion;
     let selectedRegionLabel = regions[0]?.label || '';
     let quantity = 1;
@@ -653,6 +655,7 @@ function renderProductDetail(product) {
     const AUTO_VERIFY_DELAY = 800;
 
     const variationsList = content.querySelector('#product-variations-list');
+    const variationGroupTabs = content.querySelector('#variation-group-tabs');
     const addButton = content.querySelector('#add-to-cart-btn');
     const verifyButton = content.querySelector('#verify-mlbb-btn');
     const verifyStatus = content.querySelector('#verify-mlbb-status');
@@ -823,18 +826,175 @@ function renderProductDetail(product) {
         if (stickyBar) stickyBar.classList.toggle('hidden', !hasVariation);
     }
 
-    function renderVariationList() {
-        const filteredVariations = getFilteredVariations(selectedRegion);
-        const hasStock = filteredVariations.some(v => v.stock_status === 'instock');
 
-        if (!filteredVariations.length) {
+    // KADI_PRODUCT_GROUP_TABS_JS_START
+    function getVariationGroupLabel(variation) {
+        const meta = variation?.provider_meta || {};
+        const productName = String(product?.name || '').toLowerCase();
+        const variationName = String(variation?.name || '').toLowerCase();
+
+        let group = String(
+            meta.group ||
+            meta.group_name ||
+            meta.category ||
+            meta.type ||
+            ''
+        ).trim();
+
+        if (productName.includes('pubg')) {
+            if (group === 'Prime' || group === 'Prime Plus' || group === 'Packs' || group === 'Наборы') {
+                return 'Наборы';
+            }
+            if (!group) {
+                return variationName.includes('uc') ? 'UC' : 'Наборы';
+            }
+            return group;
+        }
+
+        if (productName.includes('free fire')) {
+            if (!group) {
+                if (variationName.includes('diamond')) return 'Алмазы';
+                if (variationName.includes('level')) return 'Уровни BP';
+                return 'Пропуски';
+            }
+
+            if (group.toLowerCase().includes('diamond')) return 'Алмазы';
+            if (group.toLowerCase().includes('level')) return 'Уровни BP';
+
+            return group;
+        }
+
+        return group || 'Пакеты';
+    }
+
+    function getVariationGroupRank(group) {
+        const productName = String(product?.name || '').toLowerCase();
+
+        if (productName.includes('pubg')) {
+            const order = ['UC', 'Наборы'];
+            const index = order.indexOf(group);
+            return index >= 0 ? index : 99;
+        }
+
+        if (productName.includes('free fire')) {
+            const order = ['Алмазы', 'Пропуски', 'Уровни BP'];
+            const index = order.indexOf(group);
+            return index >= 0 ? index : 99;
+        }
+
+        if (productName.includes('genshin')) {
+            const order = ['Genesis Crystals', 'Welkin Moon', 'Chronal Nexus'];
+            const index = order.indexOf(group);
+            return index >= 0 ? index : 99;
+        }
+
+        if (productName.includes('magic chess')) {
+            const order = ['Diamonds', 'Cards', 'Packs'];
+            const index = order.indexOf(group);
+            return index >= 0 ? index : 99;
+        }
+
+        if (productName.includes('honor of kings')) {
+            const order = ['Tokens', 'Cards', 'Packs'];
+            const index = order.indexOf(group);
+            return index >= 0 ? index : 99;
+        }
+
+        return 99;
+    }
+
+    function getVariationSortValue(variation) {
+        const meta = variation?.provider_meta || {};
+        const raw = meta.sort_order ?? variation?.sort_order ?? variation?.id ?? 999999;
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : 999999;
+    }
+
+    function getAvailableVariationGroups(variations) {
+        const groups = [];
+        const seen = new Set();
+
+        variations.forEach(variation => {
+            const group = getVariationGroupLabel(variation);
+            if (!seen.has(group)) {
+                seen.add(group);
+                groups.push(group);
+            }
+        });
+
+        return groups.sort((a, b) => {
+            const rankA = getVariationGroupRank(a);
+            const rankB = getVariationGroupRank(b);
+            if (rankA !== rankB) return rankA - rankB;
+            return a.localeCompare(b);
+        });
+    }
+
+    function renderVariationGroupTabs(groups) {
+        if (!variationGroupTabs) return;
+
+        if (!groups.length || groups.length <= 1) {
+            variationGroupTabs.classList.add('hidden');
+            variationGroupTabs.innerHTML = '';
+            return;
+        }
+
+        variationGroupTabs.classList.remove('hidden');
+        variationGroupTabs.innerHTML = groups.map(group => `
+            <button type="button" class="variation-group-chip ${group === selectedVariationGroup ? 'selected' : ''}" data-group="${escapeHtml(group)}">
+                ${escapeHtml(group)}
+            </button>
+        `).join('');
+
+        variationGroupTabs.querySelectorAll('.variation-group-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const nextGroup = chip.dataset.group || '';
+                if (!nextGroup || nextGroup === selectedVariationGroup) return;
+
+                selectedVariationGroup = nextGroup;
+                renderVariationList();
+            });
+        });
+    }
+    // KADI_PRODUCT_GROUP_TABS_JS_END
+
+    function renderVariationList() {
+        const allFilteredVariations = getFilteredVariations(selectedRegion);
+        const groups = getAvailableVariationGroups(allFilteredVariations);
+
+        if (!allFilteredVariations.length) {
             selectedVariation = null;
+            selectedVariationGroup = '';
+            renderVariationGroupTabs([]);
             variationsList.innerHTML = `
                 <div class="requirement-help" style="padding: 14px;">
                     Для выбранного региона пока нет доступных пакетов.
                 </div>
             `;
             resetVerification('Для выбранного региона нет пакетов.');
+            return;
+        }
+
+        if (!selectedVariationGroup || !groups.includes(selectedVariationGroup)) {
+            selectedVariationGroup = groups[0] || '';
+        }
+
+        renderVariationGroupTabs(groups);
+
+        const filteredVariations = allFilteredVariations
+            .filter(v => !selectedVariationGroup || getVariationGroupLabel(v) === selectedVariationGroup)
+            .sort((a, b) => getVariationSortValue(a) - getVariationSortValue(b));
+
+        const hasStock = filteredVariations.some(v => v.stock_status === 'instock');
+
+        if (!filteredVariations.length) {
+            selectedVariation = null;
+            variationsList.innerHTML = `
+                <div class="requirement-help" style="padding: 14px;">
+                    В этом разделе пока нет доступных пакетов.
+                </div>
+            `;
+            resetVerification('В этом разделе нет пакетов.');
             return;
         }
 
@@ -864,7 +1024,7 @@ function renderProductDetail(product) {
             addButton.disabled = true;
             addButton.textContent = tr('out_of_stock');
         } else {
-            scheduleAutoVerification('Введите ID игрока и сервера');
+            scheduleAutoVerification('Введите ID игрока');
         }
     }
 

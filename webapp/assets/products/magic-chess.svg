@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#facc15"/>
+      <stop offset=".48" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#g)"/>
+  <path d="M42 38h44l-5 47H47z" fill="#111827" opacity=".78"/>
+  <path d="M47 34l9 11 8-15 8 15 9-11 7 20H40z" fill="#fff"/>
+  <circle cx="64" cy="66" r="12" fill="#facc15"/>
+  <text x="64" y="112" text-anchor="middle" font-family="Arial" font-size="12" font-weight="900" fill="#fff">MAGIC CHESS</text>
+</svg>

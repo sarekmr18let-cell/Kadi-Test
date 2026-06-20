@@ -20,3 +20,5 @@ uploads/
 .vscode/
 
 *.zip
+backups/
+*.bak*

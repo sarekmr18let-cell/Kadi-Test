@@ -11012,3 +11012,62 @@ body[data-current-page="product"] #page-product {
     }
 }
 /* KADI_PROFILE_LIGHT_POLISH_V1_END */
+
+
+/* KADI_PRODUCT_GROUP_TABS_CLEAN */
+#page-product .variation-group-tabs,
+#product-detail-content .variation-group-tabs {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: -2px 0 12px !important;
+    padding: 0 0 2px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+}
+
+#page-product .variation-group-tabs::-webkit-scrollbar,
+#product-detail-content .variation-group-tabs::-webkit-scrollbar {
+    display: none !important;
+}
+
+#page-product .variation-group-tabs.hidden,
+#product-detail-content .variation-group-tabs.hidden {
+    display: none !important;
+}
+
+#page-product .variation-group-chip,
+#product-detail-content .variation-group-chip {
+    flex: 0 0 auto !important;
+    min-height: 34px !important;
+    padding: 0 15px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    background: rgba(255,255,255,.035) !important;
+    color: rgba(255,255,255,.82) !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+    letter-spacing: .01em !important;
+    white-space: nowrap !important;
+    transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease !important;
+}
+
+#page-product .variation-group-chip.selected,
+#product-detail-content .variation-group-chip.selected {
+    color: #07111f !important;
+    border-color: rgba(54,217,255,.82) !important;
+    background: linear-gradient(135deg, #36d9ff, #c044ff) !important;
+    box-shadow: 0 10px 26px rgba(54,217,255,.18), 0 0 22px rgba(192,68,255,.16) !important;
+}
+
+#page-product .variation-group-chip:active,
+#product-detail-content .variation-group-chip:active {
+    transform: scale(.97) !important;
+}
+
+#page-product .product-section-title,
+#product-detail-content .product-section-title {
+    margin-bottom: 10px !important;
+}
