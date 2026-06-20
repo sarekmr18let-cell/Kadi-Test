@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=1781935114">
+    <link rel="stylesheet" href="css/style.css?v=1781936212">
 </head>
 <body>
     <div id="app">
@@ -360,7 +360,7 @@
                 <div id="page-profile" class="page">
                     <div class="profile-header">
                         <div class="avatar">
-                            <span id="profile-avatar">👤</span>
+                            <span id="profile-avatar" aria-hidden="true">👤</span>
                         </div>
                         <div class="profile-info">
                             <h2 id="profile-name">User</h2>
@@ -371,8 +371,12 @@
                     
                     <div class="stats-cards">
                         <div class="stat-card">
-                            <div class="stat-value" id="profile-balance">$0.00</div>
-                            <div class="stat-label" data-i18n="balance">Баланс</div>
+                            
+                            <div class="profile-balance-main">
+                                <div class="stat-label" data-i18n="balance">Баланс</div>
+                                <div class="stat-value" id="profile-balance">$0.00</div>
+                            </div>
+                            <button type="button" class="profile-topup-mini-btn" id="profile-topup-btn" data-open-kadi-topup data-i18n="topup">Пополнить</button>
                         </div>
                         <div class="stat-card">
                             <div class="stat-value" id="profile-orders">0</div>
@@ -407,7 +411,13 @@
                             </svg>
                         </button>
                         <button class="menu-item" id="support-btn">
-                            <span class="menu-icon">💬</span>
+                            <span class="menu-icon" aria-hidden="true">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 12a8 8 0 0 1 16 0"/>
+                                    <path d="M5 12v4a2 2 0 0 0 2 2h1v-6H7a2 2 0 0 0-2 2Zm14 0v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2Z"/>
+                                    <path d="M16 18c-.6 1.2-1.9 2-4 2"/>
+                                </svg>
+                            </span>
                             <span class="menu-text" data-i18n="support">Поддержка</span>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="m9 18 6-6-6-6"/>
@@ -528,6 +538,6 @@
     </div>
     
     <script src="js/i18n.js"></script>
-    <script src="js/app.js?v=1781935114"></script>
+    <script src="js/app.js?v=1781936212"></script>
 </body>
 </html>

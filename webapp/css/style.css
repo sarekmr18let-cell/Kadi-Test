@@ -10796,3 +10796,219 @@ body[data-current-page="product"] #page-product {
 #kadi-pay-v12 .k12-rules p {
     margin-top: 8px !important;
 }
+
+/* KADI_PROFILE_LIGHT_POLISH_V1_START */
+#page-profile {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
+}
+
+#page-profile .profile-header {
+    min-height: 92px !important;
+    margin-bottom: 12px !important;
+    padding: 14px !important;
+    gap: 14px !important;
+    align-items: center !important;
+    border: 0 !important;
+    outline: 0 !important;
+    border-radius: 22px !important;
+    background:
+        radial-gradient(circle at 14% 0%, rgba(54, 217, 255, 0.13), transparent 34%),
+        radial-gradient(circle at 100% 100%, rgba(155, 92, 255, 0.12), transparent 38%),
+        linear-gradient(145deg, rgba(255,255,255,0.066), rgba(255,255,255,0.024)) !important;
+    box-shadow:
+        0 16px 34px rgba(0,0,0,0.22),
+        inset 0 1px 0 rgba(255,255,255,0.045) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+}
+
+#page-profile .avatar {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    flex: 0 0 58px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    outline: 0 !important;
+    border-radius: 50% !important;
+    background:
+        radial-gradient(circle at 35% 25%, rgba(255,255,255,0.20), transparent 34%),
+        linear-gradient(135deg, rgba(54,217,255,0.96), rgba(134,92,255,0.94)) !important;
+    box-shadow:
+        0 0 0 1px rgba(255,255,255,0.06),
+        0 10px 24px rgba(54,217,255,0.18) !important;
+}
+
+#page-profile .avatar.has-photo {
+    background-size: cover !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+}
+
+#page-profile #profile-avatar {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    font-size: 27px !important;
+    line-height: 1 !important;
+}
+
+#page-profile .profile-info {
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    gap: 3px !important;
+}
+
+#page-profile .profile-info h2 {
+    margin: 0 !important;
+    font-size: 20px !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.01em !important;
+}
+
+#page-profile .profile-info p {
+    margin: 0 !important;
+    line-height: 1.25 !important;
+}
+
+#page-profile .profile-telegram-id {
+    margin-top: 2px !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+    font-weight: 700 !important;
+    color: rgba(255,255,255,0.42) !important;
+}
+
+#page-profile .stats-cards {
+    margin-bottom: 12px !important;
+}
+
+#page-profile .stats-cards .stat-card:first-child {
+    min-height: 68px !important;
+    padding: 14px 14px 14px 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    text-align: left !important;
+    border: 0 !important;
+    outline: 0 !important;
+    border-radius: 20px !important;
+    background:
+        radial-gradient(circle at 8% 0%, rgba(52,211,153,0.13), transparent 30%),
+        radial-gradient(circle at 100% 100%, rgba(54,217,255,0.10), transparent 34%),
+        linear-gradient(145deg, rgba(255,255,255,0.064), rgba(255,255,255,0.024)) !important;
+    box-shadow:
+        0 14px 30px rgba(0,0,0,0.20),
+        inset 0 1px 0 rgba(255,255,255,0.045) !important;
+}
+
+#page-profile .profile-balance-main {
+    min-width: 0 !important;
+}
+
+#page-profile .stats-cards .stat-card:first-child .stat-label {
+    margin: 0 0 4px !important;
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    color: rgba(255,255,255,0.52) !important;
+    text-transform: none !important;
+    letter-spacing: 0.01em !important;
+}
+
+#page-profile .stats-cards .stat-card:first-child .stat-value {
+    margin: 0 !important;
+    font-size: 21px !important;
+    line-height: 1.1 !important;
+    font-weight: 900 !important;
+    color: var(--kadi-success, #34d399) !important;
+    text-shadow: 0 0 18px rgba(52, 211, 153, 0.18) !important;
+}
+
+#page-profile .profile-topup-mini-btn {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 92px !important;
+    min-height: 34px !important;
+    margin-top: 0 !important;
+    padding: 0 13px !important;
+    border: 0 !important;
+    outline: 0 !important;
+    border-radius: 999px !important;
+    background:
+        linear-gradient(135deg, rgba(54,217,255,0.96), rgba(52,211,153,0.90)) !important;
+    color: #051018 !important;
+    box-shadow:
+        0 10px 22px rgba(54,217,255,0.14),
+        inset 0 1px 0 rgba(255,255,255,0.24) !important;
+    font-size: 12px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.01em !important;
+}
+
+#page-profile .profile-topup-mini-btn:active {
+    transform: scale(.98) !important;
+}
+
+#page-profile .menu-list {
+    margin-top: 10px !important;
+    gap: 10px !important;
+}
+
+#page-profile .menu-item,
+#page-profile .admin-item {
+    min-height: 58px !important;
+    padding: 13px 14px !important;
+    border: 0 !important;
+    outline: 0 !important;
+    border-radius: 18px !important;
+    background:
+        linear-gradient(145deg, rgba(255,255,255,0.058), rgba(255,255,255,0.022)) !important;
+    box-shadow:
+        0 12px 24px rgba(0,0,0,0.16),
+        inset 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+
+#page-profile .menu-icon {
+    width: 34px !important;
+    height: 34px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 34px !important;
+    border-radius: 12px !important;
+    color: rgba(255,255,255,0.86) !important;
+    background: rgba(255,255,255,0.055) !important;
+}
+
+#page-profile .menu-icon svg {
+    width: 22px !important;
+    height: 22px !important;
+}
+
+#page-profile .admin-item {
+    background:
+        radial-gradient(circle at 0% 50%, rgba(155,92,255,0.14), transparent 34%),
+        linear-gradient(145deg, rgba(255,255,255,0.058), rgba(255,255,255,0.022)) !important;
+}
+
+@media (max-width: 360px) {
+    #page-profile .stats-cards .stat-card:first-child {
+        align-items: flex-start !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+
+    #page-profile .profile-topup-mini-btn {
+        width: 100% !important;
+    }
+}
+/* KADI_PROFILE_LIGHT_POLISH_V1_END */
