@@ -11071,3 +11071,14 @@ body[data-current-page="product"] #page-product {
 #product-detail-content .product-section-title {
     margin-bottom: 10px !important;
 }
+
+/* KADI universal account verification status */
+#page-product #verify-mlbb-status .verification-status-main {
+    font-weight: 800;
+}
+
+#page-product #verify-mlbb-status .verification-status-hint {
+    margin-top: 3px;
+    font-size: 12px;
+    opacity: 0.82;
+}
