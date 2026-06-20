@@ -194,13 +194,16 @@ async def cmd_start(message: types.Message):
         except Exception as e:
             logging.warning(f"Referral registration failed: {e}")
 
-    await bot.set_chat_menu_button(
-        chat_id=message.chat.id,
-        menu_button=MenuButtonWebApp(
-            text=bt(message.from_user, "open_shop"),
-            web_app=WebAppInfo(url=build_webapp_url(get_lang(message.from_user)))
+    try:
+        await bot.set_chat_menu_button(
+            chat_id=message.chat.id,
+            menu_button=MenuButtonWebApp(
+                text=bt(message.from_user, "open_shop"),
+                web_app=WebAppInfo(url=build_webapp_url(get_lang(message.from_user)))
+            )
         )
-    )
+    except Exception as e:
+        logging.warning("Failed to set chat menu button: %s", e)
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
