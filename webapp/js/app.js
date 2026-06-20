@@ -1493,9 +1493,9 @@ function formatMoney(amount, currency = 'UZS') {
     return `$${n.toFixed(2)}`;
 }
 
-function secondsLeftUntil(dateString) {
-    return Math.max(0, Math.floor((new Date(dateString).getTime() - Date.now()) / 1000));
-}
+function secondsLeftUntil(expiresAt) {
+        return getTopupSecondsLeft({ expires_at: expiresAt });
+    }
 
 function renderP2PSession(session) {
     if (!session) return '<div class="payment-box error">No active payment session</div>';
@@ -3208,10 +3208,11 @@ window.closeModal = closeModal;
    ========================================================= */
 (function () {
     const MIN_AMOUNT = 3000;
-    const MAX_AMOUNT = 5000000;
+    const MAX_AMOUNT = 2000000;
     let flowAmount = 0;
     let currentTopup = null;
     let timerId = null;
+    const TOPUP_TTL_MS = 5 * 60 * 1000;
 
     function digits(value) {
         return String(value || '').replace(/[^\d]/g, '');
@@ -3241,6 +3242,52 @@ window.closeModal = closeModal;
         const d = digits(value);
         if (!d) return '';
         return d.replace(/(.{4})/g, '$1 ').trim();
+    }
+
+
+    function parseTopupDate(value) {
+        if (!value) return NaN;
+
+        let input = String(value).trim();
+        if (!input) return NaN;
+
+        if (/^\d+$/.test(input)) {
+            const numeric = Number(input);
+            if (!Number.isFinite(numeric)) return NaN;
+            return input.length <= 10 ? numeric * 1000 : numeric;
+        }
+
+        input = input.replace(' ', 'T');
+
+        // Backend stores UTC datetimes without timezone. Force UTC so Telegram
+        // Android/WebView does not parse them as local time and collapse timer to 00:00.
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(input)) {
+            input += 'Z';
+        }
+
+        const parsed = Date.parse(input);
+        return Number.isFinite(parsed) ? parsed : NaN;
+    }
+
+    function getTopupExpiryMs(topup) {
+        const expiresAt = parseTopupDate(topup?.expires_at);
+        if (Number.isFinite(expiresAt)) return expiresAt;
+
+        const createdAt = parseTopupDate(topup?.created_at);
+        if (Number.isFinite(createdAt)) return createdAt + TOPUP_TTL_MS;
+
+        return NaN;
+    }
+
+    function getTopupSecondsLeft(topup) {
+        const expiryMs = getTopupExpiryMs(topup);
+        if (!Number.isFinite(expiryMs)) return 0;
+        return Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
+    }
+
+    function isActiveTopup(topup) {
+        return String(topup?.status || '').toLowerCase() === 'pending'
+            && getTopupSecondsLeft(topup) > 0;
     }
 
     function secondsLeftUntil(expiresAt) {
@@ -3342,7 +3389,7 @@ window.closeModal = closeModal;
     function header(back) {
         return `
             <div class="k12-header">
-                <button class="k12-pill" data-back="${back}">← Назад</button>
+                <button class="k12-pill" data-back="${back}">Назад</button>
                 <div class="k12-brand">
                     <div class="k12-logo">K</div>
                     <div>
@@ -3386,7 +3433,7 @@ window.closeModal = closeModal;
                     </div>
 
                     <label class="k12-input-box">
-                        <input id="k12-amount" inputmode="numeric" autocomplete="off" placeholder="0" value="${defaultAmount ? formatAmount(defaultAmount) : ''}">
+                        <input id="k12-amount" inputmode="numeric" autocomplete="off" placeholder="50 000" value="${defaultAmount ? formatAmount(defaultAmount) : ''}">
                         <span>UZS</span>
                     </label>
 
@@ -3399,7 +3446,7 @@ window.closeModal = closeModal;
 
                     <div class="k12-limits">
                         <div><span>Минимум</span><b>3 000 UZS</b></div>
-                        <div><span>Максимум</span><b>5 000 000 UZS</b></div>
+                        <div><span>Максимум</span><b>2 000 000 UZS</b></div>
                         <div><span>Время оплаты</span><b>5 минут</b></div>
                     </div>
 
@@ -3434,11 +3481,11 @@ window.closeModal = closeModal;
                 return;
             }
             if (amount > MAX_AMOUNT) {
-                error.textContent = 'Максимальная сумма: 5 000 000 UZS';
+                error.textContent = 'Максимальная сумма: 2 000 000 UZS';
                 return;
             }
             flowAmount = amount;
-            renderMethod(amount);
+            createTopup(amount);
         });
 
         setTimeout(() => input.focus(), 120);
@@ -3503,8 +3550,8 @@ window.closeModal = closeModal;
 
     async function createTopup(amount) {
         const el = screen();
-        const btn = el.querySelector('#k12-create');
-        const error = el.querySelector('#k12-method-error');
+        const btn = el.querySelector('#k12-create') || el.querySelector('#k12-next');
+        const error = el.querySelector('#k12-method-error') || el.querySelector('#k12-error');
         if (btn) {
             btn.disabled = true;
             btn.textContent = 'Получаем карту...';
@@ -3517,11 +3564,20 @@ window.closeModal = closeModal;
             renderPay(topup);
         } catch (e) {
             try {
+                const activeTopup = await api('GET', '/payments/topups/active');
+                if (isActiveTopup(activeTopup)) {
+                    currentTopup = activeTopup;
+                    renderPay(activeTopup);
+                    return;
+                }
+            } catch (_) {}
+
+            try {
                 const topups = await api('GET', '/payments/topups/my');
-                const pending = (topups || []).find(t => t.status === 'pending');
-                if (pending) {
-                    currentTopup = pending;
-                    renderPay(pending);
+                const activePending = (topups || []).find(isActiveTopup);
+                if (activePending) {
+                    currentTopup = activePending;
+                    renderPay(activePending);
                     return;
                 }
             } catch (_) {}
@@ -3535,71 +3591,141 @@ window.closeModal = closeModal;
     }
 
     function renderPay(topup) {
-        stopTimer();
-        open();
+        currentTopup = topup;
         const el = screen();
-        const amount = Number(topup?.amount || flowAmount || 0);
+
+        const amount = Number(topup.amount || flowAmount || 0);
         const cardNumber = getCardNumber(topup);
         const holder = getHolder(topup);
         const system = getSystem(topup);
 
         el.innerHTML = `
             <div class="k12-shell">
-                ${header('method')}
+                ${header('amount')}
 
-                <div class="k12-timer">
-                    <span>Осталось</span>
-                    <b id="k12-timer">00:00</b>
-                </div>
-
-                <section class="k12-bank-card">
-                    <div class="k12-bank-top">
-                        <span>${safe(system)}</span>
-                        <button id="k12-copy-card">Копировать</button>
+                <section class="k12-pay-panel">
+                    <div class="k12-pay-timer">
+                        <span>Осталось</span>
+                        <b id="k12-timer">00:00</b>
                     </div>
-                    <div class="k12-card-number">${safe(formatCard(cardNumber))}</div>
-                    <div class="k12-holder">${safe(holder || 'CARD HOLDER')}</div>
-                </section>
 
-                <section class="k12-pay-amount">
-                    <div>
-                        <span>Сумма к оплате</span>
-                        <b>${money(amount)}</b>
+                    <div class="k12-pay-card-row">
+                        <div class="k12-card-main">
+                            <div class="k12-card-system">${safe(system)}</div>
+                            <div class="k12-card-number">${safe(formatCard(cardNumber))}</div>
+                            <div class="k12-holder">${safe(holder || 'CARD HOLDER')}</div>
+                        </div>
+                        <button class="k12-copy-btn" id="k12-copy-card">Копировать</button>
                     </div>
-                    <button id="k12-copy-amount">Копировать</button>
-                </section>
 
-                <section class="k12-rules">
-                    <div class="ok-title">Правильно</div>
-                    <p class="ok"><b>✓</b> Оплатить в течение 5 минут</p>
-                    <p class="ok"><b>✓</b> Отправить точно указанную сумму</p>
-                    <div class="bad-title">Неправильно</div>
-                    <p class="bad"><b>×</b> Оплачивать с банкомата</p>
-                    <p class="bad"><b>×</b> Отправлять другую сумму</p>
-                </section>
+                    <div class="k12-pay-amount">
+                        <div>
+                            <span>Сумма к оплате</span>
+                            <b>${money(amount)}</b>
+                        </div>
+                        <button class="k12-copy-btn" id="k12-copy-amount">Копировать</button>
+                    </div>
 
-                <button class="k12-cancel" id="k12-cancel">Отменить пополнение</button>
+                    <div class="k12-rules">
+                        <div class="k12-rules-title">Правила:</div>
+                        <p class="ok"><b>✓</b> Оплатить в течение 5 минут</p>
+                        <p class="ok"><b>✓</b> Отправить точно указанную сумму</p>
+                        <p class="bad"><b>×</b> Не оплачивать с банкомата</p>
+                        <p class="bad"><b>×</b> Не отправлять другую сумму</p>
+                    </div>
+
+                    <div class="k12-expired-note" id="k12-expired-note" hidden>Время оплаты истекло. Не оплачивайте эту карту — создайте новое пополнение.</div>
+                    <button class="k12-main-btn kadi-pay-paid-btn-v15" id="k12-paid" type="button">Я оплатил</button>
+                    <button class="k12-cancel" id="k12-cancel">Отменить пополнение</button>
+                </section>
             </div>`;
 
         bindBack(el);
-        el.querySelector('#k12-copy-card').addEventListener('click', () => copyValue(digits(cardNumber)));
-        el.querySelector('#k12-copy-amount').addEventListener('click', () => copyValue(Math.round(amount)));
-        el.querySelector('#k12-cancel').addEventListener('click', async () => {
-            try {
-                if (topup?.id) await api('POST', `/payments/topups/${topup.id}/cancel`);
-                if (typeof showToast === 'function') showToast('success', 'Пополнение отменено');
-                renderAmount(0);
-            } catch (_) {
-                if (typeof showToast === 'function') showToast('error', 'Не удалось отменить');
-            }
-        });
 
-        const timerEl = el.querySelector('#k12-timer');
-        function tick() {
-            if (timerEl) timerEl.textContent = mmss(secondsLeftUntil(topup?.expires_at));
+        const copyCardBtn = el.querySelector('#k12-copy-card');
+        if (copyCardBtn) {
+            copyCardBtn.addEventListener('click', () => copyValue(digits(cardNumber)));
         }
+
+        const copyAmountBtn = el.querySelector('#k12-copy-amount');
+        if (copyAmountBtn) {
+            copyAmountBtn.addEventListener('click', () => copyValue(Math.round(amount)));
+        }
+
+        const paidBtn = el.querySelector('#k12-paid');
+        if (paidBtn) {
+            paidBtn.addEventListener('click', () => {
+                if (typeof window.kadiPayWaitForPaymentV15 === 'function') {
+                    window.kadiPayWaitForPaymentV15();
+                }
+            });
+        }
+
+        const cancelBtn = el.querySelector('#k12-cancel');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', async () => {
+                try {
+                    if (topup?.id) await api('POST', `/payments/topups/${topup.id}/cancel`);
+                    showToast('success', 'Пополнение отменено');
+                } catch (e) {
+                    console.warn('Topup cancel error:', e);
+                    showToast('info', 'Пополнение закрыто');
+                } finally {
+                    close();
+                }
+            });
+        }
+
+        startTimer(topup);
+    }
+
+function startTimer(topup) {
+        stopTimer();
+
+        const el = screen();
+        const timerEl = el.querySelector('#k12-timer');
+        const timerLabel =
+            el.querySelector('#k12-timer-label') ||
+            el.querySelector('.k12-pay-timer span') ||
+            el.querySelector('.k12-timer span');
+
+        const expiredNote = el.querySelector('#k12-expired-note');
+        const cancelBtn = el.querySelector('#k12-cancel');
+
+        function setExpiredState() {
+            el.classList.add('k12-topup-expired');
+
+            if (timerLabel) timerLabel.textContent = 'Статус';
+            if (timerEl) timerEl.textContent = 'Время истекло';
+            if (expiredNote) expiredNote.hidden = false;
+            if (cancelBtn) cancelBtn.textContent = 'Назад к сумме';
+
+            el.querySelectorAll('.kadi-pay-paid-btn-v15, .kadi-paid-btn, .kadi-paid-btn-v13, #k12-paid').forEach(btn => {
+                btn.disabled = true;
+                btn.textContent = 'Время истекло';
+            });
+        }
+
+        function tick() {
+            const secondsLeft = getTopupSecondsLeft(topup);
+
+            if (secondsLeft <= 0) {
+                setExpiredState();
+                stopTimer();
+                return;
+            }
+
+            el.classList.remove('k12-topup-expired');
+            if (timerLabel) timerLabel.textContent = 'Осталось';
+            if (timerEl) timerEl.textContent = mmss(secondsLeft);
+            if (expiredNote) expiredNote.hidden = true;
+        }
+
         tick();
-        timerId = setInterval(tick, 1000);
+
+        if (getTopupSecondsLeft(topup) > 0) {
+            timerId = setInterval(tick, 1000);
+        }
     }
 
     function prepareButtons() {
@@ -4078,6 +4204,7 @@ window.closeModal = closeModal;
 
     function insertButton() {
         if (!isPaymentScreen()) return;
+        if (document.querySelector('.k12-topup-expired')) return;
         if (document.querySelector('.kadi-pay-paid-btn-v15')) return;
 
         const cancelBtn = findCancelButton();
@@ -4200,6 +4327,8 @@ window.closeModal = closeModal;
 
         await check();
     }
+
+    window.kadiPayWaitForPaymentV15 = waitForPayment;
 
     setInterval(insertButton, 700);
 
