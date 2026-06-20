@@ -132,7 +132,11 @@ function initTelegram() {
         
         // Back button handler
         tg.BackButton.onClick(() => {
-            if (state.currentPage === 'product' || state.currentPage === 'checkout' || state.currentPage === 'order-detail') {
+            if (state.currentPage === 'legal-document') {
+                navigateTo('legal');
+            } else if (state.currentPage === 'legal') {
+                navigateTo('profile');
+            } else if (state.currentPage === 'product' || state.currentPage === 'checkout' || state.currentPage === 'order-detail') {
                 navigateTo('catalog');
             } else if (state.currentPage === 'admin') {
                 navigateTo('profile');
