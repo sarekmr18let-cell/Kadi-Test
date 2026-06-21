@@ -204,7 +204,7 @@ router = APIRouter()
 
 
 def order_response_options():
-    return (selectinload(Order.items).selectinload(OrderItem.variation),)
+    return (selectinload(Order.items).selectinload(OrderItem.variation).selectinload(ProductVariation.product),)
 
 
 async def load_order_for_response(db: AsyncSession, order_id: int, user_id: int | None = None) -> Order:

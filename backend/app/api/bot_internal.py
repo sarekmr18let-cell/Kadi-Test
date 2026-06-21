@@ -7,7 +7,7 @@ from typing import Optional, List
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.models import User, Order, OrderItem
+from app.models.models import User, Order, OrderItem, ProductVariation
 from app.schemas.schemas import UserProfile, OrderResponse, BalanceResponse
 
 router = APIRouter()
@@ -79,7 +79,7 @@ async def get_orders_for_bot(telegram_id: int, db: AsyncSession = Depends(get_db
     user = await get_user_by_telegram_id(telegram_id, db)
     result = await db.execute(
         select(Order)
-        .options(selectinload(Order.items).selectinload(OrderItem.variation))
+        .options(selectinload(Order.items).selectinload(OrderItem.variation).selectinload(ProductVariation.product))
         .where(Order.user_id == user.id)
         .order_by(Order.created_at.desc())
         .limit(10)

@@ -70,6 +70,15 @@ class CategoryResponse(CategoryBase):
 
 
 # ============= Product Variation =============
+class ProductImageResponse(BaseModel):
+    id: int
+    name: str
+    image_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class ProductVariationBase(BaseModel):
     name: str
     price: float
@@ -92,6 +101,7 @@ class ProductVariationUpdate(ProductVariationBase):
 class ProductVariationResponse(ProductVariationBase):
     id: int
     moogold_variation_id: Optional[int] = None
+    product: Optional[ProductImageResponse] = None
     provider: Optional[str] = None
     provider_variation_id: Optional[str] = None
     provider_price: Optional[float] = None

@@ -10080,6 +10080,14 @@ body[data-current-page="product"] #page-product {
     stroke-width: 1.2;
 }
 
+
+#page-orders .history-card-icon-image img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+}
+
 #page-orders .history-card-icon-topup {
     background: radial-gradient(circle at 35% 25%, rgba(52, 211, 153, .28), rgba(12, 18, 42, .95)) !important;
     border: 1px solid rgba(52, 211, 153, .20) !important;
@@ -10271,6 +10279,14 @@ body[data-current-page="product"] #page-product {
 #page-order-detail .history-card-icon svg rect {
     stroke: rgba(255,255,255,.18) !important;
     stroke-width: 1.2 !important;
+}
+
+
+#page-order-detail .history-card-icon-image img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
 }
 
 #page-order-detail .history-card-icon-mlbb {

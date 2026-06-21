@@ -1637,11 +1637,22 @@ function renderProductDetail(product) {
         }
 
         saveLastAccount();
+        const selectedVariationIcon = typeof getVariationIcon === 'function'
+            ? String(getVariationIcon(product, selectedVariation) || '').trim()
+            : '';
+        const productDetailImage = typeof getProductDetailImageUrl === 'function'
+            ? String(getProductDetailImageUrl(product) || '').trim()
+            : String(product.image_url || '').trim();
+        const variationImageUrl = String(selectedVariation.image_url || '').trim() ||
+            (selectedVariationIcon && selectedVariationIcon !== productDetailImage ? selectedVariationIcon : null);
+
         addToCart({
             variation_id: selectedVariation.id,
             product_id: product.id,
             product_name: product.name,
             product_image_url: product.image_url || null,
+            variation_name: selectedVariation.name,
+            variation_image_url: variationImageUrl || null,
             name: `${product.name} - ${selectedVariation.name}`,
             price: selectedVariation.price,
             quantity: quantity,
@@ -1791,7 +1802,7 @@ function renderCartTargetSummary(item) {
 
 
 function getCartItemImageUrl(item = {}) {
-    const direct = String(item.image_url || item.variation_image_url || item.product_image_url || '').trim();
+    const direct = String(item.variation_image_url || item.image_url || item.product_image_url || '').trim();
     if (direct) return direct;
 
     const label = String(`${item.product_name || ''} ${item.name || ''} ${item.variation_name || ''}`).toLowerCase();
@@ -2447,6 +2458,32 @@ function getOrderDisplayNumber(order = {}) {
 }
 
 
+function getOrderHistoryImageUrl(order = {}) {
+    const firstItem = getOrderFirstItem(order) || {};
+    const direct = String(
+        firstItem.variation?.image_url ||
+        firstItem.variation_image_url ||
+        firstItem.product?.image_url ||
+        firstItem.variation?.product?.image_url ||
+        firstItem.product_image_url ||
+        order.product_image_url ||
+        ''
+    ).trim();
+
+    if (direct) return direct;
+
+
+    const productName = typeof getOrderProductName === 'function' ? getOrderProductName(order) : '';
+    const variationName = typeof getOrderVariationName === 'function' ? getOrderVariationName(order) : '';
+    const label = `${productName} ${variationName}`.toLowerCase();
+
+    if (label.includes('diamond') || label.includes('mlbb') || label.includes('mobile legends')) {
+        return '/assets/products/mlbb-cart-icon.svg';
+    }
+
+    return null;
+}
+
 function getOrderHistoryIcon(order = {}, type = 'order') {
     if (type === 'topup') {
         return `
@@ -2459,6 +2496,15 @@ function getOrderHistoryIcon(order = {}, type = 'order') {
         `;
     }
 
+
+    const imageUrl = typeof getOrderHistoryImageUrl === 'function' ? getOrderHistoryImageUrl(order) : null;
+    if (imageUrl) {
+        return `
+            <div class="history-card-icon history-card-icon-image" aria-hidden="true">
+                <img src="${escapeHtml(imageUrl)}" alt="" loading="lazy">
+            </div>
+        `;
+    }
     const productName = typeof getOrderProductName === 'function' ? getOrderProductName(order) : '';
     const variationName = typeof getOrderVariationName === 'function' ? getOrderVariationName(order) : '';
     const label = `${productName} ${variationName}`.toLowerCase();

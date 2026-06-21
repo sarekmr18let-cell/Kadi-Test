@@ -641,7 +641,7 @@ async def list_orders(
     admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(Order).options(selectinload(Order.items).selectinload(OrderItem.variation))
+    query = select(Order).options(selectinload(Order.items).selectinload(OrderItem.variation).selectinload(ProductVariation.product))
     if status:
         query = query.where(Order.status == status)
 
