@@ -113,12 +113,11 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     active_variations = [v for v in product.variations if v.is_active]
 
     def _variation_sort_key(v):
-        meta = v.provider_meta or {}
         try:
-            sort_order = int(meta.get("sort_order") or 999999)
+            sort_order = int(getattr(v, "sort_order", 0) or 0)
         except Exception:
-            sort_order = 999999
-        return (sort_order, float(v.price or 0), int(v.id or 0))
+            sort_order = 0
+        return (sort_order, int(v.id or 0), str(v.name or "").lower())
 
     active_variations.sort(key=_variation_sort_key)
     set_committed_value(product, "variations", active_variations)

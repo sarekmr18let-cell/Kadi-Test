@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import set_committed_value
 from typing import List, Optional
 from datetime import datetime, timezone
 import json
@@ -633,7 +634,14 @@ async def list_admin_products(
         .options(selectinload(Product.category), selectinload(Product.variations))
         .order_by(Product.sort_order)
     )
-    return result.scalars().all()
+    products = result.scalars().all()
+    for product in products:
+        sorted_variations = sorted(
+            product.variations or [],
+            key=lambda v: (int(getattr(v, "sort_order", 0) or 0), int(v.id or 0), str(v.name or "").lower()),
+        )
+        set_committed_value(product, "variations", sorted_variations)
+    return products
 
 
 @router.post("/products")
