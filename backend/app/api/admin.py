@@ -6,7 +6,13 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import set_committed_value
 from typing import List, Optional
 from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
 import json
+import os
+import re
+
+from PIL import Image, UnidentifiedImageError
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -25,6 +31,52 @@ from app.schemas.schemas import (
 from app.services.notifications import send_order_notification
 from app.services.p2p import count_promo_usage_if_needed, clean_card_number, card_last4, credit_balance_topup, expire_old_balance_topups, parse_incoming_payment_payload, process_incoming_p2p_payment
 from app.services.moogold_fulfillment import fulfill_order_via_moogold
+
+
+MEDIA_UPLOAD_DIR = Path(os.getenv("MEDIA_UPLOAD_DIR", "uploads")).resolve()
+MEDIA_URL_PREFIX = "/uploads"
+MAX_MEDIA_UPLOAD_SIZE = 3 * 1024 * 1024
+ALLOWED_MEDIA_TYPES = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
+EXTENSION_CONTENT_TYPES = {v: k for k, v in ALLOWED_MEDIA_TYPES.items()} | {".jpeg": "image/jpeg"}
+
+
+def _safe_media_filename(original_filename: str | None, content_type: str) -> str:
+    ext = Path(original_filename or "").suffix.lower()
+    allowed_ext = ALLOWED_MEDIA_TYPES[content_type]
+    if ext == ".jpeg":
+        ext = ".jpg"
+    if ext not in {".png", ".jpg", ".webp"}:
+        ext = allowed_ext
+
+    stem = Path(original_filename or "image").stem.lower()
+    stem = re.sub(r"[^a-z0-9_-]+", "-", stem).strip("-_")[:40] or "image"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return f"{timestamp}_{uuid4().hex[:12]}_{stem}{ext}"
+
+
+def _media_response(path: Path) -> dict:
+    stat = path.stat()
+    ext = path.suffix.lower()
+    return {
+        "url": f"{MEDIA_URL_PREFIX}/{path.name}",
+        "filename": path.name,
+        "content_type": EXTENSION_CONTENT_TYPES.get(ext, "application/octet-stream"),
+        "size": stat.st_size,
+        "created_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+    }
+
+
+def _resolve_upload_path(filename: str) -> Path:
+    if not filename or filename != Path(filename).name or ".." in Path(filename).parts:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    path = (MEDIA_UPLOAD_DIR / filename).resolve()
+    if not path.is_relative_to(MEDIA_UPLOAD_DIR):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    return path
 
 
 
@@ -332,6 +384,67 @@ class P2PParserTestRequest(BaseModel):
     card_last4: Optional[str] = None
     external_id: Optional[str] = None
 
+
+
+@router.get("/media")
+async def list_admin_media(admin: dict = Depends(get_current_admin)):
+    """List admin-uploaded image assets from the shared uploads directory."""
+    MEDIA_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    files = []
+    for path in MEDIA_UPLOAD_DIR.iterdir():
+        if path.is_file() and path.suffix.lower() in EXTENSION_CONTENT_TYPES:
+            files.append(_media_response(path))
+    return sorted(files, key=lambda item: item.get("created_at") or "", reverse=True)
+
+
+@router.post("/media/upload")
+async def upload_admin_media(
+    file: UploadFile = File(...),
+    admin: dict = Depends(get_current_admin),
+):
+    """Upload a PNG/JPEG/WebP image for admin-managed product media."""
+    content_type = (file.content_type or "").lower()
+    if content_type not in ALLOWED_MEDIA_TYPES:
+        raise HTTPException(status_code=400, detail="Only PNG, JPG and WebP images are allowed")
+
+    data = await file.read(MAX_MEDIA_UPLOAD_SIZE + 1)
+    if len(data) > MAX_MEDIA_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail="Image must be 3 MB or smaller")
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    try:
+        from io import BytesIO
+        with Image.open(BytesIO(data)) as img:
+            detected = (img.format or "").upper()
+            if detected not in {"PNG", "JPEG", "WEBP"}:
+                raise HTTPException(status_code=400, detail="Uploaded file is not a supported image")
+            expected_by_type = {"image/png": "PNG", "image/jpeg": "JPEG", "image/webp": "WEBP"}
+            if expected_by_type[content_type] != detected:
+                raise HTTPException(status_code=400, detail="Image content does not match its content type")
+            img.verify()
+    except HTTPException:
+        raise
+    except (UnidentifiedImageError, OSError):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
+
+    MEDIA_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    filename = _safe_media_filename(file.filename, content_type)
+    destination = _resolve_upload_path(filename)
+    destination.write_bytes(data)
+    return _media_response(destination)
+
+
+@router.delete("/media/{filename}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_admin_media(filename: str, admin: dict = Depends(get_current_admin)):
+    """Delete one uploaded image, constrained to the uploads directory."""
+    path = _resolve_upload_path(filename)
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Media file not found")
+    if path.suffix.lower() not in EXTENSION_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported media file")
+    path.unlink()
+    return None
 
 @router.get("/dashboard", response_model=DashboardStats)
 async def dashboard(
