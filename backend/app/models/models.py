@@ -85,6 +85,8 @@ class ProductVariation(Base):
     moogold_variation_id = Column(Integer, unique=True, nullable=True)
     name = Column(String(255), nullable=False)
     price = Column(Float, nullable=False)
+    cost_price = Column(Float, nullable=True)
+    cost_currency = Column(String(10), default="UZS")
     stock_status = Column(String(20), default="instock")  # instock, outofstock
     image_url = Column(String(500), nullable=True)
     sort_order = Column(Integer, default=0)

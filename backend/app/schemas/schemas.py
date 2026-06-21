@@ -73,6 +73,8 @@ class CategoryResponse(CategoryBase):
 class ProductVariationBase(BaseModel):
     name: str
     price: float
+    cost_price: Optional[float] = None
+    cost_currency: str = "UZS"
     stock_status: str = "instock"
     image_url: Optional[str] = None
     sort_order: int = 0
