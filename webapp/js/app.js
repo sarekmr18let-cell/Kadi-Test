@@ -3128,6 +3128,32 @@ function bindImagePreview(inputId, previewId) {
     render();
 }
 
+
+function getVariationCostMetrics(variation = {}) {
+    const price = Number(variation.price || 0);
+    const hasCost = variation.cost_price !== null && variation.cost_price !== undefined && String(variation.cost_price).trim() !== '';
+    const cost = hasCost ? Number(variation.cost_price) : null;
+    const currency = String(variation.cost_currency || 'UZS').toUpperCase();
+
+    if (!hasCost || Number.isNaN(cost)) {
+        return { currency, costText: '—', profitText: '—', marginText: '—' };
+    }
+
+    const costText = currency === 'UZS' ? formatMoney(cost, 'UZS') : `${cost.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${escapeHtml(currency)}`;
+    if (currency !== 'UZS' || !price) {
+        return { currency, costText, profitText: '—', marginText: '—' };
+    }
+
+    const profit = price - cost;
+    const margin = (profit / price) * 100;
+    return {
+        currency,
+        costText,
+        profitText: formatMoney(profit, 'UZS'),
+        marginText: `${margin.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%`,
+    };
+}
+
 async function loadAdminProducts() {
     try {
         const [products, categories] = await Promise.all([
@@ -3156,7 +3182,9 @@ async function loadAdminProducts() {
                         const sortDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
                         if (sortDiff !== 0) return sortDiff;
                         return Number(a.id || 0) - Number(b.id || 0) || String(a.name || '').localeCompare(String(b.name || ''));
-                    }).map(v => `
+                    }).map(v => {
+                        const metrics = getVariationCostMetrics(v);
+                        return `
                         <div class="admin-variation-row">
                             ${v.image_url ? `<img src="${escapeHtml(v.image_url)}" alt="" style="width: 38px; height: 38px; object-fit: contain; border-radius: 10px; background: rgba(255,255,255,0.06); flex: 0 0 auto;">` : ''}
                             <div>
@@ -3166,14 +3194,19 @@ async function loadAdminProducts() {
                                 </div>
                             </div>
                             <div style="text-align: right;">
-                                <div style="color: var(--neon-green);">${formatMoney(v.price, 'UZS')}</div>
+                                <div style="color: var(--neon-green);">Sell price: ${formatMoney(v.price, 'UZS')}</div>
+                                <div style="font-size: 12px; color: var(--text-muted); line-height: 1.45;">
+                                    Cost: ${metrics.costText}<br>
+                                    Profit: ${metrics.profitText}<br>
+                                    Margin: ${metrics.marginText}
+                                </div>
                                 <div class="inline-actions">
                                     <button onclick="showVariationModal(${p.id}, ${v.id})">Edit</button>
                                     <button onclick="deleteVariation(${v.id})">Off</button>
                                 </div>
                             </div>
-                        </div>
-                    `).join('') || '<div style="color: var(--text-muted); font-size: 13px;">No variations yet. Add 86/172/257 etc.</div>'}
+                        </div>`;
+                    }).join('') || '<div style="color: var(--text-muted); font-size: 13px;">No variations yet. Add 86/172/257 etc.</div>'}
                 </div>
                 <div class="actions">
                     <button onclick="showProductModal(${p.id})">Edit Product</button>
@@ -3364,6 +3397,12 @@ function showVariationModal(productId, variationId = null) {
                 <input id="variation-name" placeholder="86 Diamonds" value="${escapeHtml(variation?.name || '')}" />
                 <label>Price in UZS</label>
                 <input id="variation-price" inputmode="numeric" placeholder="18000" value="${escapeHtml(variation?.price ?? '')}" />
+                <label>Cost price</label>
+                <input id="variation-cost-price" inputmode="numeric" placeholder="118000" value="${escapeHtml(variation?.cost_price ?? '')}" />
+                <label>Cost currency</label>
+                <select id="variation-cost-currency">
+                    ${['UZS', 'USD', 'USDT'].map(currency => `<option value="${currency}" ${String(variation?.cost_currency || 'UZS').toUpperCase() === currency ? 'selected' : ''}>${currency}</option>`).join('')}
+                </select>
                 <label>Stock status</label>
                 <select id="variation-stock">
                     <option value="instock" ${variation?.stock_status === 'instock' ? 'selected' : ''}>instock</option>
@@ -3394,6 +3433,8 @@ async function saveVariation(productId, variationId = null) {
         const payload = {
             name: document.getElementById('variation-name').value.trim(),
             price: Number(document.getElementById('variation-price').value || 0),
+            cost_price: document.getElementById('variation-cost-price').value ? Number(document.getElementById('variation-cost-price').value) : null,
+            cost_currency: document.getElementById('variation-cost-currency').value || 'UZS',
             stock_status: document.getElementById('variation-stock').value,
             image_url: document.getElementById('variation-image').value.trim() || null,
             sort_order: Number(document.getElementById('variation-sort').value || 0),
