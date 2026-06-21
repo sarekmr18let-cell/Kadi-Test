@@ -74,6 +74,8 @@ class ProductVariationBase(BaseModel):
     name: str
     price: float
     stock_status: str = "instock"
+    image_url: Optional[str] = None
+    sort_order: int = 0
 
 
 class ProductVariationCreate(ProductVariationBase):

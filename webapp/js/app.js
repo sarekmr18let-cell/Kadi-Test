@@ -393,8 +393,16 @@ function isMlbbProduct(product = {}) {
 }
 
 function getVariationIcon(product = {}, variation = {}) {
+    const adminIcon = String(variation.image_url || '').trim();
+    if (adminIcon) return adminIcon;
+
+    if (isMlbbProduct(product)) {
+        const normalizedName = String(variation.name || '').trim().toLowerCase();
+        const fileName = MLBB_VARIATION_ICON_BY_NAME[normalizedName];
+        if (fileName) return `${MLBB_VARIATION_ICON_BASE}${fileName}`;
+    }
+
     const directIcon = String(
-        variation.image_url ||
         variation.icon_url ||
         variation.thumbnail_url ||
         variation.image ||
@@ -403,12 +411,6 @@ function getVariationIcon(product = {}, variation = {}) {
     ).trim();
 
     if (directIcon) return directIcon;
-
-    if (isMlbbProduct(product)) {
-        const normalizedName = String(variation.name || '').trim().toLowerCase();
-        const fileName = MLBB_VARIATION_ICON_BY_NAME[normalizedName];
-        if (fileName) return `${MLBB_VARIATION_ICON_BASE}${fileName}`;
-    }
 
     return getProductDetailImageUrl(product) || '';
 }
@@ -1218,10 +1220,17 @@ function renderProductDetail(product) {
     }
 
     function getVariationSortValue(variation) {
-        const meta = variation?.provider_meta || {};
-        const raw = meta.sort_order ?? variation?.sort_order ?? variation?.id ?? 999999;
-        const value = Number(raw);
-        return Number.isFinite(value) ? value : 999999;
+        const value = Number(variation?.sort_order ?? 0);
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    function compareVariations(a, b) {
+        const sortDiff = getVariationSortValue(a) - getVariationSortValue(b);
+        if (sortDiff !== 0) return sortDiff;
+        const idA = Number(a?.id ?? 999999);
+        const idB = Number(b?.id ?? 999999);
+        if (Number.isFinite(idA) && Number.isFinite(idB) && idA !== idB) return idA - idB;
+        return String(a?.name || '').localeCompare(String(b?.name || ''));
     }
 
     function getAvailableVariationGroups(variations) {
@@ -1297,7 +1306,7 @@ function renderProductDetail(product) {
 
         const filteredVariations = allFilteredVariations
             .filter(v => !selectedVariationGroup || getVariationGroupLabel(v) === selectedVariationGroup)
-            .sort((a, b) => getVariationSortValue(a) - getVariationSortValue(b));
+            .sort(compareVariations);
 
         const hasStock = filteredVariations.some(v => v.stock_status === 'instock');
 
@@ -3024,12 +3033,17 @@ async function loadAdminProducts() {
                 </div>
                 ${p.description ? `<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">${escapeHtml(p.description)}</div>` : ''}
                 <div class="admin-variation-list">
-                    ${(p.variations || []).map(v => `
+                    ${[...(p.variations || [])].sort((a, b) => {
+                        const sortDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
+                        if (sortDiff !== 0) return sortDiff;
+                        return Number(a.id || 0) - Number(b.id || 0) || String(a.name || '').localeCompare(String(b.name || ''));
+                    }).map(v => `
                         <div class="admin-variation-row">
+                            ${v.image_url ? `<img src="${escapeHtml(v.image_url)}" alt="" style="width: 38px; height: 38px; object-fit: contain; border-radius: 10px; background: rgba(255,255,255,0.06); flex: 0 0 auto;">` : ''}
                             <div>
                                 <strong>${escapeHtml(v.name)}</strong>
                                 <div style="font-size: 12px; color: var(--text-muted);">
-                                    ${escapeHtml(v.stock_status)} • MooGold variation: ${escapeHtml(v.moogold_variation_id || '-')}
+                                    ${escapeHtml(v.stock_status)} • Sort: ${escapeHtml(v.sort_order ?? 0)} • MooGold variation: ${escapeHtml(v.moogold_variation_id || '-')}
                                 </div>
                             </div>
                             <div style="text-align: right;">
@@ -3233,6 +3247,10 @@ function showVariationModal(productId, variationId = null) {
                     <option value="instock" ${variation?.stock_status === 'instock' ? 'selected' : ''}>instock</option>
                     <option value="outofstock" ${variation?.stock_status === 'outofstock' ? 'selected' : ''}>outofstock</option>
                 </select>
+                <label>Image URL</label>
+                <input id="variation-image" placeholder="/assets/variations/mlbb/mlbb_diamonds_small.png" value="${escapeHtml(variation?.image_url || '')}" />
+                <label>Sort order</label>
+                <input id="variation-sort" inputmode="numeric" value="${escapeHtml(variation?.sort_order ?? 0)}" />
                 <label>MooGold Variation ID</label>
                 <input id="variation-moogold" inputmode="numeric" placeholder="Required for auto delivery" value="${escapeHtml(variation?.moogold_variation_id || '')}" />
                 ${variation ? `
@@ -3252,6 +3270,8 @@ async function saveVariation(productId, variationId = null) {
             name: document.getElementById('variation-name').value.trim(),
             price: Number(document.getElementById('variation-price').value || 0),
             stock_status: document.getElementById('variation-stock').value,
+            image_url: document.getElementById('variation-image').value.trim() || null,
+            sort_order: Number(document.getElementById('variation-sort').value || 0),
             moogold_variation_id: document.getElementById('variation-moogold').value ? Number(document.getElementById('variation-moogold').value) : null,
         };
         if (variationId) {
