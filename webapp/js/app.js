@@ -136,8 +136,12 @@ function initTelegram() {
                 navigateTo('legal');
             } else if (state.currentPage === 'legal') {
                 navigateTo('profile');
-            } else if (state.currentPage === 'product' || state.currentPage === 'checkout' || state.currentPage === 'order-detail') {
-                navigateTo('catalog');
+            } else if (state.currentPage === 'product') {
+                navigateTo('home');
+            } else if (state.currentPage === 'checkout') {
+                navigateTo('cart');
+            } else if (state.currentPage === 'order-detail') {
+                navigateTo('orders');
             } else if (state.currentPage === 'admin') {
                 navigateTo('profile');
             } else {
