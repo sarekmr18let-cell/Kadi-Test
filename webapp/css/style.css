@@ -7729,8 +7729,10 @@ body[data-current-page="product"] #page-product {
 #page-product .variation-thumb img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
+    box-sizing: border-box;
+    padding: 3px;
 }
 
 #page-product .variation-thumb .kadi-product-fallback,
