@@ -11894,3 +11894,379 @@ body > #kadi-scroll-bottom-spacer {
 }
 /* KADI_HOTFIX_TIGHT_BOTTOM_SPACE_V3_END */
 
+
+/* KADI_HOTFIX_COMPACT_BOTTOM_NAV_V1 */
+:root {
+  --bottom-nav-height: 62px;
+  --kadi-nav-reserve: calc(66px + env(safe-area-inset-bottom, 0px));
+  --sticky-action-bottom: calc(62px + env(safe-area-inset-bottom, 0px) + 8px);
+}
+
+.bottom-nav {
+  height: calc(62px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+  gap: 7px !important;
+}
+
+.nav-item {
+  min-height: 50px !important;
+  height: 50px !important;
+  padding: 5px 8px !important;
+  border-radius: 22px !important;
+  font-size: 11px !important;
+  gap: 3px !important;
+}
+
+.nav-item svg {
+  width: 21px !important;
+  height: 21px !important;
+}
+
+.nav-item span {
+  font-size: 11px !important;
+  line-height: 1.1 !important;
+}
+
+.pages-container {
+  padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* KADI_HOTFIX_COMPACT_BOTTOM_NAV_V1_END */
+
+
+/* KADI_HOTFIX_COMPACT_BOTTOM_NAV_V2 */
+:root {
+  --bottom-nav-height: 56px;
+  --kadi-nav-reserve: calc(60px + env(safe-area-inset-bottom, 0px));
+  --sticky-action-bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 6px);
+}
+
+.bottom-nav {
+  height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 4px 18px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
+  gap: 8px !important;
+
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.nav-item {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 4px 8px !important;
+  border-radius: 18px !important;
+  gap: 2px !important;
+
+  background: rgba(18, 22, 44, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26) !important;
+}
+
+.nav-item.active {
+  background: rgba(6, 182, 212, 0.16) !important;
+  border-color: rgba(6, 182, 212, 0.55) !important;
+  box-shadow: 0 0 18px rgba(6, 182, 212, 0.18) !important;
+}
+
+.nav-item svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.nav-item span {
+  font-size: 10px !important;
+  line-height: 1 !important;
+  font-weight: 700 !important;
+}
+
+.nav-item.active::before {
+  display: none !important;
+}
+
+.pages-container {
+  padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#page-product,
+#page-checkout {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* KADI_HOTFIX_COMPACT_BOTTOM_NAV_V2_END */
+
+
+/* KADI_HOTFIX_COMPACT_BOTTOM_NAV_V3 */
+:root {
+  --bottom-nav-height: 58px;
+  --kadi-nav-reserve: calc(92px + env(safe-area-inset-bottom, 0px));
+  --sticky-action-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+
+.bottom-nav {
+  height: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 4px 22px calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+  gap: 10px !important;
+
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.nav-item {
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 3px 7px !important;
+  border-radius: 17px !important;
+  gap: 2px !important;
+}
+
+.nav-item svg {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+.nav-item span {
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+
+.pages-container {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#page-product,
+#page-checkout {
+  padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* KADI_HOTFIX_COMPACT_BOTTOM_NAV_V3_END */
+
+
+/* KADI_HOTFIX_COMPACT_BOTTOM_NAV_V4 */
+:root {
+  --bottom-nav-height: 54px;
+  --kadi-nav-reserve: calc(124px + env(safe-area-inset-bottom, 0px));
+  --sticky-action-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+.bottom-nav {
+  height: calc(54px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 4px 24px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  gap: 10px !important;
+
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.nav-item {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 3px 7px !important;
+  border-radius: 16px !important;
+  gap: 2px !important;
+}
+
+.nav-item svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.nav-item span {
+  font-size: 9.5px !important;
+  line-height: 1 !important;
+}
+
+.pages-container {
+  padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#page-home,
+#page-profile,
+#page-orders,
+#page-cart,
+#page-legal {
+  padding-bottom: 16px !important;
+}
+
+#page-product,
+#page-checkout {
+  padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* KADI_HOTFIX_COMPACT_BOTTOM_NAV_V4_END */
+
+
+/* KADI_HOTFIX_BOTTOM_NAV_HIGHLIGHT_V5 */
+:root {
+  --bottom-nav-height: 58px;
+  --kadi-nav-reserve: calc(150px + env(safe-area-inset-bottom, 0px));
+  --sticky-action-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+}
+
+.bottom-nav {
+  height: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 4px 22px calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  gap: 10px !important;
+
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.nav-item {
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 4px 8px !important;
+  border-radius: 17px !important;
+  gap: 2px !important;
+
+  background:
+    linear-gradient(180deg, rgba(27, 32, 58, 0.88), rgba(12, 16, 34, 0.78)) !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  color: rgba(203, 213, 225, 0.78) !important;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.nav-item svg {
+  width: 17px !important;
+  height: 17px !important;
+  color: rgba(148, 163, 184, 0.95) !important;
+  stroke: currentColor !important;
+}
+
+.nav-item span {
+  font-size: 9.8px !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+  color: rgba(203, 213, 225, 0.82) !important;
+}
+
+.nav-item.active {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.42), transparent 65%),
+    linear-gradient(180deg, rgba(13, 55, 79, 0.94), rgba(7, 24, 48, 0.90)) !important;
+  border-color: rgba(6, 182, 212, 0.75) !important;
+  color: #ffffff !important;
+  box-shadow:
+    0 0 22px rgba(6, 182, 212, 0.32),
+    0 8px 26px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.nav-item.active svg {
+  color: #67e8f9 !important;
+  filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.65));
+}
+
+.nav-item.active span {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(6, 182, 212, 0.55);
+}
+
+.nav-item.active::before {
+  display: none !important;
+}
+
+.pages-container {
+  padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#page-home,
+#page-profile,
+#page-orders,
+#page-cart,
+#page-legal {
+  padding-bottom: 26px !important;
+}
+
+#page-product,
+#page-checkout {
+  padding-bottom: calc(165px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* KADI_HOTFIX_BOTTOM_NAV_HIGHLIGHT_V5_END */
+
+
+/* KADI_HOTFIX_BOTTOM_NAV_CONTENT_CLEARANCE_V6 */
+.pages-container {
+  padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#page-home,
+#page-profile,
+#page-orders,
+#page-cart,
+#page-legal {
+  padding-bottom: 52px !important;
+}
+
+#page-product,
+#page-checkout {
+  padding-bottom: calc(190px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* KADI_HOTFIX_BOTTOM_NAV_CONTENT_CLEARANCE_V6_END */
+
+
+/* KADI_HOTFIX_BOTTOM_NAV_SOFT_SCRIM_V7 */
+.bottom-nav::before {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 430px;
+  margin: 0 auto;
+  height: calc(118px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(
+    180deg,
+    rgba(5, 10, 26, 0) 0%,
+    rgba(5, 10, 26, 0.72) 42%,
+    rgba(5, 10, 26, 0.96) 100%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+.bottom-nav {
+  isolation: isolate !important;
+}
+
+.nav-item {
+  background:
+    linear-gradient(180deg, rgba(24, 30, 58, 0.96), rgba(10, 15, 34, 0.92)) !important;
+}
+
+.nav-item.active {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.55), transparent 65%),
+    linear-gradient(180deg, rgba(10, 70, 96, 0.98), rgba(5, 28, 52, 0.96)) !important;
+}
+/* KADI_HOTFIX_BOTTOM_NAV_SOFT_SCRIM_V7_END */
+
+
+/* KADI_HOTFIX_BOTTOM_NAV_MORE_CLEARANCE_V8 */
+.pages-container {
+  padding-bottom: calc(215px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#page-home,
+#page-profile,
+#page-orders,
+#page-cart,
+#page-legal {
+  padding-bottom: 86px !important;
+}
+
+#page-product,
+#page-checkout {
+  padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* KADI_HOTFIX_BOTTOM_NAV_MORE_CLEARANCE_V8_END */
+
