@@ -165,7 +165,8 @@ function initTelegram() {
 // ===== API Client =====
 async function api(method, path, body = null) {
     const url = `${API_BASE}${path}`;
-    const headers = {
+    const isFormData = body instanceof FormData;
+    const headers = isFormData ? {} : {
         'Content-Type': 'application/json',
     };
     if (state.token) {
@@ -174,7 +175,7 @@ async function api(method, path, body = null) {
     
     const options = { method, headers };
     if (body) {
-        options.body = JSON.stringify(body);
+        options.body = isFormData ? body : JSON.stringify(body);
     }
     
     try {
@@ -185,9 +186,10 @@ async function api(method, path, body = null) {
             return null;
         }
         if (!response.ok) {
-            const error = await response.json();
+            const error = await response.json().catch(() => ({}));
             throw new Error(error.detail || tr('request_failed'));
         }
+        if (response.status === 204) return null;
         return await response.json();
     } catch (error) {
         console.error('API Error:', error);
@@ -2919,6 +2921,7 @@ async function loadAdminPage() {
 
                 if (tab.dataset.tab === 'orders') loadAdminOrders();
                 if (tab.dataset.tab === 'products') loadAdminProducts();
+                if (tab.dataset.tab === 'media') loadAdminMedia();
                 if (tab.dataset.tab === 'users') loadAdminUsers();
                 if (tab.dataset.tab === 'p2p') loadAdminP2PCards();
                 if (tab.dataset.tab === 'system') loadAdminSystemCheck();
@@ -2930,6 +2933,9 @@ async function loadAdminPage() {
         document.getElementById('add-category-btn')?.addEventListener('click', showAddCategoryModal);
         document.getElementById('add-product-btn')?.addEventListener('click', () => showProductModal());
         document.getElementById('refresh-products-btn')?.addEventListener('click', loadAdminProducts);
+        document.getElementById('admin-media-upload-btn')?.addEventListener('click', () => document.getElementById('admin-media-file')?.click());
+        document.getElementById('admin-media-file')?.addEventListener('change', uploadAdminMedia);
+        document.getElementById('admin-media-refresh-btn')?.addEventListener('click', loadAdminMedia);
         document.getElementById('add-p2p-card-btn')?.addEventListener('click', showAddP2PCardModal);
         document.getElementById('refresh-p2p-cards-btn')?.addEventListener('click', loadAdminP2PCards);
         document.getElementById('run-system-check-btn')?.addEventListener('click', loadAdminSystemCheck);
@@ -3007,6 +3013,119 @@ async function fulfillOrder(orderId) {
     } catch (error) {
         showToast('error', error.message || 'Failed to queue MooGold');
     }
+}
+
+
+async function loadAdminMedia() {
+    const container = document.getElementById('admin-media-list');
+    if (!container) return;
+    try {
+        const media = await api('GET', '/admin/media');
+        state.adminMedia = media || [];
+        container.innerHTML = state.adminMedia.length ? state.adminMedia.map(item => `
+            <div class="admin-media-card" data-url="${escapeHtml(item.url)}">
+                <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.filename)}" loading="lazy">
+                <div class="admin-media-url">${escapeHtml(item.url)}</div>
+                <div class="admin-media-meta">${escapeHtml(item.content_type)} • ${Math.ceil(Number(item.size || 0) / 1024)} KB</div>
+                <div class="inline-actions">
+                    <button type="button" onclick="copyMediaUrl('${escapeHtml(item.url)}')">Copy URL</button>
+                    <button type="button" onclick="deleteAdminMedia('${escapeHtml(item.filename)}')" style="color: var(--neon-red);">Delete</button>
+                </div>
+            </div>
+        `).join('') : '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No uploaded images yet</div>';
+    } catch (error) {
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Failed to load media</div>';
+    }
+}
+
+async function uploadAdminMedia(event) {
+    const input = event?.target || document.getElementById('admin-media-file');
+    const file = input?.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+        showToast('error', 'Only PNG, JPG and WebP images are allowed');
+        input.value = '';
+        return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+        showToast('error', 'Image must be 3 MB or smaller');
+        input.value = '';
+        return;
+    }
+    const form = new FormData();
+    form.append('file', file);
+    try {
+        const uploaded = await api('POST', '/admin/media/upload', form);
+        showToast('success', `Uploaded ${uploaded?.url || 'image'}`);
+        input.value = '';
+        await loadAdminMedia();
+    } catch (error) {
+        input.value = '';
+    }
+}
+
+async function copyMediaUrl(url) {
+    try {
+        await navigator.clipboard.writeText(url);
+        showToast('success', 'URL copied');
+    } catch (error) {
+        showToast('error', 'Copy failed');
+    }
+}
+
+async function deleteAdminMedia(filename) {
+    if (!confirm('Delete this uploaded image?')) return;
+    try {
+        await api('DELETE', `/admin/media/${encodeURIComponent(filename)}`);
+        showToast('success', 'Media deleted');
+        await loadAdminMedia();
+    } catch (error) {
+        showToast('error', error.message || 'Failed to delete media');
+    }
+}
+
+function mediaImagePicker(targetInputId) {
+    const input = document.getElementById(targetInputId);
+    if (!input) return;
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    const media = state.adminMedia || [];
+    modal.innerHTML = `
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <h2>Choose from Media</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="admin-media-grid">
+                ${media.map(item => `
+                    <button type="button" class="admin-media-card admin-media-choice" data-url="${escapeHtml(item.url)}">
+                        <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.filename)}" loading="lazy">
+                        <span class="admin-media-url">${escapeHtml(item.url)}</span>
+                    </button>
+                `).join('') || '<div style="color: var(--text-muted); padding: 20px;">No media yet. Upload from the Media tab first.</div>'}
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+    modal.querySelectorAll('.admin-media-choice').forEach(btn => {
+        btn.addEventListener('click', () => {
+            input.value = btn.dataset.url || '';
+            input.dispatchEvent(new Event('input'));
+            modal.remove();
+        });
+    });
+}
+
+function bindImagePreview(inputId, previewId) {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    if (!input || !preview) return;
+    const render = () => {
+        const url = input.value.trim();
+        preview.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="Preview">` : '';
+    };
+    input.addEventListener('input', render);
+    render();
 }
 
 async function loadAdminProducts() {
@@ -3161,7 +3280,8 @@ function showProductModal(productId = null) {
                 <label>Description</label>
                 <textarea id="product-description" placeholder="Short product description">${escapeHtml(product?.description || '')}</textarea>
                 <label>Image URL</label>
-                <input id="product-image" placeholder="https://..." value="${escapeHtml(product?.image_url || '')}" />
+                <div class="admin-image-url-row"><input id="product-image" placeholder="/uploads/..." value="${escapeHtml(product?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-product-media-btn">Choose from Media</button></div>
+                <div id="product-image-preview" class="admin-image-preview"></div>
                 <label>MooGold Product ID</label>
                 <input id="product-moogold" inputmode="numeric" placeholder="Optional" value="${escapeHtml(product?.moogold_id || '')}" />
 
@@ -3192,6 +3312,8 @@ ru=🇷🇺 RU">${escapeHtml(regionOptionsToLines(product?.region_options || [])
     document.body.appendChild(modal);
     modal.querySelector('.modal-close').addEventListener('click', closeModal);
     modal.querySelector('#save-product-btn').addEventListener('click', () => saveProduct(product?.id || null));
+    modal.querySelector('#choose-product-media-btn')?.addEventListener('click', async () => { if (!state.adminMedia) await loadAdminMedia(); mediaImagePicker('product-image'); });
+    bindImagePreview('product-image', 'product-image-preview');
 }
 
 async function saveProduct(productId = null) {
@@ -3248,7 +3370,8 @@ function showVariationModal(productId, variationId = null) {
                     <option value="outofstock" ${variation?.stock_status === 'outofstock' ? 'selected' : ''}>outofstock</option>
                 </select>
                 <label>Image URL</label>
-                <input id="variation-image" placeholder="/assets/variations/mlbb/mlbb_diamonds_small.png" value="${escapeHtml(variation?.image_url || '')}" />
+                <div class="admin-image-url-row"><input id="variation-image" placeholder="/uploads/..." value="${escapeHtml(variation?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-variation-media-btn">Choose from Media</button></div>
+                <div id="variation-image-preview" class="admin-image-preview"></div>
                 <label>Sort order</label>
                 <input id="variation-sort" inputmode="numeric" value="${escapeHtml(variation?.sort_order ?? 0)}" />
                 <label>MooGold Variation ID</label>
@@ -3262,6 +3385,8 @@ function showVariationModal(productId, variationId = null) {
     document.body.appendChild(modal);
     modal.querySelector('.modal-close').addEventListener('click', closeModal);
     modal.querySelector('#save-variation-btn').addEventListener('click', () => saveVariation(productId, variation?.id || null));
+    modal.querySelector('#choose-variation-media-btn')?.addEventListener('click', async () => { if (!state.adminMedia) await loadAdminMedia(); mediaImagePicker('variation-image'); });
+    bindImagePreview('variation-image', 'variation-image-preview');
 }
 
 async function saveVariation(productId, variationId = null) {

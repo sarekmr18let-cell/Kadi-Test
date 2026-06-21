@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="css/style.css?v=2026062102">
+    <link rel="stylesheet" href="css/style.css?v=2026062103">
 </head>
 <body>
     <div id="app">
@@ -496,6 +496,7 @@
                         <button class="admin-tab active" data-tab="dashboard" data-i18n="dashboard">Dashboard</button>
                         <button class="admin-tab" data-tab="orders" data-i18n="admin_orders">Orders</button>
                         <button class="admin-tab" data-tab="products" data-i18n="admin_products">Products</button>
+                        <button class="admin-tab" data-tab="media">Media</button>
                         <button class="admin-tab" data-tab="users" data-i18n="admin_users">Users</button>
                         <button class="admin-tab" data-tab="p2p" data-i18n="p2p_topups">P2P / Top-ups</button>
                         <button class="admin-tab" data-tab="system" data-i18n="system_check">System Check</button>
@@ -548,6 +549,16 @@
                         <div id="admin-products-list" class="admin-list"></div>
                     </div>
                     
+                    <div id="admin-media" class="admin-content">
+                        <div class="admin-filter admin-actions-row">
+                            <input type="file" id="admin-media-file" accept="image/png,image/jpeg,image/webp" class="hidden">
+                            <button class="btn-primary" id="admin-media-upload-btn">Upload image</button>
+                            <button class="btn-secondary" id="admin-media-refresh-btn" data-i18n="refresh">Refresh</button>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 13px; margin: 8px 0 14px;">PNG, JPG or WebP up to 3 MB. Use copied /uploads/... URLs in Product Image URL or Variation Image URL.</p>
+                        <div id="admin-media-list" class="admin-media-grid"></div>
+                    </div>
+
                     <div id="admin-users" class="admin-content">
                         <input type="text" id="admin-user-search" placeholder="Search users..." data-i18n-placeholder="search_users">
                         <div id="admin-users-list" class="admin-list"></div>
