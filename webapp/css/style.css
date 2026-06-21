@@ -11734,3 +11734,73 @@ body[data-current-page="product"] #page-product {
     font-weight: 800;
     text-align: center;
 }
+
+/* KADI_LAYOUT_BOTTOM_SPACE_FIX_V1
+   Centralizes bottom navigation/safe-area spacing so pages have enough room
+   above fixed controls without adding a 1-2 screen blank scroll tail. */
+:root {
+    --bottom-nav-height: 72px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --page-bottom-space: 16px;
+    --page-top-space: 88px;
+    --sticky-action-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom) + 12px);
+    --sticky-action-page-space: 92px;
+}
+
+html,
+body,
+#app,
+#main-content {
+    min-height: 100%;
+}
+
+body {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#kadi-scroll-bottom-spacer {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+}
+
+.bottom-nav {
+    height: calc(var(--bottom-nav-height) + var(--safe-bottom)) !important;
+    padding-bottom: var(--safe-bottom) !important;
+}
+
+.pages-container {
+    min-height: auto !important;
+    padding: var(--page-top-space) 16px calc(var(--bottom-nav-height) + var(--safe-bottom) + var(--page-bottom-space)) !important;
+}
+
+.page,
+.page.active {
+    min-height: 0 !important;
+    height: auto !important;
+    margin-bottom: 0 !important;
+}
+
+.page.active {
+    display: block;
+}
+
+/* Fixed product/checkout CTAs need extra room for their own bar, not for every page. */
+#page-product,
+#page-checkout,
+body[data-current-page="product"] #page-product,
+body[data-current-page="checkout"] #page-checkout {
+    padding-bottom: calc(var(--sticky-action-page-space) + var(--safe-bottom)) !important;
+}
+
+.product-sticky-bar,
+.checkout-sticky-bar,
+.cart-checkout-bar {
+    bottom: var(--sticky-action-bottom) !important;
+}
+
+.search-overlay {
+    padding-bottom: calc(var(--page-bottom-space) + var(--safe-bottom)) !important;
+}
+/* KADI_LAYOUT_BOTTOM_SPACE_FIX_V1_END */

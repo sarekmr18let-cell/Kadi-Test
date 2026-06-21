@@ -5630,15 +5630,8 @@ function startTimer(topup) {
 
     function addBottomSpace() {
         try {
-            let spacer = document.getElementById('kadi-scroll-bottom-spacer');
-            if (!spacer) {
-                spacer = document.createElement('div');
-                spacer.id = 'kadi-scroll-bottom-spacer';
-                spacer.style.height = '140px';
-                spacer.style.minHeight = '140px';
-                spacer.style.pointerEvents = 'none';
-                document.body.appendChild(spacer);
-            }
+            const spacer = document.getElementById('kadi-scroll-bottom-spacer');
+            if (spacer) spacer.remove();
         } catch (e) {}
     }
 
