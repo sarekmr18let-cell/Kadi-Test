@@ -11804,3 +11804,93 @@ body[data-current-page="checkout"] #page-checkout {
     padding-bottom: calc(var(--page-bottom-space) + var(--safe-bottom)) !important;
 }
 /* KADI_LAYOUT_BOTTOM_SPACE_FIX_V1_END */
+
+/* KADI_HOTFIX_NO_EMPTY_BOTTOM_SCROLL_V2 */
+:root {
+  --kadi-nav-reserve: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+html,
+body {
+  min-height: 100%;
+  height: auto !important;
+  overflow-x: hidden;
+}
+
+#app,
+#main-content {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+.pages-container {
+  min-height: 0 !important;
+  height: auto !important;
+  padding-top: 88px !important;
+  padding-bottom: var(--kadi-nav-reserve) !important;
+}
+
+.page,
+.page.active {
+  min-height: 0 !important;
+  height: auto !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+#page-product,
+#page-checkout {
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#kadi-scroll-bottom-spacer,
+body > #kadi-scroll-bottom-spacer {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.promo-banner {
+  margin-bottom: 0 !important;
+}
+/* KADI_HOTFIX_NO_EMPTY_BOTTOM_SCROLL_V2_END */
+
+
+/* KADI_HOTFIX_TIGHT_BOTTOM_SPACE_V3 */
+:root {
+  --kadi-nav-reserve: calc(72px + env(safe-area-inset-bottom, 0px));
+  --bottom-nav-height: 68px;
+  --page-bottom-space: 4px;
+  --sticky-action-bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 8px);
+  --sticky-action-page-space: 72px;
+}
+
+.pages-container {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#page-home,
+#page-profile,
+#page-orders,
+#page-cart,
+#page-legal {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.promo-banner,
+.categories-section,
+.profile-menu,
+.orders-list,
+.cart-items {
+  margin-bottom: 8px !important;
+}
+
+#page-product,
+#page-checkout {
+  padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* KADI_HOTFIX_TIGHT_BOTTOM_SPACE_V3_END */
+
