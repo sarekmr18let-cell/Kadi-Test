@@ -11344,3 +11344,250 @@ body[data-current-page="product"] #page-product {
 .legal-page .legal-back-btn:active {
     transform: scale(.985);
 }
+
+
+/* KADI_PROFILE_PREMIUM_GLASS_V2_START */
+#page-profile {
+    padding: 0 16px calc(150px + env(safe-area-inset-bottom)) !important;
+}
+
+#page-profile .profile-header,
+#page-profile .stats-cards .stat-card:first-child,
+#page-profile .menu-item,
+#page-profile .admin-item,
+#page-profile .profile-legal-entry {
+    border: 1px solid rgba(255,255,255,0.075) !important;
+    outline: 0 !important;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(54,217,255,0.145), transparent 34%),
+        radial-gradient(circle at 100% 105%, rgba(155,92,255,0.15), transparent 38%),
+        linear-gradient(145deg, rgba(255,255,255,0.074), rgba(255,255,255,0.026)) !important;
+    box-shadow:
+        0 18px 38px rgba(0,0,0,0.24),
+        0 0 28px rgba(54,217,255,0.045),
+        inset 0 1px 0 rgba(255,255,255,0.065) !important;
+    backdrop-filter: blur(18px) saturate(125%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(125%) !important;
+}
+
+#page-profile .profile-header {
+    min-height: 104px !important;
+    margin: 0 0 12px !important;
+    padding: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    border-radius: 24px !important;
+}
+
+#page-profile .avatar {
+    width: 62px !important;
+    height: 62px !important;
+    min-width: 62px !important;
+    flex: 0 0 62px !important;
+    border: 1px solid rgba(255,255,255,0.11) !important;
+    border-radius: 22px !important;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,0.24), transparent 30%),
+        linear-gradient(135deg, rgba(54,217,255,0.88), rgba(155,92,255,0.84)) !important;
+    box-shadow:
+        0 13px 28px rgba(54,217,255,0.15),
+        0 0 24px rgba(155,92,255,0.10),
+        inset 0 1px 0 rgba(255,255,255,0.18) !important;
+}
+
+#page-profile .avatar.has-photo {
+    border-radius: 50% !important;
+}
+
+#page-profile .profile-info {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    gap: 4px !important;
+}
+
+#page-profile .profile-info h2 {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    color: rgba(255,255,255,0.96) !important;
+    font-size: 21px !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.025em !important;
+    text-shadow: 0 0 18px rgba(54,217,255,0.10) !important;
+}
+
+#page-profile .profile-info p,
+#page-profile .profile-telegram-id {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    color: rgba(255,255,255,0.56) !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+}
+
+#page-profile .profile-telegram-id {
+    margin-top: 1px !important;
+    color: rgba(54,217,255,0.58) !important;
+}
+
+#page-profile .stats-cards {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    margin: 0 0 12px !important;
+}
+
+#page-profile .stats-cards .stat-card:first-child {
+    min-height: 82px !important;
+    padding: 16px !important;
+    align-items: center !important;
+    border-radius: 24px !important;
+}
+
+#page-profile .profile-balance-main {
+    display: flex !important;
+    min-width: 0 !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+}
+
+#page-profile .stats-cards .stat-card:first-child .stat-label {
+    color: rgba(255,255,255,0.58) !important;
+    font-size: 12px !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.025em !important;
+    text-transform: uppercase !important;
+}
+
+#page-profile .stats-cards .stat-card:first-child .stat-value {
+    color: rgba(255,255,255,0.96) !important;
+    font-size: 24px !important;
+    font-weight: 950 !important;
+    letter-spacing: -0.025em !important;
+    text-shadow: 0 0 20px rgba(54,217,255,0.18) !important;
+}
+
+#page-profile .profile-topup-mini-btn {
+    min-width: 104px !important;
+    min-height: 38px !important;
+    padding: 0 16px !important;
+    border: 1px solid rgba(255,255,255,0.20) !important;
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, #36d9ff, #a855f7) !important;
+    color: #06111d !important;
+    box-shadow:
+        0 12px 28px rgba(54,217,255,0.20),
+        0 0 20px rgba(168,85,247,0.12),
+        inset 0 1px 0 rgba(255,255,255,0.34) !important;
+    font-size: 12.5px !important;
+    font-weight: 950 !important;
+}
+
+#page-profile .menu-list,
+#page-profile #admin-panel-btn {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin: 0 !important;
+}
+
+#page-profile #admin-panel-btn.hidden {
+    display: none !important;
+}
+
+#page-profile .profile-legal-entry {
+    margin: 10px 0 !important;
+}
+
+#page-profile .menu-item,
+#page-profile .admin-item,
+#page-profile .profile-legal-entry {
+    width: 100% !important;
+    min-height: 64px !important;
+    padding: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    border-radius: 20px !important;
+    color: rgba(255,255,255,0.94) !important;
+}
+
+#page-profile .menu-icon,
+#page-profile .profile-legal-entry-icon {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
+    border-radius: 14px !important;
+    background: linear-gradient(135deg, rgba(54,217,255,0.18), rgba(155,92,255,0.20)) !important;
+    color: rgba(255,255,255,0.92) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        0 0 22px rgba(54,217,255,0.10) !important;
+}
+
+#page-profile .menu-text,
+#page-profile .profile-legal-entry-copy strong {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    color: rgba(255,255,255,0.94) !important;
+    font-size: 15px !important;
+    line-height: 1.15 !important;
+    font-weight: 850 !important;
+}
+
+#page-profile .profile-legal-entry-copy em {
+    color: rgba(255,255,255,0.56) !important;
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+    font-weight: 650 !important;
+}
+
+#page-profile .menu-item > svg,
+#page-profile .admin-item > svg,
+#page-profile .profile-legal-entry-arrow {
+    width: 20px !important;
+    height: 20px !important;
+    margin-left: auto !important;
+    flex: 0 0 20px !important;
+    color: rgba(54,217,255,0.74) !important;
+    opacity: 1 !important;
+}
+
+#page-profile .profile-legal-entry-arrow {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 24px !important;
+}
+
+#page-profile .profile-header:active,
+#page-profile .stats-cards .stat-card:first-child:active,
+#page-profile .menu-item:active,
+#page-profile .profile-legal-entry:active {
+    transform: scale(.99) !important;
+}
+
+@media (max-width: 360px) {
+    #page-profile {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    #page-profile .profile-header,
+    #page-profile .stats-cards .stat-card:first-child {
+        border-radius: 22px !important;
+    }
+
+    #page-profile .stats-cards .stat-card:first-child {
+        align-items: stretch !important;
+    }
+
+    #page-profile .profile-topup-mini-btn {
+        width: 100% !important;
+    }
+}
+/* KADI_PROFILE_PREMIUM_GLASS_V2_END */
