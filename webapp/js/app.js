@@ -2478,7 +2478,26 @@ function getOrderHistoryImageUrl(order = {}) {
     const label = `${productName} ${variationName}`.toLowerCase();
 
     if (label.includes('diamond') || label.includes('mlbb') || label.includes('mobile legends')) {
-        return '/assets/products/mlbb-cart-icon.svg';
+        const product = Object.assign(
+            { name: productName },
+            order.product || {},
+            firstItem.variation?.product || {},
+            firstItem.product || {}
+        );
+        const variation = Object.assign(
+            { name: variationName },
+            firstItem.variation || {},
+            {
+                image_url: firstItem.variation_image_url || firstItem.variation?.image_url,
+                icon_url: firstItem.variation_icon_url || firstItem.variation?.icon_url,
+                thumbnail_url: firstItem.variation_thumbnail_url || firstItem.variation?.thumbnail_url,
+            }
+        );
+        const variationIcon = typeof getVariationIcon === 'function'
+            ? String(getVariationIcon(product, variation) || '').trim()
+            : '';
+
+        return variationIcon || null;
     }
 
     return null;
