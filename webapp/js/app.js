@@ -526,9 +526,18 @@ function renderCategories(categories) {
         return escapeHtml(value);
     };
     
-    grid.innerHTML = categories.map(cat => `
-        <div class="category-card" data-category="${cat.id}">
-            <div class="icon">${categoryIconVisual(cat)}</div>
+    const visibleCategories = categories
+        .map(cat => {
+            const categoryProducts = (state.products || []).filter(
+                product => Number(product.category_id) === Number(cat.id) && getProductAvailabilityStatus(product) !== 'hidden'
+            );
+            return { ...cat, products: categoryProducts, singleProduct: categoryProducts.length === 1 ? categoryProducts[0] : null };
+        })
+        .filter(cat => cat.products.length > 0);
+
+    grid.innerHTML = visibleCategories.map(cat => `
+        <div class="category-card ${cat.singleProduct && !isProductPurchasable(cat.singleProduct) ? 'category-card-unavailable product-card-unavailable' : ''}" data-category="${cat.id}"${cat.singleProduct ? ` data-product-id="${cat.singleProduct.id}" data-availability="${getProductAvailabilityStatus(cat.singleProduct)}"` : ''}>
+            <div class="icon">${categoryIconVisual(cat)}${cat.singleProduct ? availabilityCardMarkup(cat.singleProduct) : ''}</div>
             <div class="name">${escapeHtml(cat.name)}</div>
             <div class="category-hint">${tr('open')}</div>
         </div>
@@ -536,16 +545,13 @@ function renderCategories(categories) {
     
     grid.querySelectorAll('.category-card').forEach(card => {
         card.addEventListener('click', () => {
-            const categoryId = Number(card.dataset.category);
-            const categoryProducts = state.products.filter(
-                product => Number(product.category_id) === categoryId
-            );
-
-            if (categoryProducts.length === 1) {
-                openProductDetail(categoryProducts[0].id);
+            const productId = card.dataset.productId;
+            if (productId) {
+                handleProductCardOpen(productId);
                 return;
             }
 
+            const categoryId = Number(card.dataset.category);
             navigateTo('catalog');
             filterCatalogByCategory(categoryId);
         });

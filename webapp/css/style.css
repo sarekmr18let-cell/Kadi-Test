@@ -6393,6 +6393,29 @@ body {
     overflow: hidden;
 }
 
+
+
+#page-home .category-card-unavailable {
+    cursor: not-allowed;
+}
+
+#page-home .category-card-unavailable:active {
+    transform: none;
+}
+
+#page-home .category-card .icon {
+    position: relative;
+}
+
+#page-home .category-card-unavailable .icon > :not(.product-availability-overlay) {
+    filter: grayscale(0.18) brightness(0.55);
+}
+
+#page-home .category-card .product-availability-overlay {
+    border-radius: 22px;
+    font-size: clamp(12px, 3.4vw, 16px);
+}
+
 #page-home .category-card .count,
 #page-home .category-hint {
     display: none !important;
