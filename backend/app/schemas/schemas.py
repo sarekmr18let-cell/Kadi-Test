@@ -114,6 +114,7 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     image_url: Optional[str] = None
     sort_order: int = 0
+    availability_status: str = "available"
 
     # Dynamic account/region form requirements.
     target_type: str = Field(default="game_id", description="game_id, telegram_username, none")
@@ -125,6 +126,15 @@ class ProductBase(BaseModel):
     target_region_label: str = "Region"
     region_options: List[ProductRegionOption] = Field(default_factory=list)
     input_help_text: Optional[str] = None
+
+    @field_validator("availability_status", mode="before")
+    @classmethod
+    def validate_availability_status(cls, value) -> str:
+        value = value or "available"
+        allowed = {"available", "coming_soon", "maintenance", "hidden"}
+        if value not in allowed:
+            raise ValueError(f"availability_status must be one of: {', '.join(sorted(allowed))}")
+        return value
 
     @field_validator("target_type")
     @classmethod
@@ -178,6 +188,7 @@ class ProductListItem(BaseModel):
     requires_target_id: bool = True
     requires_server_id: bool = False
     requires_region: bool = False
+    availability_status: str = "available"
 
 
 # ============= Order Item =============

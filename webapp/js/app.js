@@ -552,13 +552,56 @@ function renderCategories(categories) {
     });
 }
 
+function getProductAvailabilityStatus(product) {
+    return product?.availability_status || 'available';
+}
+
+function tOr(key, fallback) {
+    const value = tr(key);
+    return value && value !== key ? value : fallback;
+}
+
+function getAvailabilityUi(status) {
+    if (status === 'coming_soon') {
+        return { overlay: 'СКОРО...', toast: tOr('product_coming_soon', 'Скоро будет доступно'), label: 'Coming soon' };
+    }
+    if (status === 'maintenance') {
+        return { overlay: 'ТЕХ. РАБОТЫ', toast: tOr('product_temporarily_unavailable', 'Товар временно недоступен'), label: 'Maintenance' };
+    }
+    if (status === 'hidden') {
+        return { overlay: 'UNAVAILABLE', toast: tOr('product_unavailable', 'Товар недоступен'), label: 'Hidden' };
+    }
+    return { overlay: '', toast: '', label: 'Available' };
+}
+
+function isProductPurchasable(product) {
+    return getProductAvailabilityStatus(product) === 'available';
+}
+
+function availabilityCardMarkup(product) {
+    const status = getProductAvailabilityStatus(product);
+    if (status !== 'coming_soon' && status !== 'maintenance') return '';
+    return `<div class="product-availability-overlay">${escapeHtml(getAvailabilityUi(status).overlay)}</div>`;
+}
+
+function handleProductCardOpen(productId) {
+    const product = (state.products || []).find(p => Number(p.id) === Number(productId));
+    const status = getProductAvailabilityStatus(product);
+    if (status === 'coming_soon' || status === 'maintenance') {
+        showToast('info', getAvailabilityUi(status).toast);
+        return;
+    }
+    if (status === 'hidden') return;
+    openProductDetail(parseInt(productId));
+}
+
 function renderPopularProducts(products) {
     const container = document.getElementById('popular-products');
     if (!container || !products) return;
     
     container.innerHTML = products.map(p => `
-        <div class="product-card" data-id="${p.id}">
-            <div class="image">${productVisual(p.name, p.image_url)}</div>
+        <div class="product-card ${!isProductPurchasable(p) ? 'product-card-unavailable' : ''}" data-id="${p.id}" data-availability="${getProductAvailabilityStatus(p)}">
+            <div class="image">${productVisual(p.name, p.image_url)}${availabilityCardMarkup(p)}</div>
             <div class="info">
                 <div class="product-badge">${productBadge(p.name)}</div>
                 <div class="name">${escapeHtml(p.name)}</div>
@@ -571,7 +614,7 @@ function renderPopularProducts(products) {
 
     container.querySelectorAll('.product-card').forEach(card => {
         card.addEventListener('click', () => {
-            openProductDetail(parseInt(card.dataset.id));
+            handleProductCardOpen(parseInt(card.dataset.id));
         });
     });
 }
@@ -631,8 +674,8 @@ function renderCatalogProducts(products) {
     }
     
     grid.innerHTML = products.map(p => `
-        <div class="product-card" data-id="${p.id}">
-            <div class="image">${productVisual(p.name, p.image_url)}</div>
+        <div class="product-card ${!isProductPurchasable(p) ? 'product-card-unavailable' : ''}" data-id="${p.id}" data-availability="${getProductAvailabilityStatus(p)}">
+            <div class="image">${productVisual(p.name, p.image_url)}${availabilityCardMarkup(p)}</div>
             <div class="info">
                 <div class="product-badge">${productBadge(p.name)}</div>
                 <div class="name">${escapeHtml(p.name)}</div>
@@ -645,7 +688,7 @@ function renderCatalogProducts(products) {
 
     grid.querySelectorAll('.product-card').forEach(card => {
         card.addEventListener('click', () => {
-            openProductDetail(parseInt(card.dataset.id));
+            handleProductCardOpen(parseInt(card.dataset.id));
         });
     });
 }
@@ -669,6 +712,9 @@ function renderProductDetail(product) {
     const content = document.getElementById('product-detail-content');
     if (!content) return;
     state.currentProductDetail = product;
+    const availabilityStatus = getProductAvailabilityStatus(product);
+    const availabilityUi = getAvailabilityUi(availabilityStatus);
+    const isPurchasableProduct = availabilityStatus === 'available';
 
     const allVariations = product.variations || [];
     const regions = Array.isArray(product.region_options) ? product.region_options : [];
@@ -820,6 +866,7 @@ function renderProductDetail(product) {
             ` : ''}
         </div>
 
+        ${!isPurchasableProduct ? `<div class="product-unavailable-message">${escapeHtml(availabilityUi.toast)}</div>` : ''}
         <h3 class="product-section-title">${tr('choose_package')}</h3>
         <div class="variation-group-tabs hidden" id="variation-group-tabs"></div>
         <div class="variations-list" id="product-variations-list"></div>
@@ -1127,10 +1174,11 @@ function renderProductDetail(product) {
         const needsFallback = hasVariation && !needsRealVerification && canUseFallbackVerification();
         const verificationAccepted = verificationState === 'verified' || verificationState === 'accepted_without_nickname';
         const blockedByVerification = (needsRealVerification || needsFallback) && !verificationAccepted;
-        const disabled = !inStock || !!missing || verificationState === 'checking' || blockedByVerification;
+        const disabled = !isPurchasableProduct || !inStock || !!missing || verificationState === 'checking' || blockedByVerification;
 
         let text = tr('add_to_cart');
-        if (!hasVariation) text = tr('choose_package');
+        if (!isPurchasableProduct) text = availabilityUi.toast || tr('out_of_stock');
+        else if (!hasVariation) text = tr('choose_package');
         else if (!inStock) text = tr('out_of_stock');
         else if (missing) text = missing.message;
         else if (verificationState === 'checking') text = 'Проверяем ID...';
@@ -1543,6 +1591,10 @@ function renderProductDetail(product) {
     });
 
     document.getElementById('add-to-cart-btn').addEventListener('click', () => {
+        if (!isPurchasableProduct) {
+            showToast(availabilityStatus === 'hidden' ? 'error' : 'info', availabilityUi.toast);
+            return;
+        }
         if (!selectedVariation || selectedVariation.stock_status !== 'instock') return;
 
         const targetId = targetIdInput?.value.trim() || '';
@@ -3175,10 +3227,11 @@ async function loadAdminProducts() {
                         <strong>${escapeHtml(p.name)}</strong>
                         <div style="font-size: 12px; color: var(--text-muted);">
                             ${escapeHtml(p.category?.name || 'No category')} • Product MooGold ID: ${escapeHtml(p.moogold_id || '-')}<br>
+                            Status: ${escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label)}<br>
                             Requirements: ${p.requires_target_id ? escapeHtml(p.target_id_label || 'ID') : 'no ID'}${p.requires_server_id ? ' • ' + escapeHtml(p.target_server_label || 'Server') : ''}${p.requires_region ? ' • ' + escapeHtml(p.target_region_label || 'Регион') : ''}
                         </div>
                     </div>
-                    <div class="status ${p.is_active ? 'status-completed' : 'status-cancelled'}">${p.is_active ? 'active' : 'off'}</div>
+                    <div class="status ${p.is_active ? 'status-completed' : 'status-cancelled'}">${p.is_active ? escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label) : 'off'}</div>
                 </div>
                 ${p.description ? `<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">${escapeHtml(p.description)}</div>` : ''}
                 <div class="admin-variation-list">
@@ -3319,6 +3372,13 @@ function showProductModal(productId = null) {
                 <label>Image URL</label>
                 <div class="admin-image-url-row"><input id="product-image" placeholder="/uploads/..." value="${escapeHtml(product?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-product-media-btn">Choose from Media</button></div>
                 <div id="product-image-preview" class="admin-image-preview"></div>
+                <label>Product status</label>
+                <select id="product-availability-status">
+                    <option value="available" ${getProductAvailabilityStatus(product) === 'available' ? 'selected' : ''}>Available</option>
+                    <option value="coming_soon" ${getProductAvailabilityStatus(product) === 'coming_soon' ? 'selected' : ''}>Coming soon</option>
+                    <option value="maintenance" ${getProductAvailabilityStatus(product) === 'maintenance' ? 'selected' : ''}>Maintenance</option>
+                    <option value="hidden" ${getProductAvailabilityStatus(product) === 'hidden' ? 'selected' : ''}>Hidden</option>
+                </select>
                 <label>MooGold Product ID</label>
                 <input id="product-moogold" inputmode="numeric" placeholder="Optional" value="${escapeHtml(product?.moogold_id || '')}" />
 
@@ -3361,6 +3421,7 @@ async function saveProduct(productId = null) {
             description: document.getElementById('product-description').value.trim() || null,
             image_url: document.getElementById('product-image').value.trim() || null,
             moogold_id: document.getElementById('product-moogold').value ? Number(document.getElementById('product-moogold').value) : null,
+            availability_status: document.getElementById('product-availability-status').value || 'available',
             target_type: document.getElementById('product-target-type').value,
             requires_target_id: document.getElementById('product-req-target').checked,
             requires_server_id: document.getElementById('product-req-server').checked,
@@ -3815,7 +3876,7 @@ function initSearch() {
                 searchResults.querySelectorAll('.order-card').forEach(card => {
                     card.addEventListener('click', () => {
                         searchOverlay.classList.add('hidden');
-                        openProductDetail(parseInt(card.dataset.id));
+                        handleProductCardOpen(parseInt(card.dataset.id));
                     });
                 });
             } catch (error) {

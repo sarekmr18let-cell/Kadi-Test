@@ -55,6 +55,7 @@ class Product(Base):
     image_url = Column(String(500), nullable=True)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+    availability_status = Column(String(30), default="available", nullable=False)
 
     # Provider integration
     provider = Column(String(32), default="manual")

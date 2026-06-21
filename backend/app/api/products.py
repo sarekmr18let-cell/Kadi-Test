@@ -33,6 +33,7 @@ def product_to_list_item(product: Product, category_slug: str | None = None) -> 
         requires_target_id=bool(product.requires_target_id),
         requires_server_id=bool(product.requires_server_id),
         requires_region=bool(product.requires_region),
+        availability_status=product.availability_status or "available",
     )
 
 
@@ -61,7 +62,7 @@ async def list_products(
     query = (
         select(Product)
         .options(selectinload(Product.variations), selectinload(Product.category))
-        .where(Product.is_active == True)
+        .where(Product.is_active == True, Product.availability_status != "hidden")
     )
 
     if category_id:
@@ -91,6 +92,7 @@ async def get_products_by_category(slug: str, db: AsyncSession = Depends(get_db)
         .where(
             Product.category_id == category.id,
             Product.is_active == True,
+            Product.availability_status != "hidden",
         )
         .order_by(Product.sort_order)
     )
@@ -103,7 +105,7 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Product)
         .options(selectinload(Product.variations), selectinload(Product.category))
-        .where(Product.id == product_id, Product.is_active == True)
+        .where(Product.id == product_id, Product.is_active == True, Product.availability_status != "hidden")
     )
     product = result.scalar_one_or_none()
     if not product:
