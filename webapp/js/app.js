@@ -1801,22 +1801,67 @@ function renderCartTargetSummary(item) {
 }
 
 
-function getCartItemImageUrl(item = {}) {
-    const direct = String(item.variation_image_url || item.image_url || item.product_image_url || '').trim();
-    if (direct) return direct;
+function findProductById(productId) {
+    const id = String(productId || '').trim();
+    if (!id || !Array.isArray(state.products)) return null;
+    return state.products.find(product => String(product.id || '') === id) || null;
+}
 
-    const label = String(`${item.product_name || ''} ${item.name || ''} ${item.variation_name || ''}`).toLowerCase();
+function findVariationById(variationId) {
+    const id = String(variationId || '').trim();
+    if (!id || !Array.isArray(state.products)) return { product: null, variation: null };
 
-    if (
-        label.includes('mobile legends') ||
-        label.includes('mlbb') ||
-        label.includes('diamonds') ||
-        label.includes('diamond')
-    ) {
-        return '/assets/products/mlbb-cart-icon.svg';
+    for (const product of state.products) {
+        const variations = Array.isArray(product.variations) ? product.variations : [];
+        const variation = variations.find(v => String(v.id || '') === id);
+        if (variation) return { product, variation };
+    }
+
+    return { product: null, variation: null };
+}
+
+function resolveVariationImageUrl(product = {}, variation = {}) {
+    const variationImage = String(variation?.image_url || '').trim();
+    if (variationImage) return variationImage;
+
+    const variationIcon = typeof getVariationIcon === 'function'
+        ? String(getVariationIcon(product || {}, variation || {}) || '').trim()
+        : '';
+
+    return variationIcon || null;
+}
+
+function resolveItemImageUrl({ product = null, variation = null, item = null, order = null } = {}) {
+    const sourceItem = item || {};
+    const sourceOrder = order || {};
+    const variationId = sourceItem.variation_id || sourceItem.variation?.id || variation?.id;
+    const productId = sourceItem.product_id || sourceItem.product?.id || product?.id || sourceOrder.product_id || sourceOrder.product?.id;
+    const foundVariation = findVariationById(variationId);
+    const foundProduct = findProductById(productId) || foundVariation.product;
+    const resolvedProduct = product || sourceItem.product || sourceOrder.product || foundProduct || sourceItem.variation?.product || {};
+    const resolvedVariation = variation || sourceItem.variation || foundVariation.variation || {};
+
+    const candidates = [
+        sourceItem.variation_image_url,
+        sourceItem.variation?.image_url,
+        foundVariation.variation?.image_url,
+        resolveVariationImageUrl(resolvedProduct, resolvedVariation),
+        sourceItem.product?.image_url,
+        foundProduct?.image_url,
+        sourceItem.product_image_url,
+        sourceOrder.product_image_url,
+    ];
+
+    for (const candidate of candidates) {
+        const src = String(candidate || '').trim();
+        if (src) return src;
     }
 
     return null;
+}
+
+function getCartItemImageUrl(item = {}) {
+    return resolveItemImageUrl({ item });
 }
 
 
@@ -2460,47 +2505,57 @@ function getOrderDisplayNumber(order = {}) {
 
 function getOrderHistoryImageUrl(order = {}) {
     const firstItem = getOrderFirstItem(order) || {};
-    const direct = String(
-        firstItem.variation?.image_url ||
-        firstItem.variation_image_url ||
-        firstItem.product?.image_url ||
-        firstItem.variation?.product?.image_url ||
-        firstItem.product_image_url ||
-        order.product_image_url ||
-        ''
-    ).trim();
-
-    if (direct) return direct;
-
-
     const productName = typeof getOrderProductName === 'function' ? getOrderProductName(order) : '';
     const variationName = typeof getOrderVariationName === 'function' ? getOrderVariationName(order) : '';
-    const label = `${productName} ${variationName}`.toLowerCase();
+    const product = Object.assign(
+        { name: productName },
+        order.product || {},
+        firstItem.variation?.product || {},
+        firstItem.product || {}
+    );
+    const variation = Object.assign(
+        { name: variationName },
+        firstItem.variation || {},
+        {
+            image_url: firstItem.variation_image_url || firstItem.variation?.image_url,
+            icon_url: firstItem.variation_icon_url || firstItem.variation?.icon_url,
+            thumbnail_url: firstItem.variation_thumbnail_url || firstItem.variation?.thumbnail_url,
+        }
+    );
 
-    if (label.includes('diamond') || label.includes('mlbb') || label.includes('mobile legends')) {
-        const product = Object.assign(
-            { name: productName },
-            order.product || {},
-            firstItem.variation?.product || {},
-            firstItem.product || {}
-        );
-        const variation = Object.assign(
-            { name: variationName },
-            firstItem.variation || {},
-            {
-                image_url: firstItem.variation_image_url || firstItem.variation?.image_url,
-                icon_url: firstItem.variation_icon_url || firstItem.variation?.icon_url,
-                thumbnail_url: firstItem.variation_thumbnail_url || firstItem.variation?.thumbnail_url,
-            }
-        );
-        const variationIcon = typeof getVariationIcon === 'function'
-            ? String(getVariationIcon(product, variation) || '').trim()
-            : '';
+    return resolveItemImageUrl({ product, variation, item: firstItem, order });
+}
 
-        return variationIcon || null;
-    }
+function renderSafeHistoryImage(imageUrl, fallbackHtml) {
+    const src = String(imageUrl || '').trim();
+    if (!src) return fallbackHtml;
 
-    return null;
+    return `
+        <div class="history-card-icon history-card-icon-image" aria-hidden="true">
+            <img src="${escapeHtml(src)}" alt="" loading="lazy">
+            <div class="history-card-icon-fallback hidden">${fallbackHtml}</div>
+        </div>
+    `;
+}
+
+function hydrateSafeHistoryImages(root = document) {
+    root.querySelectorAll('.history-card-icon-image').forEach(wrapper => {
+        const img = wrapper.querySelector('img');
+        const fallback = wrapper.querySelector('.history-card-icon-fallback');
+        if (!img || !fallback || img.dataset.safeHistoryBound === '1') return;
+        img.dataset.safeHistoryBound = '1';
+
+        const showFallback = () => {
+            img.classList.add('hidden');
+            fallback.classList.remove('hidden');
+        };
+
+        img.addEventListener('error', showFallback, { once: true });
+
+        if (img.complete && img.naturalWidth === 0) {
+            showFallback();
+        }
+    });
 }
 
 function getOrderHistoryIcon(order = {}, type = 'order') {
@@ -2517,46 +2572,43 @@ function getOrderHistoryIcon(order = {}, type = 'order') {
 
 
     const imageUrl = typeof getOrderHistoryImageUrl === 'function' ? getOrderHistoryImageUrl(order) : null;
-    if (imageUrl) {
-        return `
-            <div class="history-card-icon history-card-icon-image" aria-hidden="true">
-                <img src="${escapeHtml(imageUrl)}" alt="" loading="lazy">
-            </div>
-        `;
-    }
     const productName = typeof getOrderProductName === 'function' ? getOrderProductName(order) : '';
     const variationName = typeof getOrderVariationName === 'function' ? getOrderVariationName(order) : '';
     const label = `${productName} ${variationName}`.toLowerCase();
 
-    if (label.includes('diamond') || label.includes('mlbb') || label.includes('mobile legends')) {
-        return `
-            <div class="history-card-icon history-card-icon-mlbb" aria-hidden="true">
-                <svg viewBox="0 0 48 48">
-                    <defs>
-                        <linearGradient id="historyMlbbBg" x1="0" y1="0" x2="1" y2="1">
-                            <stop offset="0%" stop-color="#36d9ff"/>
-                            <stop offset="55%" stop-color="#6766ff"/>
-                            <stop offset="100%" stop-color="#111633"/>
-                        </linearGradient>
-                        <linearGradient id="historyDiamond" x1="0" y1="0" x2="1" y2="1">
-                            <stop offset="0%" stop-color="#ffffff"/>
-                            <stop offset="42%" stop-color="#67e8f9"/>
-                            <stop offset="100%" stop-color="#a855f7"/>
-                        </linearGradient>
-                    </defs>
-                    <rect x="1" y="1" width="46" height="46" rx="15" fill="url(#historyMlbbBg)"></rect>
-                    <path d="M13 19l6-8h10l6 8-11 17z" fill="url(#historyDiamond)" stroke="rgba(255,255,255,.78)" stroke-width="1.7"></path>
-                    <path d="M13 19h22M19 11l5 25M29 11l-5 25" stroke="rgba(8,14,36,.38)" stroke-width="1.35"></path>
-                </svg>
-            </div>
-        `;
-    }
-
-    return `
+    const mlbbFallback = `
+        <div class="history-card-icon history-card-icon-mlbb" aria-hidden="true">
+            <svg viewBox="0 0 48 48">
+                <defs>
+                    <linearGradient id="historyMlbbBg" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#36d9ff"/>
+                        <stop offset="55%" stop-color="#6766ff"/>
+                        <stop offset="100%" stop-color="#111633"/>
+                    </linearGradient>
+                    <linearGradient id="historyDiamond" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="42%" stop-color="#67e8f9"/>
+                        <stop offset="100%" stop-color="#a855f7"/>
+                    </linearGradient>
+                </defs>
+                <rect x="1" y="1" width="46" height="46" rx="15" fill="url(#historyMlbbBg)"></rect>
+                <path d="M13 19l6-8h10l6 8-11 17z" fill="url(#historyDiamond)" stroke="rgba(255,255,255,.78)" stroke-width="1.7"></path>
+                <path d="M13 19h22M19 11l5 25M29 11l-5 25" stroke="rgba(8,14,36,.38)" stroke-width="1.35"></path>
+            </svg>
+        </div>
+    `;
+    const defaultFallback = `
         <div class="history-card-icon history-card-icon-default" aria-hidden="true">
             <span>K</span>
         </div>
     `;
+    const fallbackHtml = label.includes('diamond') || label.includes('mlbb') || label.includes('mobile legends')
+        ? mlbbFallback
+        : defaultFallback;
+
+    if (imageUrl) return renderSafeHistoryImage(imageUrl, fallbackHtml);
+
+    return fallbackHtml;
 }
 
 // KADI_HISTORY_TWO_TABS_JS_V1_END
@@ -2682,6 +2734,8 @@ function renderOrders(tabOrOrders = 'orders', filter = null) {
             </div>
         `;
     }).join('');
+
+    hydrateSafeHistoryImages(container);
 
     container.querySelectorAll('.order-card[data-id]').forEach(card => {
         card.addEventListener('click', () => {
@@ -2844,6 +2898,8 @@ async function openOrderDetail(orderId) {
             </section>
         </div>
     `;
+
+    hydrateSafeHistoryImages(content);
 
     document.getElementById('order-detail-back').addEventListener('click', () => navigateTo('orders'));
 
