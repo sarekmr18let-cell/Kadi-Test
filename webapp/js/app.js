@@ -346,25 +346,103 @@ function getProductDetailImageUrl(product = {}) {
     return product.image_url || null;
 }
 
-function variationThumbnailVisual(product = {}, variation = {}) {
-    const src = String(
+const MLBB_VARIATION_ICON_BASE = '/assets/variations/mlbb/';
+const MLBB_VARIATION_ICON_BY_NAME = {
+    '55 diamonds': 'mlbb_diamonds_small.png',
+    '86 diamonds': 'mlbb_diamonds_small.png',
+    '165 diamonds': 'mlbb_diamonds_chest_small.png',
+    '172 diamonds': 'mlbb_diamonds_chest_small.png',
+    '257 diamonds': 'mlbb_diamonds_chest_medium.png',
+    '275 diamonds': 'mlbb_diamonds_chest_medium.png',
+    '344 diamonds': 'mlbb_diamonds_chest_medium.png',
+    '514 diamonds': 'mlbb_diamonds_chest_large.png',
+    '565 diamonds': 'mlbb_diamonds_chest_large.png',
+    '601 diamonds': 'mlbb_diamonds_chest_large.png',
+    '706 diamonds': 'mlbb_diamonds_chest_large.png',
+    '1028 diamonds': 'mlbb_diamonds_chest_large.png',
+    '1220 diamonds': 'mlbb_diamonds_chest_large.png',
+    '1412 diamonds': 'mlbb_diamonds_chest_large.png',
+    '2195 diamonds': 'mlbb_diamonds_big_pack.png',
+    '3668 diamonds': 'mlbb_diamonds_big_pack.png',
+    '5100 diamonds': 'mlbb_diamonds_big_pack.png',
+    '5532 diamonds': 'mlbb_diamonds_big_pack.png',
+    '6238 diamonds': 'mlbb_diamonds_big_pack.png',
+    '9288 diamonds': 'mlbb_diamonds_big_pack.png',
+    'недельный пропуск': 'mlbb_weekly_pass.png',
+    'weekly pass': 'mlbb_weekly_pass.png',
+    'недельный элитный набор': 'mlbb_weekly_elite_bundle.png',
+    'weekly elite bundle': 'mlbb_weekly_elite_bundle.png',
+    'месячный эпический набор': 'mlbb_monthly_epic_bundle.png',
+    'monthly epic bundle': 'mlbb_monthly_epic_bundle.png',
+};
+
+function isMlbbProduct(product = {}) {
+    const meta = product.provider_meta || {};
+    const source = [
+        product.name,
+        product.slug,
+        product.code,
+        product.provider,
+        meta.game,
+        meta.game_name,
+        meta.slug,
+        meta.code,
+    ].map(value => String(value || '').toLowerCase()).join(' ');
+
+    return source.includes('mobile legends') || source.includes('mlbb');
+}
+
+function getVariationIcon(product = {}, variation = {}) {
+    const directIcon = String(
         variation.image_url ||
+        variation.icon_url ||
+        variation.thumbnail_url ||
         variation.image ||
         variation.icon ||
-        variation.thumbnail_url ||
-        getProductDetailImageUrl(product) ||
         ''
     ).trim();
 
+    if (directIcon) return directIcon;
+
+    if (isMlbbProduct(product)) {
+        const normalizedName = String(variation.name || '').trim().toLowerCase();
+        const fileName = MLBB_VARIATION_ICON_BY_NAME[normalizedName];
+        if (fileName) return `${MLBB_VARIATION_ICON_BASE}${fileName}`;
+    }
+
+    return getProductDetailImageUrl(product) || '';
+}
+
+function variationThumbnailVisual(product = {}, variation = {}) {
+    const src = String(getVariationIcon(product, variation)).trim();
+    const fallbackSrc = String(getProductDetailImageUrl(product) || '').trim();
+    const fallbackAttr = fallbackSrc && fallbackSrc !== src
+        ? ` data-fallback-src="${escapeHtml(fallbackSrc)}"`
+        : '';
+
     if (src) {
         return `<div class="variation-thumb">
-            <img src="${escapeHtml(src)}" alt="" loading="lazy">
+            <img src="${escapeHtml(src)}" alt="" loading="lazy"${fallbackAttr}>
         </div>`;
     }
 
     return `<div class="variation-thumb variation-thumb-fallback">
         ${productFallbackVisual(product.name || variation.name || 'KADI')}
     </div>`;
+}
+
+
+function hydrateVariationThumbs(root = document) {
+    root.querySelectorAll('.variation-thumb img[data-fallback-src]').forEach(img => {
+        if (img.dataset.fallbackBound === '1') return;
+        img.dataset.fallbackBound = '1';
+        img.addEventListener('error', () => {
+            const fallbackSrc = img.dataset.fallbackSrc;
+            if (!fallbackSrc || img.src.endsWith(fallbackSrc)) return;
+            img.removeAttribute('data-fallback-src');
+            img.src = fallbackSrc;
+        });
+    });
 }
 
 function hydrateProductVisuals(root = document) {
@@ -1246,6 +1324,7 @@ function renderProductDetail(product) {
         `).join('');
 
         selectedVariation = filteredVariations[0] || null;
+        hydrateVariationThumbs(variationsList);
 
         variationsList.querySelectorAll('.variation-item').forEach(item => {
             item.addEventListener('click', () => {
