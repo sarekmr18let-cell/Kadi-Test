@@ -11650,3 +11650,48 @@ body[data-current-page="product"] #page-product {
     background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.10);
 }
+
+
+/* Product availability overlays */
+.product-card .image {
+    position: relative;
+    overflow: hidden;
+}
+
+.product-card-unavailable {
+    cursor: not-allowed;
+}
+
+.product-card-unavailable .image > :not(.product-availability-overlay) {
+    filter: grayscale(0.18) brightness(0.55);
+}
+
+.product-availability-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(5, 8, 18, 0.66), rgba(15, 23, 42, 0.52));
+    color: #fff;
+    font-weight: 900;
+    font-size: clamp(14px, 3.8vw, 20px);
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(1px);
+}
+
+.product-unavailable-message {
+    margin: 14px 0;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    font-weight: 800;
+    text-align: center;
+}
