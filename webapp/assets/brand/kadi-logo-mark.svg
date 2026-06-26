@@ -1,0 +1,22 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">KADI premium mark</title>
+  <desc id="desc">Minimal black and white KADI monogram combining speed, trust, and gaming cues.</desc>
+  <rect width="256" height="256" rx="64" fill="#050505"/>
+  <rect x="10" y="10" width="236" height="236" rx="56" stroke="url(#edge)" stroke-width="2"/>
+  <path d="M65 62C65 56.4772 69.4772 52 75 52H91C96.5228 52 101 56.4772 101 62V119.36L156.46 56.2371C158.36 54.0751 161.098 52.8359 163.976 52.8359H185.28C193.896 52.8359 198.454 63.0306 192.71 69.4531L142.86 125.19L196.426 186.393C201.976 192.734 197.472 202.638 189.046 202.638H165.874C163.009 202.638 160.281 201.409 158.383 199.263L119.7 155.52L101 176.433V194C101 199.523 96.5228 204 91 204H75C69.4772 204 65 199.523 65 194V62Z" fill="#F8F8F8"/>
+  <path d="M112 52H128C133.523 52 138 56.4772 138 62V82.5L112 112.5V52Z" fill="#9A9A9A"/>
+  <path d="M48 119H92" stroke="#F8F8F8" stroke-width="8" stroke-linecap="round" opacity="0.96"/>
+  <path d="M42 139H82" stroke="#F8F8F8" stroke-width="6" stroke-linecap="round" opacity="0.74"/>
+  <path d="M171 87H190" stroke="#050505" stroke-width="8" stroke-linecap="round"/>
+  <path d="M181 77V97" stroke="#050505" stroke-width="8" stroke-linecap="round"/>
+  <path d="M167 174H194" stroke="#050505" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="181" cy="161" r="4.5" fill="#050505"/>
+  <circle cx="196" cy="177" r="4.5" fill="#050505"/>
+  <defs>
+    <linearGradient id="edge" x1="35" y1="15" x2="221" y2="241" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.72"/>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.36"/>
+    </linearGradient>
+  </defs>
+</svg>
