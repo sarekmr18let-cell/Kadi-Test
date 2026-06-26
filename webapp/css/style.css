@@ -12327,7 +12327,7 @@ body > #kadi-scroll-bottom-spacer {
 /* KADI_HOTFIX_BOTTOM_SPACE_V9_END */
 
 
-/* KADI_PREMIUM_MONO_LOGO_V12 */
+/* KADI_GRADIENT_GLASS_LOGO_V13 */
 .logo.kadi-logo-block {
   gap: 11px !important;
 }
@@ -12335,15 +12335,16 @@ body > #kadi-scroll-bottom-spacer {
 .logo-mark {
   width: 44px !important;
   height: 44px !important;
-  border-radius: 15px !important;
+  border-radius: 16px !important;
   padding: 0 !important;
-  overflow: hidden !important;
-  background: #050505 !important;
+  overflow: visible !important;
+  background: rgba(7, 11, 22, 0.68) !important;
   color: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(103, 232, 249, 0.18) !important;
   box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset !important;
+    0 14px 34px rgba(0, 0, 0, 0.36),
+    0 0 22px rgba(36, 136, 255, 0.24),
+    0 0 34px rgba(139, 92, 246, 0.18) !important;
 }
 
 .logo-mark img {
@@ -12351,18 +12352,20 @@ body > #kadi-scroll-bottom-spacer {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
 }
 
 .logo-text {
-  background: linear-gradient(135deg, #ffffff 0%, #e9edf4 48%, #8f98a6 100%) !important;
+  background: linear-gradient(135deg, #36f3ff 0%, #2488ff 48%, #8b5cf6 100%) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   letter-spacing: 1.8px !important;
+  text-shadow: 0 0 18px rgba(36, 136, 255, 0.22) !important;
 }
 
 .logo-subtitle {
-  color: rgba(255, 255, 255, 0.62) !important;
+  color: rgba(203, 213, 225, 0.72) !important;
   letter-spacing: 1.55px !important;
 }
-/* KADI_PREMIUM_MONO_LOGO_V12_END */
+/* KADI_GRADIENT_GLASS_LOGO_V13_END */
