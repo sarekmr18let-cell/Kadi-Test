@@ -315,7 +315,7 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
                     result_summary.append({"item_id": item.id, "status": "failed", "reason": fulfillment.error_message})
                     continue
 
-                payload_preview = {
+                request_payload = {
                     "provider": "gamedrops",
                     "offer_id": str(offer_id),
                     "price": float(provider_price),
@@ -323,10 +323,16 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
                     "game_user_id": order.target_id,
                     "game_server_id": order.target_server,
                 }
-                fulfillment.request_payload = _json_dump(payload_preview)
+                fulfillment.request_payload = _json_dump(request_payload)
 
                 try:
-                    response = create_gamedrops_order(**payload_preview)
+                    response = create_gamedrops_order(
+                        offer_id=str(offer_id),
+                        price=float(provider_price),
+                        transaction_id=transaction_id,
+                        game_user_id=order.target_id,
+                        game_server_id=order.target_server,
+                    )
                     fulfillment.response_payload = _json_dump(response)
 
                     if isinstance(response, dict) and response.get("status") is False:
