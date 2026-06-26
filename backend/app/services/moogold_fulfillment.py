@@ -1,10 +1,11 @@
+import asyncio
 import base64
 import hashlib
 import hmac
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional
 
 import httpx
@@ -22,6 +23,10 @@ SyncSessionLocal = sessionmaker(bind=sync_engine)
 
 
 class MooGoldFulfillmentError(Exception):
+    pass
+
+
+class GameDropsFulfillmentError(Exception):
     pass
 
 
@@ -50,6 +55,29 @@ def _extract_moogold_order_id(response: dict) -> Optional[str]:
     return None
 
 
+def _extract_gamedrops_order_id(response: dict, fallback: str) -> str:
+    """GameDrops can return ids in several shapes; transactionId is our stable fallback."""
+    if isinstance(response, dict):
+        candidates = [
+            response.get("orderId"),
+            response.get("order_id"),
+            response.get("id"),
+            response.get("transactionId"),
+            (response.get("data") or {}).get("orderId") if isinstance(response.get("data"), dict) else None,
+            (response.get("data") or {}).get("order_id") if isinstance(response.get("data"), dict) else None,
+            (response.get("data") or {}).get("id") if isinstance(response.get("data"), dict) else None,
+            (response.get("data") or {}).get("transactionId") if isinstance(response.get("data"), dict) else None,
+        ]
+        for value in candidates:
+            if value is not None and str(value).strip():
+                return str(value).strip()
+    return fallback
+
+
+def _is_gamedrops_provider(value) -> bool:
+    return str(value or "").strip().lower() in {"gamedrops", "gamesdrop"}
+
+
 def _generate_auth(payload: dict, path: str) -> tuple[int, str]:
     timestamp = int(time.time())
     payload_str = json.dumps(payload, separators=(",", ":"), sort_keys=True)
@@ -69,8 +97,6 @@ def _basic_auth() -> str:
 
 def moogold_request(path: str, data: Optional[dict] = None) -> dict:
     if settings.MOOGOLD_TEST_MODE:
-        # Safe dry-run mode: never sends money/order requests to MooGold.
-        # This lets the full local chain be tested on VPS without buying stock.
         fake_id_source = (data or {}).get("partnerOrderId") or (data or {}).get("partner_order_id") or int(time.time())
         return {
             "status": True,
@@ -120,13 +146,33 @@ def create_moogold_order(
     return moogold_request("order/create_order", data)
 
 
-def _get_moogold_category(product) -> int:
-    """Return 1=Direct Top Up or 2=eVouchers.
+def create_gamedrops_order(
+    *,
+    offer_id: str,
+    price: float,
+    transaction_id: str,
+    game_user_id: str,
+    game_server_id: Optional[str],
+) -> dict:
+    from app.services.gamedrops import GameDropsClient
 
-    The local Category.moogold_id may be used for MooGold product listing IDs in some
-    projects, so we only trust it as order category if it is 1 or 2. Otherwise we use
-    MOOGOLD_DEFAULT_ORDER_CATEGORY.
-    """
+    async def _create():
+        client = GameDropsClient()
+        try:
+            return await client.create_order(
+                offer_id=offer_id,
+                price=price,
+                transaction_id=transaction_id,
+                game_user_id=game_user_id,
+                game_server_id=game_server_id,
+            )
+        finally:
+            await client.close()
+
+    return asyncio.run(_create())
+
+
+def _get_moogold_category(product) -> int:
     try:
         cat_value = int(getattr(getattr(product, "category", None), "moogold_id", 0) or 0)
         if cat_value in (1, 2):
@@ -156,7 +202,7 @@ def _ensure_completion_transaction(db, order):
         amount=order.total_amount,
         currency=order.currency,
         status="completed",
-        description=f"Order #{order.order_number} completed via MooGold",
+        description=f"Order #{order.order_number} completed via provider",
     ))
 
 
@@ -182,7 +228,6 @@ def update_local_order_status_from_fulfillments(db, order_id: int) -> str:
     elif "cancelled" in statuses and statuses.issubset({"cancelled"}):
         order.status = "cancelled"
     elif "failed" in statuses and not statuses.intersection({"processing", "completed"}):
-        # Keep money-safe state: payment received, but fulfillment needs admin attention.
         order.status = "paid"
     else:
         order.status = "processing"
@@ -190,35 +235,174 @@ def update_local_order_status_from_fulfillments(db, order_id: int) -> str:
     return order.status
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def fulfill_order_via_moogold(self, order_id: int) -> dict:
-    """Create MooGold order(s) after a local order is paid.
+def _load_order_for_fulfillment(db, order_id: int):
+    from app.models.models import Order, OrderItem, Product, ProductVariation
 
-    Idempotent: if fulfillments already exist, it will not create duplicates.
-    Safe failure mode: if MooGold fails, local order stays paid and admin is notified.
-    """
-    from app.models.models import MooGoldFulfillment, Order, OrderItem
+    return db.execute(
+        select(Order)
+        .options(
+            joinedload(Order.items)
+            .joinedload(OrderItem.variation)
+            .joinedload(ProductVariation.product)
+            .joinedload(Product.category)
+        )
+        .where(Order.id == order_id)
+    ).unique().scalar_one_or_none()
+
+
+def _fulfill_order_via_gamedrops(order_id: int) -> dict:
+    from app.models.models import MooGoldFulfillment
+    from app.services.notifications import send_order_notification
+
+    if not settings.PROVIDER_AUTO_FULFILL_ENABLED:
+        return {"status": "skipped", "reason": "PROVIDER_AUTO_FULFILL_ENABLED=false", "order_id": order_id}
+
+    with SyncSessionLocal() as db:
+        order = _load_order_for_fulfillment(db, order_id)
+        if not order:
+            return {"status": "not_found", "order_id": order_id}
+        if order.status not in {"paid", "processing"}:
+            return {"status": "skipped", "reason": f"order_status={order.status}", "order_id": order_id}
+
+        result_summary = []
+        created_any = False
+        failed_any = False
+        skipped_any = False
+
+        for item in order.items:
+            variation = item.variation
+            product = variation.product
+            provider = getattr(variation, "provider", None) or getattr(product, "provider", None)
+            if not _is_gamedrops_provider(provider):
+                skipped_any = True
+                result_summary.append({"item_id": item.id, "status": "skipped", "reason": f"provider={provider}"})
+                continue
+
+            for copy_no in range(1, int(item.quantity or 1) + 1):
+                transaction_id = f"{order.partner_order_id or order.order_number}-{item.id}-{copy_no}"
+                existing = db.execute(
+                    select(MooGoldFulfillment).where(MooGoldFulfillment.partner_order_id == transaction_id)
+                ).scalar_one_or_none()
+                if existing and (existing.status == "completed" or (existing.status == "processing" and existing.moogold_order_id)):
+                    result_summary.append({"item_id": item.id, "status": "exists", "fulfillment_id": existing.id})
+                    continue
+
+                fulfillment = existing or MooGoldFulfillment(
+                    order_id=order.id,
+                    order_item_id=item.id,
+                    partner_order_id=transaction_id,
+                    status="queued",
+                )
+                if not existing:
+                    db.add(fulfillment)
+                    db.flush()
+
+                fulfillment.attempts = (fulfillment.attempts or 0) + 1
+                fulfillment.updated_at = _now()
+
+                offer_id = getattr(variation, "provider_variation_id", None)
+                provider_price = getattr(variation, "provider_price", None)
+                if not offer_id:
+                    fulfillment.status = "failed"
+                    fulfillment.error_message = "Product variation has no provider_variation_id"
+                    failed_any = True
+                    result_summary.append({"item_id": item.id, "status": "failed", "reason": fulfillment.error_message})
+                    continue
+                if provider_price is None:
+                    fulfillment.status = "failed"
+                    fulfillment.error_message = "Product variation has no provider_price"
+                    failed_any = True
+                    result_summary.append({"item_id": item.id, "status": "failed", "reason": fulfillment.error_message})
+                    continue
+
+                payload_preview = {
+                    "provider": "gamedrops",
+                    "offer_id": str(offer_id),
+                    "price": float(provider_price),
+                    "transaction_id": transaction_id,
+                    "game_user_id": order.target_id,
+                    "game_server_id": order.target_server,
+                }
+                fulfillment.request_payload = _json_dump(payload_preview)
+
+                try:
+                    response = create_gamedrops_order(**payload_preview)
+                    fulfillment.response_payload = _json_dump(response)
+
+                    if isinstance(response, dict) and response.get("status") is False:
+                        raise GameDropsFulfillmentError(response.get("message") or "GameDrops returned status=false")
+
+                    provider_order_id = _extract_gamedrops_order_id(response, transaction_id)
+                    fulfillment.moogold_order_id = provider_order_id
+                    fulfillment.status = "processing"
+                    fulfillment.error_message = None
+                    created_any = True
+                    result_summary.append({
+                        "item_id": item.id,
+                        "status": "processing",
+                        "provider": "gamedrops",
+                        "provider_order_id": provider_order_id,
+                    })
+                except Exception as exc:
+                    fulfillment.status = "failed"
+                    fulfillment.error_message = str(exc)[:2000]
+                    failed_any = True
+                    logger.exception("GameDrops fulfillment failed for local order %s item %s", order.id, item.id)
+                    result_summary.append({"item_id": item.id, "status": "failed", "reason": str(exc)})
+
+        if created_any:
+            order.status = "processing"
+            order.provider = "gamedrops"
+            order.provider_status = "processing"
+            order.provider_response = {"items": result_summary}
+            order.updated_at = _now()
+            ids = db.execute(
+                select(MooGoldFulfillment.moogold_order_id).where(
+                    MooGoldFulfillment.order_id == order.id,
+                    MooGoldFulfillment.moogold_order_id != None,
+                )
+            ).scalars().all()
+            if ids:
+                joined_ids = ",".join(str(x) for x in ids if x)
+                order.provider_order_id = joined_ids
+                order.moogold_order_id = joined_ids
+
+        if failed_any and not created_any:
+            order.status = "paid"
+            order.provider = "gamedrops"
+            order.provider_status = "failed"
+            order.provider_response = {"items": result_summary}
+            order.updated_at = _now()
+
+        db.commit()
+
+    if created_any:
+        send_order_notification.delay(order_id, "processing")
+    if failed_any:
+        send_order_notification.delay(order_id, "provider_failed")
+
+    return {
+        "status": "ok",
+        "provider": "gamedrops",
+        "order_id": order_id,
+        "created_any": created_any,
+        "failed_any": failed_any,
+        "skipped_any": skipped_any,
+        "items": result_summary,
+    }
+
+
+def _fulfill_order_via_moogold(order_id: int) -> dict:
+    from app.models.models import MooGoldFulfillment
     from app.services.notifications import send_order_notification
 
     if not settings.MOOGOLD_AUTO_FULFILL_ENABLED:
         return {"status": "skipped", "reason": "MOOGOLD_AUTO_FULFILL_ENABLED=false", "order_id": order_id}
 
     with SyncSessionLocal() as db:
-        from app.models.models import Product, ProductVariation
-
-        order = db.execute(
-            select(Order)
-            .options(
-                joinedload(Order.items)
-                .joinedload(OrderItem.variation)
-                .joinedload(ProductVariation.product)
-                .joinedload(Product.category)
-            )
-            .where(Order.id == order_id)
-        ).unique().scalar_one_or_none()
+        order = _load_order_for_fulfillment(db, order_id)
         if not order:
             return {"status": "not_found", "order_id": order_id}
-
         if order.status not in {"paid", "processing"}:
             return {"status": "skipped", "reason": f"order_status={order.status}", "order_id": order_id}
 
@@ -293,7 +477,6 @@ def fulfill_order_via_moogold(self, order_id: int) -> dict:
         if created_any:
             order.status = "processing"
             order.updated_at = _now()
-            # Keep old single-id field useful for simple/one-item orders.
             ids = db.execute(
                 select(MooGoldFulfillment.moogold_order_id).where(
                     MooGoldFulfillment.order_id == order.id,
@@ -304,7 +487,6 @@ def fulfill_order_via_moogold(self, order_id: int) -> dict:
                 order.moogold_order_id = ",".join(str(x) for x in ids if x)
 
         if failed_any and not created_any:
-            # Payment is received, but fulfillment is not sent. Admin must fix mapping/credentials.
             order.status = "paid"
             order.updated_at = _now()
 
@@ -316,3 +498,15 @@ def fulfill_order_via_moogold(self, order_id: int) -> dict:
         send_order_notification.delay(order_id, "moogold_failed")
 
     return {"status": "ok", "order_id": order_id, "created_any": created_any, "failed_any": failed_any, "items": result_summary}
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def fulfill_order_via_moogold(self, order_id: int) -> dict:
+    """Create provider order(s) after a local order is paid.
+
+    The task name is kept for compatibility with existing imports, but GamesDrop is
+    used when PROVIDER_AUTO_FULFILL_ENABLED=true. MooGold remains as legacy fallback.
+    """
+    if settings.PROVIDER_AUTO_FULFILL_ENABLED:
+        return _fulfill_order_via_gamedrops(order_id)
+    return _fulfill_order_via_moogold(order_id)
