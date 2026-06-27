@@ -3421,12 +3421,25 @@ function getVariationCostMetrics(variation = {}) {
     };
 }
 
-function normalizeAdminNumber(raw, { allowEmpty = false } = {}) {
+function normalizeAdminNumber(raw, { allowEmpty = false, min = null } = {}) {
     const text = String(raw ?? '').replace(/[\s\u00A0]+/g, '');
     if (!text && allowEmpty) return null;
-    const value = Number(text || 0);
+    if (!text) throw new Error(tr('admin_invalid_number'));
+    const value = Number(text);
     if (!Number.isFinite(value)) throw new Error(tr('admin_invalid_number'));
+    if (min !== null && value < min) throw new Error(tr('admin_invalid_number'));
     return value;
+}
+
+function getAdminProductPriceRange(product = {}) {
+    const prices = (product.variations || [])
+        .filter(v => v.is_active !== false && Number.isFinite(Number(v.price)) && Number(v.price) > 0)
+        .map(v => Number(v.price))
+        .sort((a, b) => a - b);
+    if (!prices.length) return tr('admin_no_active_variation_prices');
+    const min = prices[0];
+    const max = prices[prices.length - 1];
+    return min === max ? formatMoney(min, 'UZS') : `${formatMoney(min, 'UZS')} – ${formatMoney(max, 'UZS')}`;
 }
 
 function adminProviderLabel(item = {}) {
@@ -3455,6 +3468,7 @@ function renderAdminCategories(products) {
             <div class="admin-catalog-main"><strong>${escapeHtml(c.icon || '📁')} ${escapeHtml(c.name)}</strong><span>${escapeHtml(c.slug || '')}</span></div>
             <div class="admin-catalog-meta"><b>${categoryProducts.length}</b><span>${tr('admin_products_count')}</span></div>
             <div class="status ${c.is_active ? 'status-completed' : 'status-cancelled'}">${c.is_active ? tr('active') : tr('disabled')}</div>
+            <div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showCategoryModal(${c.id})">${tr('edit')}</button><button onclick="disableCategory(${c.id})">${tr('disable')}</button></div>
         </div>`;
     }).join('') || `<div class="empty-state">${tr('admin_no_categories')}</div>`;
 }
@@ -3468,7 +3482,7 @@ function renderAdminProducts(products) {
     return `<div class="admin-catalog-toolbar"><button class="btn-secondary" onclick="selectAdminCategory(null)">← ${tr('admin_back_categories')}</button><strong>${escapeHtml(category?.name || '')}</strong></div>
         ${rows.map(p => `<div class="admin-catalog-row" onclick="selectAdminProduct(${p.id})">
             <div class="admin-catalog-main"><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(adminProviderLabel(p))} • ${tr('admin_variations')}: ${(p.variations || []).length}</span></div>
-            <div class="admin-catalog-meta"><b>${formatMoney(p.price || 0, 'UZS')}</b><span>${escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label)}</span></div>
+            <div class="admin-catalog-meta"><b>${escapeHtml(getAdminProductPriceRange(p))}</b><span>${escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label)}</span></div>
             <div class="status ${p.is_active ? 'status-completed' : 'status-cancelled'}">${p.is_active ? tr('active') : tr('disabled')}</div>
             <div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showProductModal(${p.id})">${tr('edit')}</button><button onclick="showVariationModal(${p.id})">+ ${tr('admin_variation')}</button><button onclick="deleteProduct(${p.id})">${tr('disable')}</button></div>
         </div>`).join('') || `<div class="empty-state">${tr('no_products')}</div>`}`;
@@ -3556,25 +3570,29 @@ function parseРегионOptionsFromLines(text) {
         .filter(r => r.code && r.label);
 }
 
-function showAddCategoryModal() {
+function showAddCategoryModal() { showCategoryModal(); }
+
+function showCategoryModal(categoryId = null) {
+    const category = categoryId ? (state.adminCategories || []).find(c => Number(c.id) === Number(categoryId)) : null;
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
         <div class="modal-sheet">
             <div class="modal-header">
-                <h2>📁 Add Category</h2>
+                <h2>${category ? tr('admin_edit_category') : tr('admin_add_category')}</h2>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="form-section admin-form">
-                <label>Name</label>
-                <input id="cat-name" placeholder="Mobile Legends" />
-                <label>Slug</label>
-                <input id="cat-slug" placeholder="mobile-legends" />
-                <label>Icon</label>
-                <input id="cat-icon" placeholder="🎮" />
+                <div id="category-error" class="modal-error hidden"></div>
+                <label>${tr('name')}</label>
+                <input id="cat-name" placeholder="Mobile Legends" value="${escapeHtml(category?.name || '')}" />
+                <label>${tr('slug')}</label>
+                <input id="cat-slug" placeholder="mobile-legends" value="${escapeHtml(category?.slug || '')}" />
+                <label>${tr('icon')}</label>
+                <input id="cat-icon" placeholder="🎮" value="${escapeHtml(category?.icon || '')}" />
                 <label>${tr('admin_sort_order')}</label>
-                <input id="cat-sort" inputmode="numeric" value="0" />
-                <button class="btn-primary" id="save-category-btn">Save Category</button>
+                <input id="cat-sort" inputmode="numeric" value="${escapeHtml(category?.sort_order ?? 0)}" />
+                <button class="btn-primary" id="save-category-btn">${tr('save')}</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3583,23 +3601,37 @@ function showAddCategoryModal() {
         const slug = e.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         if (!document.getElementById('cat-slug').value) document.getElementById('cat-slug').value = slug;
     });
-    modal.querySelector('#save-category-btn').addEventListener('click', saveCategory);
+    modal.querySelector('#save-category-btn').addEventListener('click', () => saveCategory(category?.id || null));
 }
 
-async function saveCategory() {
+async function saveCategory(categoryId = null) {
+    const errorBox = document.getElementById('category-error');
     try {
+        if (errorBox) { errorBox.textContent = ''; errorBox.classList.add('hidden'); }
         const payload = {
             name: document.getElementById('cat-name').value.trim(),
             slug: document.getElementById('cat-slug').value.trim(),
             icon: document.getElementById('cat-icon').value.trim() || null,
-            sort_order: Number(document.getElementById('cat-sort').value || 0),
+            sort_order: normalizeAdminNumber(document.getElementById('cat-sort').value || 0, { min: 0 }),
         };
-        await api('POST', '/admin/categories', payload);
+        await api(categoryId ? 'PUT' : 'POST', categoryId ? `/admin/categories/${categoryId}` : '/admin/categories', payload);
         closeModal();
-        showToast('success', 'Category saved');
+        showToast('success', tr('admin_category_saved'));
         loadAdminProducts();
     } catch (error) {
-        showToast('error', error.message || 'Failed to save category');
+        if (errorBox) { errorBox.textContent = error.message || tr('admin_save_failed'); errorBox.classList.remove('hidden'); }
+        showToast('error', error.message || tr('admin_save_failed'));
+    }
+}
+
+async function disableCategory(categoryId) {
+    if (!confirm(tr('admin_disable_category_confirm'))) return;
+    try {
+        await api('DELETE', `/admin/categories/${categoryId}`);
+        showToast('success', tr('admin_category_disabled'));
+        loadAdminProducts();
+    } catch (error) {
+        showToast('error', error.message || tr('admin_disable_category_failed'));
     }
 }
 
@@ -3621,7 +3653,7 @@ function showProductModal(productId = null) {
                 <label>Description</label>
                 <textarea id="product-description" placeholder="Short product description">${escapeHtml(product?.description || '')}</textarea>
                 <label>${tr('admin_image_url')}</label>
-                <div class="admin-image-url-row"><input id="product-image" placeholder="/uploads/..." value="${escapeHtml(product?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-product-media-btn">Choose from Media</button></div>
+                <div class="admin-image-url-row"><input id="product-image" placeholder="/uploads/..." value="${escapeHtml(product?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-product-media-btn">${tr('admin_choose_from_media')}</button></div>
                 <div id="product-image-preview" class="admin-image-preview"></div>
                 <label>Product status</label>
                 <select id="product-availability-status">
@@ -3705,7 +3737,7 @@ function showVariationModal(productId, variationId = null) {
     modal.innerHTML = `
         <div class="modal-sheet">
             <div class="modal-header">
-                <h2>${variation ? '✏️ Edit Variation' : '➕ Add Variation'}</h2>
+                <h2>${variation ? tr('admin_edit_variation') : tr('admin_add_variation')}</h2>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="form-section admin-form">
@@ -3720,17 +3752,27 @@ function showVariationModal(productId, variationId = null) {
                 <select id="variation-cost-currency">
                     ${['UZS', 'USD', 'USDT'].map(currency => `<option value="${currency}" ${String(variation?.cost_currency || 'UZS').toUpperCase() === currency ? 'selected' : ''}>${currency}</option>`).join('')}
                 </select>
+                <label>${tr('admin_provider')}</label>
+                <select id="variation-provider">
+                    ${['manual', 'gamedrops', 'moogold'].map(provider => `<option value="${provider}" ${String(variation?.provider || product?.provider || 'manual').toLowerCase() === provider ? 'selected' : ''}>${provider === 'gamedrops' ? 'GameDrops' : provider === 'moogold' ? 'MooGold' : tr('admin_provider_manual')}</option>`).join('')}
+                </select>
+                <label>${tr('admin_provider_variation_id')}</label>
+                <input id="variation-provider-id" placeholder="offer_id" value="${escapeHtml(variation?.provider_variation_id || '')}" />
+                <label>${tr('admin_provider_price')}</label>
+                <input id="variation-provider-price" readonly value="${escapeHtml(variation?.provider_price ?? '')}" />
+                <label>${tr('admin_provider_currency')}</label>
+                <input id="variation-provider-currency" readonly value="${escapeHtml(variation?.provider_currency || '')}" />
                 <label>${tr('admin_stock_status')}</label>
                 <select id="variation-stock">
                     <option value="instock" ${variation?.stock_status === 'instock' ? 'selected' : ''}>instock</option>
                     <option value="outofstock" ${variation?.stock_status === 'outofstock' ? 'selected' : ''}>outofstock</option>
                 </select>
                 <label>${tr('admin_image_url')}</label>
-                <div class="admin-image-url-row"><input id="variation-image" placeholder="/uploads/..." value="${escapeHtml(variation?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-variation-media-btn">Choose from Media</button></div>
+                <div class="admin-image-url-row"><input id="variation-image" placeholder="/uploads/..." value="${escapeHtml(variation?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-variation-media-btn">${tr('admin_choose_from_media')}</button></div>
                 <div id="variation-image-preview" class="admin-image-preview"></div>
                 <label>${tr('admin_sort_order')}</label>
                 <input id="variation-sort" inputmode="numeric" value="${escapeHtml(variation?.sort_order ?? 0)}" />
-                <label>${tr('admin_legacy_moogold_id')}</label>
+                <label data-provider-field="moogold-label">${tr('admin_legacy_moogold_id')}</label>
                 <input id="variation-moogold" inputmode="numeric" placeholder="${tr('optional')}" value="${escapeHtml(variation?.moogold_variation_id || '')}" />
                 <label>${tr('admin_region')}</label>
                 <input id="variation-region" placeholder="global / ru" value="${escapeHtml(getAdminVariationRegion(variation || {}))}" />
@@ -3742,6 +3784,16 @@ function showVariationModal(productId, variationId = null) {
         </div>`;
     document.body.appendChild(modal);
     modal.querySelector('.modal-close').addEventListener('click', closeModal);
+    const providerSelect = modal.querySelector('#variation-provider');
+    const moogoldLabel = modal.querySelector('[data-provider-field="moogold-label"]');
+    const moogoldInput = modal.querySelector('#variation-moogold');
+    const syncProviderFields = () => {
+        const isMooGold = String(providerSelect?.value || '').toLowerCase() === 'moogold';
+        if (moogoldLabel) moogoldLabel.classList.toggle('hidden', !isMooGold);
+        if (moogoldInput) moogoldInput.classList.toggle('hidden', !isMooGold);
+    };
+    providerSelect?.addEventListener('change', syncProviderFields);
+    syncProviderFields();
     modal.querySelector('#save-variation-btn').addEventListener('click', () => saveVariation(productId, variation?.id || null));
     modal.querySelector('#choose-variation-media-btn')?.addEventListener('click', async () => { if (!state.adminMedia) await loadAdminMedia(); mediaImagePicker('variation-image'); });
     bindImagePreview('variation-image', 'variation-image-preview');
@@ -3755,16 +3807,20 @@ async function saveVariation(productId, variationId = null) {
         if (errorBox) { errorBox.textContent = ''; errorBox.classList.add('hidden'); }
         const payload = {
             name: document.getElementById('variation-name').value.trim(),
-            price: normalizeAdminNumber(document.getElementById('variation-price').value),
-            cost_price: normalizeAdminNumber(document.getElementById('variation-cost-price').value, { allowEmpty: true }),
+            price: normalizeAdminNumber(document.getElementById('variation-price').value, { min: 0.000001 }),
+            cost_price: normalizeAdminNumber(document.getElementById('variation-cost-price').value, { allowEmpty: true, min: 0 }),
             cost_currency: document.getElementById('variation-cost-currency').value || 'UZS',
             stock_status: document.getElementById('variation-stock').value,
             image_url: document.getElementById('variation-image').value.trim() || null,
-            sort_order: normalizeAdminNumber(document.getElementById('variation-sort').value || 0),
-            moogold_variation_id: normalizeAdminNumber(document.getElementById('variation-moogold').value, { allowEmpty: true }),
+            sort_order: normalizeAdminNumber(document.getElementById('variation-sort').value || 0, { min: 0 }),
+            provider: document.getElementById('variation-provider')?.value || 'manual',
+            provider_variation_id: document.getElementById('variation-provider-id')?.value.trim() || null,
+            moogold_variation_id: normalizeAdminNumber(document.getElementById('variation-moogold').value, { allowEmpty: true, min: 1 }),
             region: document.getElementById('variation-region')?.value.trim() || null,
         };
-        if (!Number.isFinite(payload.price) || !Number.isFinite(payload.sort_order)) throw new Error(tr('admin_invalid_number'));
+        if (!Number.isFinite(payload.price) || payload.price <= 0 || !Number.isFinite(payload.sort_order)) throw new Error(tr('admin_invalid_number'));
+        if (payload.provider === 'gamedrops' && !payload.provider_variation_id) throw new Error(tr('admin_provider_variation_required'));
+        if (payload.provider === 'gamedrops' && !['global', 'ru'].includes(String(payload.region || '').toLowerCase())) throw new Error(tr('admin_region_required'));
         if (variationId) payload.is_active = document.getElementById('variation-active')?.checked ?? true;
         btn.disabled = true;
         btn.textContent = tr('saving');
@@ -3781,24 +3837,24 @@ async function saveVariation(productId, variationId = null) {
 }
 
 async function deleteVariation(variationId) {
-    if (!confirm('Disable this variation?')) return;
+    if (!confirm(tr('admin_disable_variation_confirm'))) return;
     try {
         await api('DELETE', `/admin/variations/${variationId}`);
-        showToast('success', 'Variation disabled');
+        showToast('success', tr('admin_variation_disabled'));
         loadAdminProducts();
     } catch (error) {
-        showToast('error', 'Failed to disable variation');
+        showToast('error', tr('admin_disable_variation_failed'));
     }
 }
 
 async function deleteProduct(productId) {
-    if (!confirm('Disable this product?')) return;
+    if (!confirm(tr('admin_disable_product_confirm'))) return;
     try {
         await api('DELETE', `/admin/products/${productId}`);
-        showToast('success', 'Product disabled');
+        showToast('success', tr('admin_product_disabled'));
         loadAdminProducts();
     } catch (error) {
-        showToast('error', 'Failed to disable product');
+        showToast('error', tr('admin_disable_product_failed'));
     }
 }
 

@@ -105,6 +105,12 @@ class ProductVariationBase(BaseModel):
 
 class ProductVariationCreate(ProductVariationBase):
     moogold_variation_id: Optional[int] = None
+    provider: Optional[str] = "manual"
+    provider_variation_id: Optional[str] = None
+    provider_price: Optional[float] = None
+    provider_currency: Optional[str] = None
+    provider_meta: Optional[Dict[str, Any]] = None
+    region: Optional[str] = None
 
 
 class ProductVariationUpdate(BaseModel):
@@ -116,6 +122,11 @@ class ProductVariationUpdate(BaseModel):
     image_url: Optional[str] = None
     sort_order: Optional[int] = None
     moogold_variation_id: Optional[int] = None
+    provider: Optional[str] = None
+    provider_variation_id: Optional[str] = None
+    provider_price: Optional[float] = None
+    provider_currency: Optional[str] = None
+    provider_meta: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
     region: Optional[str] = None
 
