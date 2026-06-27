@@ -1,0 +1,41 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">KADI gradient K icon</title>
+  <desc id="desc">Clean cyan to blue to violet K icon on a dark glassmorphism background for a Telegram Mini App game top-up shop.</desc>
+  <rect width="256" height="256" rx="62" fill="url(#glass)"/>
+  <rect x="9" y="9" width="238" height="238" rx="55" stroke="url(#border)" stroke-width="2"/>
+  <path opacity="0.65" d="M61 42H195C213.225 42 228 56.7746 228 75V111C168 104 104 122 42 166V61C42 50.5066 50.5066 42 61 42Z" fill="url(#shine)"/>
+  <g filter="url(#softGlow)">
+    <path d="M70 61C70 55.4772 74.4772 51 80 51H101C106.523 51 111 55.4772 111 61V112.565L159.27 55.0417C161.17 52.7776 163.974 51.4706 166.929 51.4706H194.008C202.669 51.4706 207.207 61.7603 201.372 68.1608L150.718 123.728L204.589 187.5C210.111 194.036 205.465 204 196.911 204H169.228C166.25 204 163.425 202.675 161.525 200.383L123.43 154.428L111 168.024V194C111 199.523 106.523 204 101 204H80C74.4772 204 70 199.523 70 194V61Z" fill="url(#kGradient)"/>
+  </g>
+  <defs>
+    <linearGradient id="glass" x1="34" y1="18" x2="224" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#101827"/>
+      <stop offset="0.52" stop-color="#070B16"/>
+      <stop offset="1" stop-color="#111029"/>
+    </linearGradient>
+    <linearGradient id="kGradient" x1="70" y1="51" x2="205" y2="204" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#36F3FF"/>
+      <stop offset="0.48" stop-color="#2488FF"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="border" x1="28" y1="12" x2="230" y2="242" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67E8F9" stop-opacity="0.75"/>
+      <stop offset="0.5" stop-color="#3B82F6" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#A78BFA" stop-opacity="0.62"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="56" y1="45" x2="187" y2="178" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="softGlow" x="32" y="18" width="213" height="219" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="4"/>
+      <feGaussianBlur stdDeviation="16"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.141 0 0 0 0 0.533 0 0 0 0 1 0 0 0 0.7 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+    </filter>
+  </defs>
+</svg>
