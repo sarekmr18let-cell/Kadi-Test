@@ -3421,71 +3421,111 @@ function getVariationCostMetrics(variation = {}) {
     };
 }
 
+function normalizeAdminNumber(raw, { allowEmpty = false } = {}) {
+    const text = String(raw ?? '').replace(/[\s\u00A0]+/g, '');
+    if (!text && allowEmpty) return null;
+    const value = Number(text || 0);
+    if (!Number.isFinite(value)) throw new Error(tr('admin_invalid_number'));
+    return value;
+}
+
+function adminProviderLabel(item = {}) {
+    const provider = String(item.provider || '').toLowerCase();
+    if (provider === 'gamedrops') return 'GameDrops';
+    if (provider === 'moogold') return 'MooGold';
+    return item.provider || 'KADI';
+}
+
+function getAdminVariationRegion(v = {}) {
+    return v.region || v.provider_meta?.region || v.provider_meta?.country || 'global';
+}
+
+function adminVariationMatchesRegion(v, region) {
+    if (region === 'all') return true;
+    const value = String(getAdminVariationRegion(v)).toLowerCase();
+    return region === 'ru' ? /(ru|рос|russia)/.test(value) : /(global|world|intl|uz)/.test(value);
+}
+
+function renderAdminCategories(products) {
+    const q = String(document.getElementById('admin-catalog-search')?.value || '').trim().toLowerCase();
+    const categories = (state.adminCategories || []).filter(c => !q || `${c.name} ${c.slug}`.toLowerCase().includes(q));
+    return categories.map(c => {
+        const categoryProducts = products.filter(p => Number(p.category_id || p.category?.id) === Number(c.id));
+        return `<div class="admin-catalog-row" onclick="selectAdminCategory(${c.id})">
+            <div class="admin-catalog-main"><strong>${escapeHtml(c.icon || '📁')} ${escapeHtml(c.name)}</strong><span>${escapeHtml(c.slug || '')}</span></div>
+            <div class="admin-catalog-meta"><b>${categoryProducts.length}</b><span>${tr('admin_products_count')}</span></div>
+            <div class="status ${c.is_active ? 'status-completed' : 'status-cancelled'}">${c.is_active ? tr('active') : tr('disabled')}</div>
+        </div>`;
+    }).join('') || `<div class="empty-state">${tr('admin_no_categories')}</div>`;
+}
+
+function renderAdminProducts(products) {
+    const categoryId = state.adminCatalogCategoryId;
+    const q = String(document.getElementById('admin-catalog-search')?.value || '').trim().toLowerCase();
+    const category = (state.adminCategories || []).find(c => Number(c.id) === Number(categoryId));
+    const rows = products.filter(p => Number(p.category_id || p.category?.id) === Number(categoryId))
+        .filter(p => !q || `${p.name} ${p.description || ''}`.toLowerCase().includes(q));
+    return `<div class="admin-catalog-toolbar"><button class="btn-secondary" onclick="selectAdminCategory(null)">← ${tr('admin_back_categories')}</button><strong>${escapeHtml(category?.name || '')}</strong></div>
+        ${rows.map(p => `<div class="admin-catalog-row" onclick="selectAdminProduct(${p.id})">
+            <div class="admin-catalog-main"><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(adminProviderLabel(p))} • ${tr('admin_variations')}: ${(p.variations || []).length}</span></div>
+            <div class="admin-catalog-meta"><b>${formatMoney(p.price || 0, 'UZS')}</b><span>${escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label)}</span></div>
+            <div class="status ${p.is_active ? 'status-completed' : 'status-cancelled'}">${p.is_active ? tr('active') : tr('disabled')}</div>
+            <div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showProductModal(${p.id})">${tr('edit')}</button><button onclick="showVariationModal(${p.id})">+ ${tr('admin_variation')}</button><button onclick="deleteProduct(${p.id})">${tr('disable')}</button></div>
+        </div>`).join('') || `<div class="empty-state">${tr('no_products')}</div>`}`;
+}
+
+function renderAdminProductDetail(products) {
+    const product = products.find(p => Number(p.id) === Number(state.adminCatalogProductId));
+    if (!product) return renderAdminProducts(products);
+    const region = state.adminVariationRegion || 'all';
+    const variations = [...(product.variations || [])].filter(v => adminVariationMatchesRegion(v, region)).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
+    return `<div class="admin-catalog-toolbar"><button class="btn-secondary" onclick="selectAdminProduct(null)">← ${tr('admin_back_products')}</button><strong>${escapeHtml(product.name)}</strong></div>
+        <div class="admin-product-summary"><div>${escapeHtml(product.description || '')}</div><div>${escapeHtml(adminProviderLabel(product))} • ${escapeHtml(product.category?.name || '')}</div></div>
+        <div class="variation-group-tabs admin-region-tabs">
+            ${['all','global','ru'].map(r => `<button type="button" class="variation-group-chip ${region === r ? 'selected' : ''}" onclick="setAdminVariationRegion('${r}')">${r === 'all' ? tr('all') : r === 'ru' ? tr('admin_region_ru') : tr('admin_region_global')}</button>`).join('')}
+        </div>
+        <div class="admin-variation-list">${variations.map(v => renderAdminVariationRow(product, v)).join('') || `<div class="empty-state">${tr('admin_no_variations')}</div>`}</div>
+        <div class="actions"><button onclick="showVariationModal(${product.id})">+ ${tr('admin_add_variation')}</button><button onclick="showProductModal(${product.id})">${tr('admin_edit_product')}</button></div>`;
+}
+
+function renderAdminVariationRow(product, v) {
+    const metrics = getVariationCostMetrics(v);
+    const provider = adminProviderLabel(v.provider ? v : product);
+    const providerPrice = v.provider_price !== null && v.provider_price !== undefined ? `${Number(v.provider_price).toLocaleString('ru-RU', { maximumFractionDigits: 4 })} ${escapeHtml(v.provider_currency || '')}` : '—';
+    return `<div class="admin-variation-row admin-variation-card">
+        ${v.image_url ? `<img src="${escapeHtml(v.image_url)}" alt="">` : ''}
+        <div class="admin-catalog-main"><strong>${escapeHtml(v.name)}</strong><span>${tr('admin_region')}: ${escapeHtml(getAdminVariationRegion(v))} • ${escapeHtml(v.stock_status)}</span><span>${provider} ID: ${escapeHtml(v.provider_variation_id || v.moogold_variation_id || '-')}</span></div>
+        <div class="admin-variation-prices"><b>${formatMoney(v.price, 'UZS')}</b><span>${tr('admin_provider_price')}: ${providerPrice}</span><span>${tr('admin_cost_price')}: ${metrics.costText}</span><span>${tr('admin_profit')}: ${metrics.profitText} • ${tr('admin_margin')}: ${metrics.marginText}</span><span>${provider} • ${v.is_active ? tr('active') : tr('disabled')}</span></div>
+        <div class="inline-actions"><button onclick="showVariationModal(${product.id}, ${v.id})">${tr('edit')}</button><button onclick="deleteVariation(${v.id})">${tr('disable')}</button></div>
+    </div>`;
+}
+
+function selectAdminCategory(id) { state.adminCatalogCategoryId = id; state.adminCatalogProductId = null; renderAdminCatalog(); }
+function selectAdminProduct(id) { state.adminCatalogProductId = id; state.adminVariationRegion = 'all'; renderAdminCatalog(); }
+function setAdminVariationRegion(region) { state.adminVariationRegion = region; renderAdminCatalog(); }
+function renderAdminCatalog() {
+    const container = document.getElementById('admin-products-list');
+    if (!container) return;
+    const products = state.adminProducts || [];
+    if (state.adminCatalogProductId) container.innerHTML = renderAdminProductDetail(products);
+    else if (state.adminCatalogCategoryId) container.innerHTML = renderAdminProducts(products);
+    else container.innerHTML = renderAdminCategories(products);
+}
+
 async function loadAdminProducts() {
     try {
-        const [products, categories] = await Promise.all([
-            api('GET', '/admin/products'),
-            api('GET', '/admin/categories'),
-        ]);
+        const [products, categories] = await Promise.all([api('GET', '/admin/products'), api('GET', '/admin/categories')]);
         state.adminProducts = products || [];
         state.adminCategories = categories || [];
         const container = document.getElementById('admin-products-list');
-
-        container.innerHTML = state.adminProducts?.map(p => `
-            <div class="admin-order-item">
-                <div class="header">
-                    <div>
-                        <strong>${escapeHtml(p.name)}</strong>
-                        <div style="font-size: 12px; color: var(--text-muted);">
-                            ${escapeHtml(p.category?.name || 'No category')} • Product MooGold ID: ${escapeHtml(p.moogold_id || '-')}<br>
-                            Status: ${escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label)}<br>
-                            Requirements: ${p.requires_target_id ? escapeHtml(p.target_id_label || 'ID') : 'no ID'}${p.requires_server_id ? ' • ' + escapeHtml(p.target_server_label || 'Server') : ''}${p.requires_region ? ' • ' + escapeHtml(p.target_region_label || 'Регион') : ''}
-                        </div>
-                    </div>
-                    <div class="status ${p.is_active ? 'status-completed' : 'status-cancelled'}">${p.is_active ? escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label) : 'off'}</div>
-                </div>
-                ${p.description ? `<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">${escapeHtml(p.description)}</div>` : ''}
-                <div class="admin-variation-list">
-                    ${[...(p.variations || [])].sort((a, b) => {
-                        const sortDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
-                        if (sortDiff !== 0) return sortDiff;
-                        return Number(a.id || 0) - Number(b.id || 0) || String(a.name || '').localeCompare(String(b.name || ''));
-                    }).map(v => {
-                        const metrics = getVariationCostMetrics(v);
-                        return `
-                        <div class="admin-variation-row">
-                            ${v.image_url ? `<img src="${escapeHtml(v.image_url)}" alt="" style="width: 38px; height: 38px; object-fit: contain; border-radius: 10px; background: rgba(255,255,255,0.06); flex: 0 0 auto;">` : ''}
-                            <div>
-                                <strong>${escapeHtml(v.name)}</strong>
-                                <div style="font-size: 12px; color: var(--text-muted);">
-                                    ${escapeHtml(v.stock_status)} • Sort: ${escapeHtml(v.sort_order ?? 0)} • MooGold variation: ${escapeHtml(v.moogold_variation_id || '-')}
-                                </div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="color: var(--neon-green);">Sell price: ${formatMoney(v.price, 'UZS')}</div>
-                                <div style="font-size: 12px; color: var(--text-muted); line-height: 1.45;">
-                                    Cost: ${metrics.costText}<br>
-                                    Profit: ${metrics.profitText}<br>
-                                    Margin: ${metrics.marginText}
-                                </div>
-                                <div class="inline-actions">
-                                    <button onclick="showVariationModal(${p.id}, ${v.id})">Edit</button>
-                                    <button onclick="deleteVariation(${v.id})">Off</button>
-                                </div>
-                            </div>
-                        </div>`;
-                    }).join('') || '<div style="color: var(--text-muted); font-size: 13px;">No variations yet. Add 86/172/257 etc.</div>'}
-                </div>
-                <div class="actions">
-                    <button onclick="showProductModal(${p.id})">Edit Product</button>
-                    <button onclick="showVariationModal(${p.id})">+ Variation</button>
-                    <button style="color: var(--neon-red);" onclick="deleteProduct(${p.id})">Disable</button>
-                </div>
-            </div>
-        `).join('') || '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No products</div>';
+        if (!document.getElementById('admin-catalog-search')) {
+            container.insertAdjacentHTML('beforebegin', `<input type="search" id="admin-catalog-search" class="admin-catalog-search" placeholder="${escapeHtml(tr('admin_catalog_search'))}">`);
+            document.getElementById('admin-catalog-search')?.addEventListener('input', renderAdminCatalog);
+        }
+        renderAdminCatalog();
     } catch (error) {
         console.error('Admin products error:', error);
-        showToast('error', 'Failed to load products');
+        showToast('error', tr('admin_load_products_failed'));
     }
 }
 
@@ -3532,7 +3572,7 @@ function showAddCategoryModal() {
                 <input id="cat-slug" placeholder="mobile-legends" />
                 <label>Icon</label>
                 <input id="cat-icon" placeholder="🎮" />
-                <label>Sort order</label>
+                <label>${tr('admin_sort_order')}</label>
                 <input id="cat-sort" inputmode="numeric" value="0" />
                 <button class="btn-primary" id="save-category-btn">Save Category</button>
             </div>
@@ -3580,7 +3620,7 @@ function showProductModal(productId = null) {
                 <select id="product-category">${categoryOptions(product?.category_id)}</select>
                 <label>Description</label>
                 <textarea id="product-description" placeholder="Short product description">${escapeHtml(product?.description || '')}</textarea>
-                <label>Image URL</label>
+                <label>${tr('admin_image_url')}</label>
                 <div class="admin-image-url-row"><input id="product-image" placeholder="/uploads/..." value="${escapeHtml(product?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-product-media-btn">Choose from Media</button></div>
                 <div id="product-image-preview" class="admin-image-preview"></div>
                 <label>Product status</label>
@@ -3612,7 +3652,7 @@ ru=🇷🇺 RU">${escapeHtml(regionOptionsToLines(product?.region_options || [])
                 <label>Input help text</label>
                 <textarea id="product-help" placeholder="Например: проверьте ID и сервер перед покупкой">${escapeHtml(product?.input_help_text || '')}</textarea>
 
-                <label>Sort order</label>
+                <label>${tr('admin_sort_order')}</label>
                 <input id="product-sort" inputmode="numeric" value="${escapeHtml(product?.sort_order ?? 0)}" />
                 <button class="btn-primary" id="save-product-btn">Save Product</button>
             </div>
@@ -3669,32 +3709,35 @@ function showVariationModal(productId, variationId = null) {
                 <button class="modal-close">&times;</button>
             </div>
             <div class="form-section admin-form">
-                <label>Variation name</label>
+                <div id="variation-error" class="modal-error hidden"></div>
+                <label>${tr('admin_variation_name')}</label>
                 <input id="variation-name" placeholder="86 Diamonds" value="${escapeHtml(variation?.name || '')}" />
-                <label>Price in UZS</label>
+                <label>${tr('admin_sell_price')}</label>
                 <input id="variation-price" inputmode="numeric" placeholder="18000" value="${escapeHtml(variation?.price ?? '')}" />
-                <label>Cost price</label>
+                <label>${tr('admin_cost_price')}</label>
                 <input id="variation-cost-price" inputmode="numeric" placeholder="118000" value="${escapeHtml(variation?.cost_price ?? '')}" />
-                <label>Cost currency</label>
+                <label>${tr('admin_cost_currency')}</label>
                 <select id="variation-cost-currency">
                     ${['UZS', 'USD', 'USDT'].map(currency => `<option value="${currency}" ${String(variation?.cost_currency || 'UZS').toUpperCase() === currency ? 'selected' : ''}>${currency}</option>`).join('')}
                 </select>
-                <label>Stock status</label>
+                <label>${tr('admin_stock_status')}</label>
                 <select id="variation-stock">
                     <option value="instock" ${variation?.stock_status === 'instock' ? 'selected' : ''}>instock</option>
                     <option value="outofstock" ${variation?.stock_status === 'outofstock' ? 'selected' : ''}>outofstock</option>
                 </select>
-                <label>Image URL</label>
+                <label>${tr('admin_image_url')}</label>
                 <div class="admin-image-url-row"><input id="variation-image" placeholder="/uploads/..." value="${escapeHtml(variation?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-variation-media-btn">Choose from Media</button></div>
                 <div id="variation-image-preview" class="admin-image-preview"></div>
-                <label>Sort order</label>
+                <label>${tr('admin_sort_order')}</label>
                 <input id="variation-sort" inputmode="numeric" value="${escapeHtml(variation?.sort_order ?? 0)}" />
-                <label>MooGold Variation ID</label>
-                <input id="variation-moogold" inputmode="numeric" placeholder="Required for auto delivery" value="${escapeHtml(variation?.moogold_variation_id || '')}" />
+                <label>${tr('admin_legacy_moogold_id')}</label>
+                <input id="variation-moogold" inputmode="numeric" placeholder="${tr('optional')}" value="${escapeHtml(variation?.moogold_variation_id || '')}" />
+                <label>${tr('admin_region')}</label>
+                <input id="variation-region" placeholder="global / ru" value="${escapeHtml(getAdminVariationRegion(variation || {}))}" />
                 ${variation ? `
-                    <label class="checkbox-row"><input type="checkbox" id="variation-active" ${variation.is_active ? 'checked' : ''}> Active</label>
+                    <label class="checkbox-row"><input type="checkbox" id="variation-active" ${variation.is_active ? 'checked' : ''}> ${tr('active')}</label>
                 ` : ''}
-                <button class="btn-primary" id="save-variation-btn">Save Variation</button>
+                <button class="btn-primary" id="save-variation-btn">${tr('save')}</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3705,28 +3748,35 @@ function showVariationModal(productId, variationId = null) {
 }
 
 async function saveVariation(productId, variationId = null) {
+    const btn = document.getElementById('save-variation-btn');
+    const errorBox = document.getElementById('variation-error');
+    if (btn?.disabled) return;
     try {
+        if (errorBox) { errorBox.textContent = ''; errorBox.classList.add('hidden'); }
         const payload = {
             name: document.getElementById('variation-name').value.trim(),
-            price: Number(document.getElementById('variation-price').value || 0),
-            cost_price: document.getElementById('variation-cost-price').value ? Number(document.getElementById('variation-cost-price').value) : null,
+            price: normalizeAdminNumber(document.getElementById('variation-price').value),
+            cost_price: normalizeAdminNumber(document.getElementById('variation-cost-price').value, { allowEmpty: true }),
             cost_currency: document.getElementById('variation-cost-currency').value || 'UZS',
             stock_status: document.getElementById('variation-stock').value,
             image_url: document.getElementById('variation-image').value.trim() || null,
-            sort_order: Number(document.getElementById('variation-sort').value || 0),
-            moogold_variation_id: document.getElementById('variation-moogold').value ? Number(document.getElementById('variation-moogold').value) : null,
+            sort_order: normalizeAdminNumber(document.getElementById('variation-sort').value || 0),
+            moogold_variation_id: normalizeAdminNumber(document.getElementById('variation-moogold').value, { allowEmpty: true }),
+            region: document.getElementById('variation-region')?.value.trim() || null,
         };
-        if (variationId) {
-            payload.is_active = document.getElementById('variation-active')?.checked ?? true;
-            await api('PUT', `/admin/variations/${variationId}`, payload);
-        } else {
-            await api('POST', `/admin/products/${productId}/variations`, payload);
-        }
+        if (!Number.isFinite(payload.price) || !Number.isFinite(payload.sort_order)) throw new Error(tr('admin_invalid_number'));
+        if (variationId) payload.is_active = document.getElementById('variation-active')?.checked ?? true;
+        btn.disabled = true;
+        btn.textContent = tr('saving');
+        await api(variationId ? 'PATCH' : 'POST', variationId ? `/admin/variations/${variationId}` : `/admin/products/${productId}/variations`, payload);
         closeModal();
-        showToast('success', 'Variation saved');
-        loadAdminProducts();
+        showToast('success', tr('admin_variation_saved'));
+        await loadAdminProducts();
     } catch (error) {
-        showToast('error', error.message || 'Failed to save variation');
+        if (errorBox) { errorBox.textContent = error.message || tr('admin_save_failed'); errorBox.classList.remove('hidden'); }
+        showToast('error', error.message || tr('admin_save_failed'));
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = tr('save'); }
     }
 }
 

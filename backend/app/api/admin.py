@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 import json
+import math
 import os
 import re
 
@@ -830,13 +831,35 @@ async def update_product_variation(
     if not existing:
         raise HTTPException(status_code=404, detail="Variation not found")
 
-    for key, value in variation.model_dump().items():
-        setattr(existing, key, value)
+    payload = variation.model_dump(exclude_unset=True)
+    for numeric_key in ("price", "cost_price"):
+        if numeric_key in payload and payload[numeric_key] is not None and not math.isfinite(float(payload[numeric_key])):
+            raise HTTPException(status_code=400, detail=f"Invalid {numeric_key}")
+    if "sort_order" in payload and payload["sort_order"] is not None:
+        payload["sort_order"] = int(payload["sort_order"])
+
+    # Safe partial update: omitted provider fields stay untouched for GameDrops/MooGold mappings.
+    allowed_fields = {
+        "name", "price", "cost_price", "cost_currency", "stock_status",
+        "image_url", "sort_order", "moogold_variation_id", "is_active", "region",
+    }
+    for key, value in payload.items():
+        if key in allowed_fields and hasattr(existing, key):
+            setattr(existing, key, value)
 
     await db.commit()
     await db.refresh(existing)
     return existing
 
+
+@router.patch("/variations/{variation_id}", response_model=ProductVariationResponse)
+async def patch_product_variation(
+    variation_id: int,
+    variation: ProductVariationUpdate,
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    return await update_product_variation(variation_id, variation, admin, db)
 
 @router.delete("/variations/{variation_id}")
 async def delete_product_variation(
@@ -886,6 +909,42 @@ async def create_category(
     await db.commit()
     await db.refresh(new_category)
     return new_category
+
+
+@router.put("/categories/{category_id}", response_model=CategoryResponse)
+async def update_category(
+    category_id: int,
+    category: CategoryCreate,
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    existing = result.scalar_one_or_none()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Category not found")
+    duplicate = await db.execute(select(Category).where(Category.slug == category.slug, Category.id != category_id))
+    if duplicate.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Category slug already exists")
+    for key, value in category.model_dump().items():
+        setattr(existing, key, value)
+    await db.commit()
+    await db.refresh(existing)
+    return existing
+
+
+@router.delete("/categories/{category_id}")
+async def delete_category(
+    category_id: int,
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    category.is_active = False
+    await db.commit()
+    return {"status": "success", "message": "Category deactivated"}
 
 
 @router.get("/categories", response_model=List[CategoryResponse])

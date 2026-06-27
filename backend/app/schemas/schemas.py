@@ -107,9 +107,17 @@ class ProductVariationCreate(ProductVariationBase):
     moogold_variation_id: Optional[int] = None
 
 
-class ProductVariationUpdate(ProductVariationBase):
+class ProductVariationUpdate(BaseModel):
+    name: Optional[str] = None
+    price: Optional[float] = None
+    cost_price: Optional[float] = None
+    cost_currency: Optional[str] = None
+    stock_status: Optional[str] = None
+    image_url: Optional[str] = None
+    sort_order: Optional[int] = None
     moogold_variation_id: Optional[int] = None
-    is_active: bool = True
+    is_active: Optional[bool] = None
+    region: Optional[str] = None
 
 
 class ProductVariationResponse(ProductVariationBase):
