@@ -27,5 +27,9 @@ celery_app.conf.update(
             "task": "app.services.notifications.expire_balance_topups",
             "schedule": 60.0,  # every minute
         },
+        "sync-gamedrops-order-statuses": {
+            "task": "app.services.moogold_fulfillment.sync_gamedrops_order_statuses",
+            "schedule": 30.0,  # every 30 seconds
+        },
     },
 )

@@ -241,8 +241,16 @@ async def _kadi_notify_user_order_completed(session, order) -> None:
         if region:
             category_line += f" · {region}"
 
+        lang = (getattr(user, "language_code", None) or "ru").lower()
+        messages = {
+            "ru": (title, completed_text),
+            "uz": (f"✅ Buyurtma #{short_id} yetkazildi!", "Buyurtma bajarildi."),
+            "en": (f"✅ Order #{short_id} delivered!", "Order completed."),
+        }
+        title, completed_text = messages.get(lang, messages["ru"])
+
         lines = [
-            f"✅ Заказ #{short_id} доставлен!",
+            title,
             "",
         ]
 
@@ -259,7 +267,7 @@ async def _kadi_notify_user_order_completed(session, order) -> None:
 
         lines.extend([
             "",
-            "Заказ выполнен.",
+            completed_text,
         ])
 
         message = "\n".join(lines)
@@ -704,14 +712,13 @@ async def update_order_status(
             print('KADI completed buyer notify wrapper failed:', exc)
 
     # Notify user
-    _kadi_order_notify_safe_no_celery(order.id, status_update.status)
+    if status_update.status == "completed":
+        _kadi_order_notify_safe_no_celery(order.id, "completed")
 
     # If admin manually confirms a payment, automatically submit the order to MooGold.
     if should_fulfill:
         _kadi_safe_celery_delay(fulfill_order_via_moogold, order.id)
 
-    # KADI_CALL_USER_ORDER_COMPLETED_NOTIFY_V1
-    await _kadi_notify_user_order_completed(locals().get("db") or locals().get("session"), order)
     return {"status": "success", "order_id": order_id, "new_status": status_update.status, "moogold_queued": should_fulfill}
 
 

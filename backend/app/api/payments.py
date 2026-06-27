@@ -6,6 +6,7 @@ from typing import List
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.celery_app import celery_app
 from app.core.security import get_current_user
 from app.models.models import PaymentMethod, Order, P2PPaymentSession, BalanceTopUp
 from app.schemas.schemas import (

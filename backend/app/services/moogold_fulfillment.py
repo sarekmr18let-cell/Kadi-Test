@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 import httpx
 from celery import shared_task
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import joinedload, sessionmaker
 
 from app.core.config import settings
@@ -504,6 +504,241 @@ def _fulfill_order_via_moogold(order_id: int) -> dict:
         send_order_notification.delay(order_id, "moogold_failed")
 
     return {"status": "ok", "order_id": order_id, "created_any": created_any, "failed_any": failed_any, "items": result_summary}
+
+
+GAMEDROPS_STATUS_MAP = {
+    "SUBMITTED": "processing",
+    "PROCESSING": "processing",
+    "COMPLETED": "completed",
+    "CANCELED": "cancelled",
+    "CANCELLED": "cancelled",
+    "FAILED": "failed",
+    "REFUND": "refunded",
+    "REFUNDED": "refunded",
+}
+
+
+def _map_gamedrops_status(raw_status: Any) -> Optional[str]:
+    if raw_status is None:
+        return None
+    return GAMEDROPS_STATUS_MAP.get(str(raw_status).strip().upper())
+
+
+def _extract_gamedrops_status(response: dict) -> Optional[str]:
+    if not isinstance(response, dict):
+        return None
+
+    data = response.get("data") if isinstance(response.get("data"), dict) else {}
+    candidates = [
+        response.get("orderStatus"),
+        response.get("order_status"),
+        response.get("status"),
+        data.get("orderStatus"),
+        data.get("order_status"),
+        data.get("status"),
+    ]
+    for candidate in candidates:
+        if candidate is not None and str(candidate).strip():
+            return str(candidate).strip().upper()
+    return None
+
+
+def _get_gamedrops_order_status(transaction_id: str) -> dict:
+    from app.services.gamedrops import GameDropsClient
+
+    async def _get():
+        client = GameDropsClient()
+        try:
+            return await client.get_order_status(transaction_id)
+        finally:
+            await client.close()
+
+    return asyncio.run(_get())
+
+
+class _GameDropsStatusSyncLock:
+    def __init__(self, redis_lock, ttl_seconds: int):
+        self._redis_lock = redis_lock
+        self._ttl_seconds = ttl_seconds
+
+    def extend(self) -> bool:
+        try:
+            self._redis_lock.extend(self._ttl_seconds, replace_ttl=True)
+            return True
+        except Exception:
+            logger.warning("GameDrops status sync lock ownership was lost during extend", exc_info=True)
+            return False
+
+    def owned(self) -> bool:
+        try:
+            return bool(self._redis_lock.owned())
+        except Exception:
+            logger.warning("Failed to verify GameDrops status sync lock ownership", exc_info=True)
+            return False
+
+    def release(self) -> None:
+        try:
+            if self.owned():
+                self._redis_lock.release()
+        except Exception:
+            logger.exception("Failed to release GameDrops status sync lock")
+
+
+def _acquire_gamedrops_status_sync_lock(ttl_seconds: int = 120):
+    try:
+        import redis
+
+        redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        redis_lock = redis_client.lock(
+            "lock:gamedrops_status_sync",
+            timeout=ttl_seconds,
+            blocking=False,
+            thread_local=False,
+        )
+        if not redis_lock.acquire(blocking=False):
+            return None
+        return _GameDropsStatusSyncLock(redis_lock, ttl_seconds)
+    except Exception:
+        logger.exception("Failed to acquire GameDrops status sync Redis lock")
+        return None
+
+
+@shared_task(name="app.services.moogold_fulfillment.sync_gamedrops_order_statuses")
+def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
+    """Poll existing GameDrops fulfillments and reconcile local order state.
+
+    This task only checks statuses for already-created provider orders. It never
+    creates a new GameDrops order and is safe to run periodically or manually for
+    a single local order id, for example: sync_gamedrops_order_statuses.delay(41).
+    """
+    status_lock = _acquire_gamedrops_status_sync_lock()
+    if status_lock is None:
+        return {"status": "skipped", "reason": "lock_not_acquired", "order_id": order_id}
+
+    from app.models.models import MooGoldFulfillment, Order
+    from app.services.notifications import send_order_notification
+
+    checked = 0
+    updated = 0
+    errors = 0
+    notifications: list[int] = []
+    items: list[dict[str, Any]] = []
+    lock_lost = False
+
+    try:
+        with SyncSessionLocal() as db:
+            query = (
+                select(MooGoldFulfillment)
+                .join(Order, MooGoldFulfillment.order_id == Order.id)
+                .options(joinedload(MooGoldFulfillment.order))
+                .where(
+                    MooGoldFulfillment.status == "processing",
+                    func.lower(Order.provider).in_(["gamedrops", "gamesdrop"]),
+                )
+                .order_by(MooGoldFulfillment.updated_at.asc())
+                .limit(100)
+            )
+            if order_id is not None:
+                query = query.where(MooGoldFulfillment.order_id == int(order_id))
+
+            fulfillments = db.execute(query).scalars().all()
+
+            for fulfillment in fulfillments:
+                checked += 1
+                transaction_id = fulfillment.partner_order_id
+                order = fulfillment.order
+                if not transaction_id or not order:
+                    errors += 1
+                    fulfillment.error_message = "Missing GameDrops transactionId or local order"
+                    fulfillment.updated_at = _now()
+                    db.commit()
+                    continue
+
+                previous_order_status = order.status
+                try:
+                    if not status_lock.extend():
+                        lock_lost = True
+                        items.append({
+                            "fulfillment_id": fulfillment.id,
+                            "order_id": fulfillment.order_id,
+                            "transaction_id": transaction_id,
+                            "status": "lock_lost",
+                        })
+                        break
+
+                    response = _get_gamedrops_order_status(transaction_id)
+
+                    if not status_lock.extend() or not status_lock.owned():
+                        lock_lost = True
+                        items.append({
+                            "fulfillment_id": fulfillment.id,
+                            "order_id": fulfillment.order_id,
+                            "transaction_id": transaction_id,
+                            "status": "lock_lost",
+                        })
+                        break
+
+                    raw_status = _extract_gamedrops_status(response)
+                    mapped_status = _map_gamedrops_status(raw_status)
+
+                    fulfillment.response_payload = _json_dump(response)
+                    fulfillment.error_message = None
+                    fulfillment.updated_at = _now()
+
+                    order.provider_status = mapped_status or raw_status or order.provider_status
+                    order.provider_response = response
+                    order.updated_at = _now()
+
+                    if mapped_status:
+                        fulfillment.status = mapped_status
+                        updated += 1
+                        final_order_status = update_local_order_status_from_fulfillments(db, order.id)
+                        if previous_order_status != "completed" and final_order_status == "completed":
+                            notifications.append(order.id)
+                    else:
+                        final_order_status = order.status
+
+                    db.commit()
+                    items.append({
+                        "fulfillment_id": fulfillment.id,
+                        "order_id": fulfillment.order_id,
+                        "transaction_id": transaction_id,
+                        "raw_status": raw_status,
+                        "mapped_status": mapped_status,
+                        "order_status": final_order_status,
+                    })
+                except Exception as exc:
+                    errors += 1
+                    db.rollback()
+                    fulfillment = db.get(MooGoldFulfillment, fulfillment.id)
+                    if fulfillment:
+                        fulfillment.error_message = str(exc)[:2000]
+                        fulfillment.updated_at = _now()
+                        db.commit()
+                    logger.exception("Failed to sync GameDrops status for fulfillment %s", getattr(fulfillment, "id", None))
+                    items.append({
+                        "fulfillment_id": getattr(fulfillment, "id", None),
+                        "order_id": getattr(fulfillment, "order_id", None),
+                        "transaction_id": transaction_id,
+                        "status": "error",
+                        "error": str(exc),
+                    })
+
+        for notify_order_id in sorted(set(notifications)):
+            send_order_notification.delay(notify_order_id, "completed")
+
+        return {
+            "status": "ok",
+            "order_id": order_id,
+            "checked": checked,
+            "updated": updated,
+            "errors": errors,
+            "lock_lost": lock_lost,
+            "completed_notifications": sorted(set(notifications)),
+            "items": items,
+        }
+    finally:
+        status_lock.release()
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)

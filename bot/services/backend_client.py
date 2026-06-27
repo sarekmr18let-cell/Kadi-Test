@@ -53,6 +53,30 @@ class BackendClient:
             headers=self._internal_headers(),
         )
 
+
+    async def save_language(
+        self,
+        telegram_id: int,
+        language_code: str,
+        username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+    ):
+        """Persist a bot user's language through the internal bot endpoint."""
+        payload = {"language_code": language_code}
+        if username:
+            payload["username"] = username
+        if first_name:
+            payload["first_name"] = first_name
+        if last_name:
+            payload["last_name"] = last_name
+        return await self._request(
+            "PATCH",
+            f"api/bot/profile/{telegram_id}/language",
+            json=payload,
+            headers=self._internal_headers(),
+        )
+
     async def get_orders(self, telegram_id: int):
         """Get user orders."""
         return await self._request(

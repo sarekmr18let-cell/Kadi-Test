@@ -9,6 +9,7 @@ import string
 import json
 
 from app.core.database import get_db
+from app.celery_app import celery_app
 from app.services.gamedrops import GameDropsClient
 from app.core.security import get_current_user
 from app.models.models import Order, OrderItem, ProductVariation, PromoCode, P2PPaymentSession, User, Transaction, Product
