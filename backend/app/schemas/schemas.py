@@ -75,8 +75,17 @@ class CategoryCreate(CategoryBase):
     moogold_id: Optional[int] = None
 
 
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    icon: Optional[str] = None
+    sort_order: Optional[int] = None
+    moogold_id: Optional[int] = None
+
+
 class CategoryResponse(CategoryBase):
     id: int
+    moogold_id: Optional[int] = None
     is_active: bool
     
     class Config:

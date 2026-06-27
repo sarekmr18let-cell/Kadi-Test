@@ -3421,27 +3421,20 @@ function getVariationCostMetrics(variation = {}) {
     };
 }
 
-function normalizeAdminNumber(raw, { allowEmpty = false, min = null } = {}) {
-    const text = String(raw ?? '').replace(/[\s\u00A0]+/g, '');
-    if (!text && allowEmpty) return null;
-    if (!text) throw new Error(tr('admin_invalid_number'));
-    const value = Number(text);
-    if (!Number.isFinite(value)) throw new Error(tr('admin_invalid_number'));
-    if (min !== null && value < min) throw new Error(tr('admin_invalid_number'));
-    return value;
+function normalizeAdminNumber(raw, options = {}) {
+    try {
+        return window.AdminCatalogUtils.normalizeAdminNumber(raw, options);
+    } catch (error) {
+        throw new Error(tr(error.message || 'admin_invalid_number'));
+    }
 }
 
 function getAdminProductPriceRange(product = {}) {
-    const prices = (product.variations || [])
-        .filter(v => v.is_active !== false && Number.isFinite(Number(v.price)) && Number(v.price) > 0)
-        .map(v => Number(v.price))
-        .sort((a, b) => a - b);
-    if (!prices.length) return tr('admin_no_active_variation_prices');
-    const min = prices[0];
-    const max = prices[prices.length - 1];
-    return min === max ? formatMoney(min, 'UZS') : `${formatMoney(min, 'UZS')} – ${formatMoney(max, 'UZS')}`;
+    return window.AdminCatalogUtils.getAdminProductPriceRange(product, {
+        formatMoney,
+        noActiveText: tr('admin_no_active_variation_prices'),
+    });
 }
-
 function adminProviderLabel(item = {}) {
     const provider = String(item.provider || '').toLowerCase();
     if (provider === 'gamedrops') return 'GameDrops';
@@ -3450,25 +3443,30 @@ function adminProviderLabel(item = {}) {
 }
 
 function getAdminVariationRegion(v = {}) {
-    return v.region || v.provider_meta?.region || v.provider_meta?.country || 'global';
+    return window.AdminCatalogUtils.getAdminVariationRegion(v);
+}
+
+function getAdminRegionTabs(product = {}) {
+    return window.AdminCatalogUtils.buildRegionTabs(product, tr('all'));
 }
 
 function adminVariationMatchesRegion(v, region) {
-    if (region === 'all') return true;
-    const value = String(getAdminVariationRegion(v)).toLowerCase();
-    return region === 'ru' ? /(ru|рос|russia)/.test(value) : /(global|world|intl|uz)/.test(value);
+    return window.AdminCatalogUtils.variationMatchesRegion(v, region);
 }
 
 function renderAdminCategories(products) {
     const q = String(document.getElementById('admin-catalog-search')?.value || '').trim().toLowerCase();
-    const categories = (state.adminCategories || []).filter(c => !q || `${c.name} ${c.slug}`.toLowerCase().includes(q));
+    const realCategories = (state.adminCategories || []);
+    const hasUncategorized = products.some(p => !(p.category_id || p.category?.id));
+    const categories = [...realCategories, ...(hasUncategorized ? [{ id: '__none__', name: tr('admin_uncategorized'), slug: '', icon: '📦', is_active: true }] : [])]
+        .filter(c => !q || `${c.name} ${c.slug}`.toLowerCase().includes(q));
     return categories.map(c => {
-        const categoryProducts = products.filter(p => Number(p.category_id || p.category?.id) === Number(c.id));
-        return `<div class="admin-catalog-row" onclick="selectAdminCategory(${c.id})">
+        const categoryProducts = c.id === '__none__' ? products.filter(p => !(p.category_id || p.category?.id)) : products.filter(p => Number(p.category_id || p.category?.id) === Number(c.id));
+        return `<div class="admin-catalog-row" onclick="selectAdminCategory('${c.id}')">
             <div class="admin-catalog-main"><strong>${escapeHtml(c.icon || '📁')} ${escapeHtml(c.name)}</strong><span>${escapeHtml(c.slug || '')}</span></div>
             <div class="admin-catalog-meta"><b>${categoryProducts.length}</b><span>${tr('admin_products_count')}</span></div>
             <div class="status ${c.is_active ? 'status-completed' : 'status-cancelled'}">${c.is_active ? tr('active') : tr('disabled')}</div>
-            <div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showCategoryModal(${c.id})">${tr('edit')}</button><button onclick="disableCategory(${c.id})">${tr('disable')}</button></div>
+            <div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showCategoryModal('${c.id}')">${tr('edit')}</button><button onclick="disableCategory('${c.id}')">${tr('disable')}</button></div>
         </div>`;
     }).join('') || `<div class="empty-state">${tr('admin_no_categories')}</div>`;
 }
@@ -3476,8 +3474,8 @@ function renderAdminCategories(products) {
 function renderAdminProducts(products) {
     const categoryId = state.adminCatalogCategoryId;
     const q = String(document.getElementById('admin-catalog-search')?.value || '').trim().toLowerCase();
-    const category = (state.adminCategories || []).find(c => Number(c.id) === Number(categoryId));
-    const rows = products.filter(p => Number(p.category_id || p.category?.id) === Number(categoryId))
+    const category = categoryId === '__none__' ? { name: tr('admin_uncategorized') } : (state.adminCategories || []).find(c => Number(c.id) === Number(categoryId));
+    const rows = products.filter(p => categoryId === '__none__' ? !(p.category_id || p.category?.id) : Number(p.category_id || p.category?.id) === Number(categoryId))
         .filter(p => !q || `${p.name} ${p.description || ''}`.toLowerCase().includes(q));
     return `<div class="admin-catalog-toolbar"><button class="btn-secondary" onclick="selectAdminCategory(null)">← ${tr('admin_back_categories')}</button><strong>${escapeHtml(category?.name || '')}</strong></div>
         ${rows.map(p => `<div class="admin-catalog-row" onclick="selectAdminProduct(${p.id})">
@@ -3495,9 +3493,9 @@ function renderAdminProductDetail(products) {
     const variations = [...(product.variations || [])].filter(v => adminVariationMatchesRegion(v, region)).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
     return `<div class="admin-catalog-toolbar"><button class="btn-secondary" onclick="selectAdminProduct(null)">← ${tr('admin_back_products')}</button><strong>${escapeHtml(product.name)}</strong></div>
         <div class="admin-product-summary"><div>${escapeHtml(product.description || '')}</div><div>${escapeHtml(adminProviderLabel(product))} • ${escapeHtml(product.category?.name || '')}</div></div>
-        <div class="variation-group-tabs admin-region-tabs">
-            ${['all','global','ru'].map(r => `<button type="button" class="variation-group-chip ${region === r ? 'selected' : ''}" onclick="setAdminVariationRegion('${r}')">${r === 'all' ? tr('all') : r === 'ru' ? tr('admin_region_ru') : tr('admin_region_global')}</button>`).join('')}
-        </div>
+        ${getAdminRegionTabs(product).length ? `<div class="variation-group-tabs admin-region-tabs">
+            ${getAdminRegionTabs(product).map(r => `<button type="button" class="variation-group-chip ${region === r.code ? 'selected' : ''}" onclick="setAdminVariationRegion('${escapeHtml(r.code)}')">${escapeHtml(r.label)}</button>`).join('')}
+        </div>` : ''}
         <div class="admin-variation-list">${variations.map(v => renderAdminVariationRow(product, v)).join('') || `<div class="empty-state">${tr('admin_no_variations')}</div>`}</div>
         <div class="actions"><button onclick="showVariationModal(${product.id})">+ ${tr('admin_add_variation')}</button><button onclick="showProductModal(${product.id})">${tr('admin_edit_product')}</button></div>`;
 }
@@ -3573,7 +3571,7 @@ function parseРегионOptionsFromLines(text) {
 function showAddCategoryModal() { showCategoryModal(); }
 
 function showCategoryModal(categoryId = null) {
-    const category = categoryId ? (state.adminCategories || []).find(c => Number(c.id) === Number(categoryId)) : null;
+    const category = categoryId && categoryId !== '__none__' ? (state.adminCategories || []).find(c => Number(c.id) === Number(categoryId)) : null;
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -3625,6 +3623,7 @@ async function saveCategory(categoryId = null) {
 }
 
 async function disableCategory(categoryId) {
+    if (categoryId === '__none__') return;
     if (!confirm(tr('admin_disable_category_confirm'))) return;
     try {
         await api('DELETE', `/admin/categories/${categoryId}`);
@@ -3805,7 +3804,9 @@ async function saveVariation(productId, variationId = null) {
     if (btn?.disabled) return;
     try {
         if (errorBox) { errorBox.textContent = ''; errorBox.classList.add('hidden'); }
-        const payload = {
+        const product = (state.adminProducts || []).find(p => Number(p.id) === Number(productId));
+        const original = variationId ? (product?.variations || []).find(v => Number(v.id) === Number(variationId)) : null;
+        const current = {
             name: document.getElementById('variation-name').value.trim(),
             price: normalizeAdminNumber(document.getElementById('variation-price').value, { min: 0.000001 }),
             cost_price: normalizeAdminNumber(document.getElementById('variation-cost-price').value, { allowEmpty: true, min: 0 }),
@@ -3818,10 +3819,32 @@ async function saveVariation(productId, variationId = null) {
             moogold_variation_id: normalizeAdminNumber(document.getElementById('variation-moogold').value, { allowEmpty: true, min: 1 }),
             region: document.getElementById('variation-region')?.value.trim() || null,
         };
-        if (!Number.isFinite(payload.price) || payload.price <= 0 || !Number.isFinite(payload.sort_order)) throw new Error(tr('admin_invalid_number'));
-        if (payload.provider === 'gamedrops' && !payload.provider_variation_id) throw new Error(tr('admin_provider_variation_required'));
-        if (payload.provider === 'gamedrops' && !['global', 'ru'].includes(String(payload.region || '').toLowerCase())) throw new Error(tr('admin_region_required'));
-        if (variationId) payload.is_active = document.getElementById('variation-active')?.checked ?? true;
+        if (!Number.isFinite(current.price) || current.price <= 0 || !Number.isFinite(current.sort_order)) throw new Error(tr('admin_invalid_number'));
+        if (current.provider === 'gamedrops' && !current.provider_variation_id) throw new Error(tr('admin_provider_variation_required'));
+        const productRegions = window.AdminCatalogUtils.getProductRegionOptions(product || {});
+        if ((current.provider === 'gamedrops' || product?.requires_region) && !current.region) throw new Error(tr('admin_region_required'));
+        if (current.region && productRegions.length && !productRegions.some(r => String(r.code) === String(current.region))) throw new Error(tr('admin_region_required'));
+        const payload = variationId ? {} : { ...current };
+        if (variationId && original) {
+            const comparisons = {
+                name: original.name || '',
+                price: Number(original.price),
+                cost_price: original.cost_price === null || original.cost_price === undefined ? null : Number(original.cost_price),
+                cost_currency: original.cost_currency || 'UZS',
+                stock_status: original.stock_status || 'instock',
+                image_url: original.image_url || null,
+                sort_order: Number(original.sort_order || 0),
+                provider: String(original.provider || product?.provider || 'manual').toLowerCase(),
+                provider_variation_id: original.provider_variation_id || null,
+                moogold_variation_id: original.moogold_variation_id || null,
+                region: getAdminVariationRegion(original) || null,
+            };
+            Object.keys(current).forEach(key => {
+                if (current[key] !== comparisons[key]) payload[key] = current[key];
+            });
+            payload.is_active = document.getElementById('variation-active')?.checked ?? true;
+            if (payload.is_active === (original.is_active ?? true)) delete payload.is_active;
+        }
         btn.disabled = true;
         btn.textContent = tr('saving');
         await api(variationId ? 'PATCH' : 'POST', variationId ? `/admin/variations/${variationId}` : `/admin/products/${productId}/variations`, payload);

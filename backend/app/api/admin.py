@@ -24,7 +24,7 @@ from app.models.models import (
 )
 from app.schemas.schemas import (
     DashboardStats, OrderResponse,
-    ProductCreate, ProductResponse, CategoryCreate, CategoryResponse,
+    ProductCreate, ProductResponse, CategoryCreate, CategoryUpdate, CategoryResponse,
     UserResponse, OrderStatusUpdate, ProductVariationCreate, ProductVariationUpdate, ProductVariationResponse,
     P2PCardCreate, P2PCardUpdate, P2PCardResponse, P2PPaymentSessionResponse, P2PIncomingPaymentResponse,
     BalanceTopUpResponse, BalanceTopUpAdminUpdate
@@ -32,81 +32,44 @@ from app.schemas.schemas import (
 from app.services.notifications import send_order_notification
 from app.services.p2p import count_promo_usage_if_needed, clean_card_number, card_last4, credit_balance_topup, expire_old_balance_topups, parse_incoming_payment_payload, process_incoming_p2p_payment
 from app.services.moogold_fulfillment import fulfill_order_via_moogold
+from app.services.admin_catalog import AdminCatalogValidationError, prepare_variation_payload, normalize_variation_provider, normalize_provider_variation_id
 
 
-ALLOWED_VARIATION_REGIONS = {"global", "ru"}
-ALLOWED_VARIATION_PROVIDERS = {"manual", "gamedrops", "moogold"}
+
+def _admin_validation_error(exc: AdminCatalogValidationError) -> HTTPException:
+    return HTTPException(status_code=400, detail=str(exc))
 
 
-def _normalize_variation_provider(provider: Optional[str]) -> str:
-    value = (provider or "manual").strip().lower()
-    if value not in ALLOWED_VARIATION_PROVIDERS:
-        raise HTTPException(status_code=400, detail="Invalid provider")
-    return value
+def _prepare_admin_variation_payload(*args, **kwargs) -> dict:
+    try:
+        return prepare_variation_payload(*args, **kwargs)
+    except AdminCatalogValidationError as exc:
+        raise _admin_validation_error(exc) from exc
 
 
-def _normalize_variation_region(region: Optional[str], *, required: bool = False) -> Optional[str]:
-    if region is None:
-        if required:
-            raise HTTPException(status_code=400, detail="Region is required")
-        return None
-    value = str(region).strip().lower()
-    if not value:
-        if required:
-            raise HTTPException(status_code=400, detail="Region is required")
-        return None
-    if value not in ALLOWED_VARIATION_REGIONS:
-        raise HTTPException(status_code=400, detail="Invalid region")
-    return value
-
-
-def _validate_variation_numbers(payload: dict, *, require_price: bool = False) -> None:
-    if require_price and ("price" not in payload or payload.get("price") is None):
-        raise HTTPException(status_code=400, detail="Price is required")
-    if "price" in payload:
-        price = payload.get("price")
-        if price is None or not math.isfinite(float(price)) or float(price) <= 0:
-            raise HTTPException(status_code=400, detail="Price must be greater than 0")
-    if "cost_price" in payload and payload.get("cost_price") is not None:
-        cost = float(payload["cost_price"])
-        if not math.isfinite(cost) or cost < 0:
-            raise HTTPException(status_code=400, detail="Cost price must be non-negative")
-    if "provider_price" in payload and payload.get("provider_price") is not None:
-        provider_price = float(payload["provider_price"])
-        if not math.isfinite(provider_price) or provider_price < 0:
-            raise HTTPException(status_code=400, detail="Provider price must be non-negative")
-
-
-def _prepare_variation_payload(payload: dict, *, existing: Optional[ProductVariation] = None, require_price: bool = False) -> dict:
-    payload = dict(payload)
-    region_supplied = "region" in payload
-    region_value = payload.pop("region", None)
-    provider = _normalize_variation_provider(payload.get("provider") or getattr(existing, "provider", None))
-    if "provider" in payload:
-        payload["provider"] = provider
-    _validate_variation_numbers(payload, require_price=require_price)
-    if "sort_order" in payload and payload["sort_order"] is not None:
-        payload["sort_order"] = int(payload["sort_order"])
-    provider_variation_id = payload.get("provider_variation_id") if "provider_variation_id" in payload else getattr(existing, "provider_variation_id", None)
-    base_meta = dict(getattr(existing, "provider_meta", None) or {})
-    incoming_meta = payload.pop("provider_meta", None)
-    if isinstance(incoming_meta, dict):
-        base_meta.update(incoming_meta)
-    if region_supplied:
-        normalized = _normalize_variation_region(region_value, required=(provider == "gamedrops"))
-        if normalized:
-            base_meta["region"] = normalized
-        else:
-            base_meta.pop("region", None)
-    if provider == "gamedrops":
-        if not str(provider_variation_id or "").strip():
-            raise HTTPException(status_code=400, detail="provider_variation_id is required for GameDrops")
-        if not base_meta.get("region"):
-            raise HTTPException(status_code=400, detail="Region is required for GameDrops")
-    if region_supplied or incoming_meta is not None:
-        payload["provider_meta"] = base_meta
-    return payload
-
+async def _ensure_unique_provider_variation_mapping(
+    db: AsyncSession,
+    *,
+    provider: str | None,
+    provider_variation_id: str | None,
+    exclude_variation_id: int | None = None,
+) -> None:
+    try:
+        normalized_provider = normalize_variation_provider(provider)
+    except AdminCatalogValidationError as exc:
+        raise _admin_validation_error(exc) from exc
+    normalized_provider_variation_id = normalize_provider_variation_id(provider_variation_id)
+    if normalized_provider != "gamedrops" or not normalized_provider_variation_id:
+        return
+    query = select(ProductVariation).where(
+        ProductVariation.provider == normalized_provider,
+        ProductVariation.provider_variation_id == normalized_provider_variation_id,
+    )
+    if exclude_variation_id is not None:
+        query = query.where(ProductVariation.id != exclude_variation_id)
+    result = await db.execute(query.limit(1))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="GameDrops provider_variation_id is already linked to another variation")
 
 MEDIA_UPLOAD_DIR = Path(os.getenv("MEDIA_UPLOAD_DIR", "uploads")).resolve()
 MEDIA_URL_PREFIX = "/uploads"
@@ -886,7 +849,12 @@ async def create_product_variation(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    payload = _prepare_variation_payload(variation.model_dump(exclude_unset=True), require_price=True)
+    payload = _prepare_admin_variation_payload(variation.model_dump(exclude_unset=True), product=product, require_price=True)
+    await _ensure_unique_provider_variation_mapping(
+        db,
+        provider=payload.get("provider"),
+        provider_variation_id=payload.get("provider_variation_id"),
+    )
     new_variation = ProductVariation(product_id=product_id, **payload)
     db.add(new_variation)
     await db.commit()
@@ -901,16 +869,24 @@ async def update_product_variation(
     admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(ProductVariation).where(ProductVariation.id == variation_id))
+    result = await db.execute(select(ProductVariation).options(selectinload(ProductVariation.product)).where(ProductVariation.id == variation_id))
     existing = result.scalar_one_or_none()
     if not existing:
         raise HTTPException(status_code=404, detail="Variation not found")
 
-    payload = _prepare_variation_payload(
+    payload = _prepare_admin_variation_payload(
         variation.model_dump(exclude_unset=True),
+        product=existing.product,
         existing=existing,
         require_price=False,
     )
+    await _ensure_unique_provider_variation_mapping(
+        db,
+        provider=payload.get("provider", existing.provider),
+        provider_variation_id=payload.get("provider_variation_id", existing.provider_variation_id),
+        exclude_variation_id=existing.id,
+    )
+
     # Safe partial update: omitted provider fields stay untouched for GameDrops/MooGold mappings.
     allowed_fields = {
         "name", "price", "cost_price", "cost_currency", "stock_status",
@@ -988,7 +964,7 @@ async def create_category(
 @router.put("/categories/{category_id}", response_model=CategoryResponse)
 async def update_category(
     category_id: int,
-    category: CategoryCreate,
+    category: CategoryUpdate,
     admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
@@ -996,10 +972,12 @@ async def update_category(
     existing = result.scalar_one_or_none()
     if not existing:
         raise HTTPException(status_code=404, detail="Category not found")
-    duplicate = await db.execute(select(Category).where(Category.slug == category.slug, Category.id != category_id))
-    if duplicate.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Category slug already exists")
-    for key, value in category.model_dump().items():
+    payload = category.model_dump(exclude_unset=True)
+    if "slug" in payload and payload["slug"] != existing.slug:
+        duplicate = await db.execute(select(Category).where(Category.slug == payload["slug"], Category.id != category_id))
+        if duplicate.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Category slug already exists")
+    for key, value in payload.items():
         setattr(existing, key, value)
     await db.commit()
     await db.refresh(existing)

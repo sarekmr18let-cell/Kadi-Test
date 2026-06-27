@@ -7,7 +7,7 @@ def read(path):
 
 
 def test_admin_number_parser_accepts_regular_and_nbsp_spaces():
-    source = read('webapp/js/app.js')
+    source = read('webapp/js/admin-catalog-utils.js')
     assert 'function normalizeAdminNumber' in source
     assert "replace(/[\\s\\u00A0]+/g, '')" in source
     assert 'Number.isFinite' in source
@@ -30,7 +30,7 @@ def test_backend_patch_uses_exclude_unset_and_does_not_clear_provider_fields():
     assert 'model_dump(exclude_unset=True)' in source
     update_body = source[source.index('async def update_product_variation'):source.index('@router.patch("/variations/{variation_id}"')]
     assert 'model_dump(exclude_unset=True)' in update_body
-    assert '_prepare_variation_payload' in update_body
+    assert '_prepare_admin_variation_payload' in update_body
 
 
 def test_admin_catalog_hierarchy_and_gamedrops_provider_label():
