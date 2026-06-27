@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -12,9 +11,6 @@ from app.models.models import User, Order, Transaction, OrderItem, ProductVariat
 from app.schemas.schemas import UserProfile, TransactionResponse, BalanceResponse, UserLanguageUpdate
 
 router = APIRouter()
-
-class LanguageUpdate(BaseModel):
-    language_code: str
 
 
 @router.get("/profile", response_model=UserProfile)
@@ -103,23 +99,6 @@ async def update_language(
         total_spent=round(total_spent, 2),
     )
 
-
-@router.patch("/language")
-async def update_language(
-    payload: LanguageUpdate,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    language_code = payload.language_code.strip().lower()
-    if language_code not in {"ru", "uz", "en"}:
-        raise HTTPException(status_code=400, detail="Unsupported language")
-    result = await db.execute(select(User).where(User.id == int(current_user["sub"])))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.language_code = language_code
-    await db.commit()
-    return {"language_code": language_code}
 
 @router.get("/balance", response_model=BalanceResponse)
 async def get_balance(

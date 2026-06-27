@@ -562,9 +562,7 @@ function productBadge(name) {
 async function loadHomePage() {
   try {
     const languageProfile = await api('GET', '/users/profile');
-    if (languageProfile?.language_code && languageProfile.language_code !== window.I18N?.getLang()) {
-      window.I18N?.setLang(languageProfile.language_code);
-    }
+    applyLanguageFromProfile(languageProfile);
   } catch (err) {
     console.warn('Language load failed:', err);
   }

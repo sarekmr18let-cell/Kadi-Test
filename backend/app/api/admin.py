@@ -700,20 +700,10 @@ async def update_order_status(
     should_fulfill = status_update.status == "paid" and previous_status != "paid"
 
     await db.commit()
-    # KADI_CALL_BUYER_COMPLETED_DIRECT_NOTIFY_FORCE_V2
-    try:
-        _kadi_new_status = getattr(status_update, 'status', None) if 'status_update' in locals() else locals().get('status')
-        if str(_kadi_new_status).split('.')[-1].lower() == 'completed':
-            await _kadi_send_completed_direct_to_buyer(locals().get('db') or locals().get('session'), order)
-    except Exception as exc:
-        try:
-            logger.warning('KADI completed buyer notify wrapper failed: %s', exc)
-        except Exception:
-            print('KADI completed buyer notify wrapper failed:', exc)
 
-    # Notify user
-    if status_update.status == "completed":
-        _kadi_order_notify_safe_no_celery(order.id, "completed")
+    # Notify user through the shared localized notification task only on a real transition.
+    if status_update.status == "completed" and previous_status != "completed":
+        _kadi_safe_celery_delay(send_order_notification, order.id, "completed")
 
     # If admin manually confirms a payment, automatically submit the order to MooGold.
     if should_fulfill:

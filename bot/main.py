@@ -36,7 +36,7 @@ backend = BackendClient(BACKEND_URL)
 
 
 LANGS = {"ru", "en", "uz"}
-USER_LANGS: dict[int, str] = {}
+USER_LANGS: dict[int, str] = {}  # Short-lived cache of backend-confirmed language only.
 
 BOT_TEXTS = {
     "ru": {
@@ -101,7 +101,7 @@ def _normalize_lang(code: str | None) -> str:
 def get_lang(user: types.User | None) -> str:
     if user and user.id in USER_LANGS:
         return USER_LANGS[user.id]
-    return _normalize_lang(getattr(user, "language_code", None))
+    return "ru"
 
 
 def _user_payload(user: types.User | None) -> dict:
@@ -124,7 +124,7 @@ async def load_user_language(user: types.User | None) -> str:
         return lang
     except Exception as e:
         logging.warning("Failed to load user language from backend for telegram_id=%s: %s", getattr(user, "id", None), e)
-        return USER_LANGS.get(user.id, _normalize_lang(getattr(user, "language_code", None)))
+        return USER_LANGS.get(user.id, "ru")
 
 
 async def save_user_language(user: types.User | None, lang: str) -> str:
