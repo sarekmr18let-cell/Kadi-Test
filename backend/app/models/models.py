@@ -14,7 +14,12 @@ class User(Base):
     username = Column(String(255), nullable=True)
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
-    language_code = Column(String(2), nullable=False, default="ru")
+    language_code = Column(
+        String(5),
+        nullable=False,
+        default="ru",
+        server_default="ru",
+    )
     is_admin = Column(Boolean, default=False)
     is_blocked = Column(Boolean, default=False)
     balance = Column(Float, default=0.0)

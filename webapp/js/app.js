@@ -107,6 +107,7 @@ const state = {
     isPlacingOrder: false,
     authReady: false,
     pendingLanguageSave: null,
+    languageSaveInFlight: false,
 };
 
 // Safe localStorage initialization
@@ -208,36 +209,70 @@ async function api(method, path, body = null) {
     }
 }
 
-function applyLanguageFromProfile(profile) {
-    const lang = profile?.language_code;
-    if (!lang || !window.I18N?.setLang) return;
-    window.I18N.setLang(lang, { source: 'profile', silent: true });
-    applyTranslations(document);
-    window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang, source: 'profile' } }));
+function normalizeLanguageCode(lang) {
+    const value = String(lang || '').toLowerCase();
+    if (value.startsWith('ru')) return 'ru';
+    if (value.startsWith('uz')) return 'uz';
+    if (value.startsWith('en')) return 'en';
+    return 'ru';
 }
 
-async function saveSelectedLanguage(lang) {
-    if (!lang) return;
-    if (!state.token || !state.authReady) {
-        state.pendingLanguageSave = lang;
+function applyLanguageLocally(lang, source = 'system') {
+    const normalized = normalizeLanguageCode(lang);
+    if (!window.I18N?.setLang) return normalized;
+
+    window.I18N.setLang(normalized, { source, silent: true });
+    applyTranslations(document);
+    window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang: normalized, source } }));
+    return normalized;
+}
+
+function applyLanguageFromProfile(profile) {
+    const profileLang = profile?.language_code;
+    if (!profileLang) return;
+
+    if (state.pendingLanguageSave) {
+        const pendingLang = normalizeLanguageCode(state.pendingLanguageSave);
+        state.user = { ...(state.user || {}), ...(profile || {}), language_code: pendingLang };
+        applyLanguageLocally(pendingLang, 'pending');
         return;
     }
 
+    const normalized = applyLanguageLocally(profileLang, 'profile');
+    state.user = { ...(state.user || {}), ...(profile || {}), language_code: normalized };
+}
+
+async function saveSelectedLanguage(lang) {
+    const normalized = normalizeLanguageCode(lang);
+    state.pendingLanguageSave = normalized;
+
+    if (!state.token || !state.authReady || state.languageSaveInFlight) {
+        return;
+    }
+
+    state.languageSaveInFlight = true;
     try {
-        const profile = await api('PATCH', '/users/language', { language_code: lang });
-        state.user = { ...(state.user || {}), ...(profile || {}), language_code: lang };
-        state.pendingLanguageSave = null;
+        while (state.pendingLanguageSave && state.token && state.authReady) {
+            const langToSave = state.pendingLanguageSave;
+            state.pendingLanguageSave = null;
+            const profile = await api('PATCH', '/users/language', { language_code: langToSave });
+
+            if (!state.pendingLanguageSave) {
+                state.user = { ...(state.user || {}), ...(profile || {}), language_code: langToSave };
+                applyLanguageLocally(langToSave, 'saved');
+            }
+        }
     } catch (error) {
         console.error('Failed to save language preference:', error);
-        showToast('error', tr('request_failed'));
         throw error;
+    } finally {
+        state.languageSaveInFlight = false;
     }
 }
 
 async function flushPendingLanguageSave() {
     if (!state.pendingLanguageSave || !state.token || !state.authReady) return;
-    const lang = state.pendingLanguageSave;
-    await saveSelectedLanguage(lang);
+    await saveSelectedLanguage(state.pendingLanguageSave);
 }
 
 // ===== Auth =====
@@ -2043,6 +2078,7 @@ function clearAuth() {
     state.token = null;
     state.user = null;
     state.authReady = false;
+    state.languageSaveInFlight = false;
 }
 
 function updateCartBadge() {
