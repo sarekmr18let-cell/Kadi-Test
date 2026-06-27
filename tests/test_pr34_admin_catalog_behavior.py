@@ -95,7 +95,54 @@ class FakeDb:
     async def execute(self, query): return FakeResult(self.item)
 
 
-def test_duplicate_gamedrops_mapping_check_rejects_other_row():
-    source = (ROOT / 'backend/app/api/admin.py').read_text(encoding='utf-8')
-    assert 'GameDrops provider_variation_id is already linked to another variation' in source
-    assert 'exclude_variation_id' in source
+
+def test_manual_to_gamedrops_with_id_but_without_region_is_rejected():
+    existing = SimpleNamespace(provider='manual', provider_variation_id=None, provider_meta={})
+    with pytest.raises(admin_catalog.AdminCatalogValidationError):
+        admin_catalog.prepare_variation_payload(
+            {'provider': 'gamedrops', 'provider_variation_id': 'gd-new'},
+            product=product([{'code': 'global', 'label': 'Global'}], requires_region=True),
+            existing=existing,
+        )
+
+
+def test_manual_to_gamedrops_without_id_is_rejected():
+    existing = SimpleNamespace(provider='manual', provider_variation_id=None, provider_meta={'region': 'global'})
+    with pytest.raises(admin_catalog.AdminCatalogValidationError):
+        admin_catalog.prepare_variation_payload(
+            {'provider': 'gamedrops'},
+            product=product([{'code': 'global', 'label': 'Global'}], requires_region=True),
+            existing=existing,
+        )
+
+
+def test_correct_gamedrops_price_only_patch_still_passes():
+    existing = SimpleNamespace(provider='gamedrops', provider_variation_id='gd-ok', provider_meta={'region': 'ru', 'keep': 'yes'})
+    payload = admin_catalog.prepare_variation_payload(
+        {'price': 42000},
+        product=product([{'code': 'global', 'label': 'Global'}, {'code': 'ru', 'label': 'Россия'}], requires_region=True),
+        existing=existing,
+    )
+    assert payload == {'price': 42000}
+
+
+def test_duplicate_mapping_production_helper_rejects_other_and_allows_current():
+    other = SimpleNamespace(id=22)
+    with pytest.raises(admin_catalog.AdminCatalogValidationError):
+        admin_catalog.assert_unique_provider_variation_mapping(other, exclude_variation_id=11)
+    assert admin_catalog.assert_unique_provider_variation_mapping(other, exclude_variation_id=22) is None
+
+
+def test_category_update_without_moogold_id_preserves_existing_value():
+    category = SimpleNamespace(name='Old', slug='old', icon='🎮', sort_order=1, moogold_id=777)
+    admin_catalog.apply_category_update(category, {'name': 'New', 'slug': 'new'})
+    assert category.name == 'New'
+    assert category.slug == 'new'
+    assert category.moogold_id == 777
+
+
+def test_uncategorized_category_has_no_management_actions():
+    source = (ROOT / 'webapp/js/app.js').read_text(encoding='utf-8')
+    assert "c.id === '__none__' ? ''" in source
+    assert "disableCategory('__none__')" not in source
+    assert "showCategoryModal('__none__')" not in source

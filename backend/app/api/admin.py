@@ -32,7 +32,7 @@ from app.schemas.schemas import (
 from app.services.notifications import send_order_notification
 from app.services.p2p import count_promo_usage_if_needed, clean_card_number, card_last4, credit_balance_topup, expire_old_balance_topups, parse_incoming_payment_payload, process_incoming_p2p_payment
 from app.services.moogold_fulfillment import fulfill_order_via_moogold
-from app.services.admin_catalog import AdminCatalogValidationError, prepare_variation_payload, normalize_variation_provider, normalize_provider_variation_id
+from app.services.admin_catalog import AdminCatalogValidationError, prepare_variation_payload, normalize_variation_provider, normalize_provider_variation_id, assert_unique_provider_variation_mapping, apply_category_update
 
 
 
@@ -68,8 +68,10 @@ async def _ensure_unique_provider_variation_mapping(
     if exclude_variation_id is not None:
         query = query.where(ProductVariation.id != exclude_variation_id)
     result = await db.execute(query.limit(1))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="GameDrops provider_variation_id is already linked to another variation")
+    try:
+        assert_unique_provider_variation_mapping(result.scalar_one_or_none(), exclude_variation_id=exclude_variation_id)
+    except AdminCatalogValidationError as exc:
+        raise _admin_validation_error(exc) from exc
 
 MEDIA_UPLOAD_DIR = Path(os.getenv("MEDIA_UPLOAD_DIR", "uploads")).resolve()
 MEDIA_URL_PREFIX = "/uploads"
@@ -977,8 +979,7 @@ async def update_category(
         duplicate = await db.execute(select(Category).where(Category.slug == payload["slug"], Category.id != category_id))
         if duplicate.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Category slug already exists")
-    for key, value in payload.items():
-        setattr(existing, key, value)
+    apply_category_update(existing, payload)
     await db.commit()
     await db.refresh(existing)
     return existing

@@ -3466,7 +3466,7 @@ function renderAdminCategories(products) {
             <div class="admin-catalog-main"><strong>${escapeHtml(c.icon || '📁')} ${escapeHtml(c.name)}</strong><span>${escapeHtml(c.slug || '')}</span></div>
             <div class="admin-catalog-meta"><b>${categoryProducts.length}</b><span>${tr('admin_products_count')}</span></div>
             <div class="status ${c.is_active ? 'status-completed' : 'status-cancelled'}">${c.is_active ? tr('active') : tr('disabled')}</div>
-            <div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showCategoryModal('${c.id}')">${tr('edit')}</button><button onclick="disableCategory('${c.id}')">${tr('disable')}</button></div>
+            ${c.id === '__none__' ? '' : `<div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showCategoryModal('${c.id}')">${tr('edit')}</button><button onclick="disableCategory('${c.id}')">${tr('disable')}</button></div>`}
         </div>`;
     }).join('') || `<div class="empty-state">${tr('admin_no_categories')}</div>`;
 }
@@ -3641,51 +3641,51 @@ function showProductModal(productId = null) {
     modal.innerHTML = `
         <div class="modal-sheet">
             <div class="modal-header">
-                <h2>${product ? '✏️ Edit Product' : '➕ Add Product'}</h2>
+                <h2>${product ? tr('admin_edit_product') : tr('admin_add_product')}</h2>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="form-section admin-form">
-                <label>Name</label>
+                <label>${tr('name')}</label>
                 <input id="product-name" placeholder="Mobile Legends" value="${escapeHtml(product?.name || '')}" />
-                <label>Category</label>
+                <label>${tr('admin_category')}</label>
                 <select id="product-category">${categoryOptions(product?.category_id)}</select>
-                <label>Description</label>
-                <textarea id="product-description" placeholder="Short product description">${escapeHtml(product?.description || '')}</textarea>
+                <label>${tr('admin_description')}</label>
+                <textarea id="product-description" placeholder="${tr('admin_description_placeholder')}">${escapeHtml(product?.description || '')}</textarea>
                 <label>${tr('admin_image_url')}</label>
                 <div class="admin-image-url-row"><input id="product-image" placeholder="/uploads/..." value="${escapeHtml(product?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-product-media-btn">${tr('admin_choose_from_media')}</button></div>
                 <div id="product-image-preview" class="admin-image-preview"></div>
-                <label>Product status</label>
+                <label>${tr('admin_product_status')}</label>
                 <select id="product-availability-status">
-                    <option value="available" ${getProductAvailabilityStatus(product) === 'available' ? 'selected' : ''}>Available</option>
-                    <option value="coming_soon" ${getProductAvailabilityStatus(product) === 'coming_soon' ? 'selected' : ''}>Coming soon</option>
-                    <option value="maintenance" ${getProductAvailabilityStatus(product) === 'maintenance' ? 'selected' : ''}>Maintenance</option>
-                    <option value="hidden" ${getProductAvailabilityStatus(product) === 'hidden' ? 'selected' : ''}>Hidden</option>
+                    <option value="available" ${getProductAvailabilityStatus(product) === 'available' ? 'selected' : ''}>${tr('admin_status_available')}</option>
+                    <option value="coming_soon" ${getProductAvailabilityStatus(product) === 'coming_soon' ? 'selected' : ''}>${tr('admin_status_coming_soon')}</option>
+                    <option value="maintenance" ${getProductAvailabilityStatus(product) === 'maintenance' ? 'selected' : ''}>${tr('admin_status_maintenance')}</option>
+                    <option value="hidden" ${getProductAvailabilityStatus(product) === 'hidden' ? 'selected' : ''}>${tr('admin_status_hidden')}</option>
                 </select>
-                <label>MooGold Product ID</label>
-                <input id="product-moogold" inputmode="numeric" placeholder="Optional" value="${escapeHtml(product?.moogold_id || '')}" />
+                <label>${tr('admin_provider_product_id')}</label>
+                <input id="product-moogold" inputmode="numeric" placeholder="${tr('optional')}" value="${escapeHtml(product?.moogold_id || '')}" />
 
-                <label>Account type</label>
+                <label>${tr('admin_account_type')}</label>
                 <select id="product-target-type">
-                    <option value="game_id" ${product?.target_type === 'game_id' ? 'selected' : ''}>Game / User ID</option>
-                    <option value="telegram_username" ${product?.target_type === 'telegram_username' ? 'selected' : ''}>Telegram username</option>
-                    <option value="none" ${product?.target_type === 'none' ? 'selected' : ''}>No account data</option>
+                    <option value="game_id" ${product?.target_type === 'game_id' ? 'selected' : ''}>${tr('admin_account_game_id')}</option>
+                    <option value="telegram_username" ${product?.target_type === 'telegram_username' ? 'selected' : ''}>${tr('admin_account_telegram')}</option>
+                    <option value="none" ${product?.target_type === 'none' ? 'selected' : ''}>${tr('admin_account_none')}</option>
                 </select>
-                <label class="checkbox-row"><input type="checkbox" id="product-req-target" ${product?.requires_target_id !== false ? 'checked' : ''}> Requires player/user ID</label>
-                <input id="product-target-label" placeholder="ID игрока / Telegram username" value="${escapeHtml(product?.target_id_label || 'ID игрока / аккаунта')}" />
-                <label class="checkbox-row"><input type="checkbox" id="product-req-server" ${product?.requires_server_id ? 'checked' : ''}> Requires server ID</label>
-                <input id="product-server-label" placeholder="ID сервера" value="${escapeHtml(product?.target_server_label || 'Server ID')}" />
-                <label class="checkbox-row"><input type="checkbox" id="product-req-region" ${product?.requires_region ? 'checked' : ''}> Requires region</label>
-                <input id="product-region-label" placeholder="Регион" value="${escapeHtml(product?.target_region_label || 'Регион')}" />
-                <label>Регион options, one per line: code=label</label>
+                <label class="checkbox-row"><input type="checkbox" id="product-req-target" ${product?.requires_target_id !== false ? 'checked' : ''}> ${tr('admin_requires_target')}</label>
+                <input id="product-target-label" placeholder="ID игрока / Telegram username" value="${escapeHtml(product?.target_id_label || tr('admin_default_target_label'))}" />
+                <label class="checkbox-row"><input type="checkbox" id="product-req-server" ${product?.requires_server_id ? 'checked' : ''}> ${tr('admin_requires_server')}</label>
+                <input id="product-server-label" placeholder="ID сервера" value="${escapeHtml(product?.target_server_label || tr('admin_default_server_label'))}" />
+                <label class="checkbox-row"><input type="checkbox" id="product-req-region" ${product?.requires_region ? 'checked' : ''}> ${tr('admin_requires_region')}</label>
+                <input id="product-region-label" placeholder="Регион" value="${escapeHtml(product?.target_region_label || tr('admin_region'))}" />
+                <label>${tr('admin_region_options')}</label>
                 <textarea id="product-region-options" placeholder="uz_global=🇺🇿 UZB / 🌐 Global
 uz_ph=🇺🇿 UZB / 🇵🇭 PH
 ru=🇷🇺 RU">${escapeHtml(regionOptionsToLines(product?.region_options || []))}</textarea>
-                <label>Input help text</label>
-                <textarea id="product-help" placeholder="Например: проверьте ID и сервер перед покупкой">${escapeHtml(product?.input_help_text || '')}</textarea>
+                <label>${tr('admin_input_help_text')}</label>
+                <textarea id="product-help" placeholder="${tr('admin_input_help_placeholder')}">${escapeHtml(product?.input_help_text || '')}</textarea>
 
                 <label>${tr('admin_sort_order')}</label>
                 <input id="product-sort" inputmode="numeric" value="${escapeHtml(product?.sort_order ?? 0)}" />
-                <button class="btn-primary" id="save-product-btn">Save Product</button>
+                <button class="btn-primary" id="save-product-btn">${tr('admin_save_product')}</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3708,9 +3708,9 @@ async function saveProduct(productId = null) {
             requires_target_id: document.getElementById('product-req-target').checked,
             requires_server_id: document.getElementById('product-req-server').checked,
             requires_region: document.getElementById('product-req-region').checked,
-            target_id_label: document.getElementById('product-target-label').value.trim() || 'ID игрока / аккаунта',
-            target_server_label: document.getElementById('product-server-label').value.trim() || 'Server ID',
-            target_region_label: document.getElementById('product-region-label').value.trim() || 'Регион',
+            target_id_label: document.getElementById('product-target-label').value.trim() || tr('admin_default_target_label'),
+            target_server_label: document.getElementById('product-server-label').value.trim() || tr('admin_default_server_label'),
+            target_region_label: document.getElementById('product-region-label').value.trim() || tr('admin_region'),
             region_options: parseРегионOptionsFromLines(document.getElementById('product-region-options').value),
             input_help_text: document.getElementById('product-help').value.trim() || null,
             sort_order: Number(document.getElementById('product-sort').value || 0),
@@ -3721,10 +3721,10 @@ async function saveProduct(productId = null) {
             await api('POST', '/admin/products', payload);
         }
         closeModal();
-        showToast('success', 'Product saved');
+        showToast('success', tr('admin_product_saved'));
         loadAdminProducts();
     } catch (error) {
-        showToast('error', error.message || 'Failed to save product');
+        showToast('error', error.message || tr('admin_save_product_failed'));
     }
 }
 

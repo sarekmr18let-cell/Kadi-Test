@@ -110,8 +110,28 @@ def prepare_variation_payload(
             base_meta.pop("region", None)
     elif require_price and (requires_region or provider == "gamedrops"):
         normalize_variation_region(base_meta.get("region"), product, required=True)
-    if provider == "gamedrops" and not provider_variation_id:
-        raise AdminCatalogValidationError("provider_variation_id is required for GameDrops")
+    if provider == "gamedrops":
+        if not provider_variation_id:
+            raise AdminCatalogValidationError("provider_variation_id is required for GameDrops")
+        region = normalize_variation_region(base_meta.get("region"), product, required=True)
+        if region:
+            base_meta["region"] = region
+            if not region_supplied and incoming_meta is None and (payload.get("provider") == "gamedrops"):
+                payload["provider_meta"] = base_meta
     if region_supplied or incoming_meta is not None:
         payload["provider_meta"] = base_meta
     return payload
+
+
+def assert_unique_provider_variation_mapping(conflicting_variation: Any, *, exclude_variation_id: Optional[int] = None) -> None:
+    if conflicting_variation is None:
+        return
+    if exclude_variation_id is not None and getattr(conflicting_variation, "id", None) == exclude_variation_id:
+        return
+    raise AdminCatalogValidationError("GameDrops provider_variation_id is already linked to another variation")
+
+
+def apply_category_update(existing: Any, payload: dict) -> Any:
+    for key, value in payload.items():
+        setattr(existing, key, value)
+    return existing

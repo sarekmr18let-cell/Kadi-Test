@@ -252,9 +252,9 @@ class PR33OrderSuccessStaticTests(unittest.TestCase):
         self.assertIn("env(safe-area-inset", self.css)
 
     def test_paid_order_confirmation_cache_busters_updated(self):
-        self.assertIn("css/style.css?v=202606272118", self.index)
-        self.assertIn("js/i18n.js?v=202606272118", self.index)
-        self.assertIn("js/app.js?v=202606272118", self.index)
+        self.assertIn("css/style.css?v=202606272145", self.index)
+        self.assertIn("js/i18n.js?v=202606272145", self.index)
+        self.assertIn("js/app.js?v=202606272145", self.index)
 
 
 if __name__ == "__main__":
