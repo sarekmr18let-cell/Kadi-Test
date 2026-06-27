@@ -1,5 +1,7 @@
 import ast
+import json
 import re
+import subprocess
 from pathlib import Path
 import unittest
 from types import SimpleNamespace
@@ -9,10 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def read(path: str) -> str:
     return (ROOT / path).read_text()
-
-
-def parse(path: str) -> ast.Module:
-    return ast.parse(read(path), filename=path)
 
 
 def find_function(module: ast.Module, name: str):
@@ -34,7 +32,6 @@ class PR32LocalizationStaticTests(unittest.TestCase):
         self.assertIn("payload: UserLanguageUpdate", endpoint_source)
         self.assertIn("user.language_code = payload.language_code", endpoint_source)
         self.assertIn("return UserProfile(", endpoint_source)
-        constants = [n.value for n in ast.walk(endpoint) if isinstance(n, ast.Constant)]
         self.assertIn("ru", read("backend/app/schemas/schemas.py"))
         self.assertIn("uz", read("backend/app/schemas/schemas.py"))
         self.assertIn("en", read("backend/app/schemas/schemas.py"))
@@ -69,6 +66,31 @@ class PR32LocalizationStaticTests(unittest.TestCase):
         self.assertIn('return USER_LANGS.get(user.id, "ru")', loader)
         self.assertNotIn("getattr(user, \"language_code\"", loader)
 
+    def test_user_action_handlers_reload_language_once_before_response(self):
+        source = read("bot/main.py")
+        module = ast.parse(source)
+        expected = {
+            "cmd_orders": "message.from_user",
+            "cmd_balance": "message.from_user",
+            "cmd_support": "message.from_user",
+            "callback_orders": "callback.from_user",
+            "callback_balance": "callback.from_user",
+        }
+        for function_name, user_expr in expected.items():
+            handler = ast.get_source_segment(source, find_function(module, function_name))
+            language_load = f"lang = await load_user_language({user_expr})"
+            self.assertIn(language_load, handler, function_name)
+            self.assertEqual(handler.count("load_user_language("), 1, function_name)
+            response_positions = [
+                pos for marker in ("message.answer", "callback.message.answer")
+                if (pos := handler.find(marker)) != -1
+            ]
+            self.assertTrue(response_positions, function_name)
+            self.assertLess(handler.index(language_load), min(response_positions), function_name)
+            self.assertIn("bt_lang(lang,", handler, function_name)
+            if function_name != "cmd_support":
+                self.assertIn("_error", handler, function_name)
+
     def test_admin_completed_transition_queues_shared_task_once(self):
         source = read("backend/app/api/admin.py")
         module = ast.parse(source)
@@ -83,7 +105,11 @@ class PR32LocalizationStaticTests(unittest.TestCase):
         source = read("backend/app/services/p2p.py")
         module = ast.parse(source)
         wanted = {"_kadi_format_uzs", "_kadi_normalize_language", "_kadi_notify_balance_topup"}
-        ns = {"send_telegram_message_sync": lambda chat_id, message: sent.append((chat_id, message)), "logger": SimpleNamespace(info=lambda *a, **k: None)}
+        sent = []
+        ns = {
+            "send_telegram_message_sync": lambda chat_id, message: sent.append((chat_id, message)),
+            "logger": SimpleNamespace(info=lambda *a, **k: None),
+        }
         for node in module.body:
             if isinstance(node, ast.FunctionDef) and node.name in wanted:
                 exec(compile(ast.Module([node], []), f"<{node.name}>", "exec"), ns)
@@ -93,20 +119,50 @@ class PR32LocalizationStaticTests(unittest.TestCase):
             "en": "✅ Balance topped up!\n\n💰 Amount: 12 345 UZS\n💳 Your balance: 67 890 UZS",
         }
         for lang, message in expected.items():
-            sent = []
-            ns["sent"] = sent
+            sent.clear()
             ns["_kadi_notify_balance_topup"](SimpleNamespace(telegram_id=101, balance=67890, language_code=lang, id=1), 12345)
             self.assertEqual(sent, [(101, message)])
 
     def test_i18n_literal_tr_and_tor_keys_exist_in_all_languages(self):
-        i18n = read("webapp/js/i18n.js")
         app = read("webapp/js/app.js")
         keys = set(re.findall(r"\b(?:tr|tOr)\(\s*['\"]([A-Za-z0-9_]+)['\"]", app))
         for key in ["dev_mode", "request_failed", "error", "failed_load_product", "payment_sent_for_check", "product_unavailable", "sending"]:
             self.assertIn(key, keys)
-        for lang in ("ru", "en", "uz"):
-            for key in keys:
-                self.assertRegex(i18n, rf"\b{re.escape(key)}\s*:", msg=f"{key} missing for {lang}")
+
+        script = r"""
+const fs = require('fs');
+const vm = require('vm');
+const sandbox = {
+  window: {},
+  document: {
+    documentElement: {},
+    querySelectorAll: () => [],
+    getElementById: () => null,
+  },
+  localStorage: {
+    getItem: () => null,
+    setItem: () => {},
+  },
+  CustomEvent: function CustomEvent() {},
+};
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync('webapp/js/i18n.js', 'utf8'), sandbox);
+const dict = sandbox.window.I18N.dict;
+const result = {};
+for (const lang of ['ru', 'en', 'uz']) result[lang] = Object.keys(dict[lang]).sort();
+process.stdout.write(JSON.stringify(result));
+"""
+        completed = subprocess.run(
+            ["node", "-e", script],
+            cwd=ROOT,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        dict_keys = {lang: set(values) for lang, values in json.loads(completed.stdout).items()}
+        for key in keys:
+            for lang in ("ru", "en", "uz"):
+                self.assertIn(key, dict_keys[lang], f"{key} missing for {lang}")
 
 
 if __name__ == "__main__":
