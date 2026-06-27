@@ -2442,37 +2442,36 @@ async function placeOrder() {
 
 function showOrderConfirmation(order) {
     const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
+    modal.className = 'order-success-overlay';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'order-success-title');
     modal.innerHTML = `
-        <div class="modal-sheet">
-            <div class="modal-header">
-                <h2>${tr('order_paid')}</h2>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div style="text-align: center; padding: 20px 0;">
-                <div style="font-size: 48px; margin-bottom: 16px;">🚀</div>
-                <h3 style="font-size: 20px; margin-bottom: 8px;">${tr('order')} #${escapeHtml(order.order_number)}</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 20px;">${tr('paid_from_balance')} <strong style="color: var(--neon-green);">${formatMoney(order.total_amount, 'UZS')}</strong></p>
-                <div class="payment-instructions" style="text-align: left;">
-                    <h3>${tr('auto_delivery')}</h3>
-                    <p>${tr('order_sent_to_admin_hint')}</p>
-                    <p>${tr('track_status_hint')}</p>
-                </div>
-                <button class="btn-primary" style="margin-top: 16px;" onclick="closeModal()">${tr('view_my_orders')}</button>
-            </div>
+        <div class="order-success-card">
+            <div class="order-success-icon" aria-hidden="true">✓</div>
+            <h2 id="order-success-title" class="order-success-title">${tr('order_paid_number', {
+                number: escapeHtml(order.order_number)
+            })}</h2>
+            <div class="order-success-amount">${formatMoney(order.total_amount, 'UZS')}</div>
+            <div class="order-success-status">${tr('order_processing_automatically')}</div>
+            <p class="order-success-hint">${tr('order_delivery_hint')}</p>
+            <button class="order-success-home" type="button">${tr('order_success_home')}</button>
         </div>
     `;
 
     document.body.appendChild(modal);
-    modal.querySelector('.modal-close').addEventListener('click', closeModal);
-    modal.querySelector('.btn-primary').addEventListener('click', () => {
+    const homeButton = modal.querySelector('.order-success-home');
+    homeButton.addEventListener('click', () => {
         closeModal();
-        navigateTo('orders');
+        navigateTo('home');
     });
+    homeButton.focus();
 }
 
 function closeModal() {
-    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+    document
+        .querySelectorAll('.modal-overlay, .order-success-overlay')
+        .forEach(modal => modal.remove());
 }
 
 // ===== Orders =====
