@@ -165,5 +165,78 @@ process.stdout.write(JSON.stringify(result));
                 self.assertIn(key, dict_keys[lang], f"{key} missing for {lang}")
 
 
+class PR32OrderSuccessStaticTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = read("webapp/js/app.js")
+        cls.i18n = read("webapp/js/i18n.js")
+        cls.css = read("webapp/css/style.css")
+        cls.index = read("webapp/index.html")
+        match = re.search(r"function showOrderConfirmation\(order\) \{(?P<body>.*?)\n\}\n\nfunction closeModal", cls.app, re.S)
+        cls.assertIsNotNone(match, "showOrderConfirmation(order) not found")
+        cls.confirmation = match.group("body")
+
+    def test_paid_order_confirmation_removes_legacy_content(self):
+        source = self.confirmation
+        self.assertNotIn("🚀", source)
+        self.assertNotIn("modal-close", source)
+        self.assertNotIn("payment-instructions", source)
+        self.assertNotIn("order_sent_to_admin_hint", source)
+        self.assertNotIn("view_my_orders", source)
+
+    def test_paid_order_confirmation_has_one_home_action(self):
+        source = self.confirmation
+        self.assertEqual(source.count("<button"), 1)
+        self.assertIn('class="order-success-home"', source)
+        self.assertIn('role', source)
+        self.assertIn('dialog', source)
+        self.assertIn('aria-modal', source)
+        self.assertIn('true', source)
+        self.assertIn("tr('order_paid_number',", source)
+        self.assertIn("number: escapeHtml(order.order_number)", source)
+        self.assertIn("closeModal();", source)
+        self.assertIn("navigateTo('home');", source)
+        self.assertNotIn("navigateTo('orders')", source)
+        self.assertIn("homeButton.focus();", source)
+
+    def test_paid_order_confirmation_i18n_keys_exist_for_all_languages(self):
+        expected_values = [
+            "order_paid_number: 'Заказ #{number} оплачен'",
+            "order_processing_automatically: 'Обрабатывается автоматически'",
+            "order_delivery_hint: 'Доставка обычно занимает несколько минут. После завершения придёт уведомление.'",
+            "order_success_home: 'На главную'",
+            "order_paid_number: 'Order #{number} paid'",
+            "order_processing_automatically: 'Processing automatically'",
+            "order_delivery_hint: 'Delivery usually takes a few minutes. You will receive a notification when it is completed.'",
+            "order_success_home: 'Home'",
+            "order_paid_number: 'Buyurtma #{number} to‘landi'",
+            "order_processing_automatically: 'Avtomatik tarzda bajarilmoqda'",
+            "order_delivery_hint: 'Yetkazib berish odatda bir necha daqiqa davom etadi. Yakunlanganda sizga xabar keladi.'",
+            "order_success_home: 'Bosh sahifa'",
+        ]
+        for value in expected_values:
+            self.assertIn(value, self.i18n)
+
+    def test_paid_order_confirmation_uses_scoped_css_classes(self):
+        for class_name in (
+            ".order-success-overlay",
+            ".order-success-card",
+            ".order-success-icon",
+            ".order-success-title",
+            ".order-success-amount",
+            ".order-success-status",
+            ".order-success-hint",
+            ".order-success-home",
+        ):
+            self.assertIn(class_name, self.css)
+        self.assertIn("width: calc(100% - 32px);", self.css)
+        self.assertIn("env(safe-area-inset", self.css)
+
+    def test_paid_order_confirmation_cache_busters_updated(self):
+        self.assertIn("css/style.css?v=2026062717", self.index)
+        self.assertIn("js/i18n.js?v=2026062717", self.index)
+        self.assertIn("js/app.js?v=2026062717", self.index)
+
+
 if __name__ == "__main__":
     unittest.main()
