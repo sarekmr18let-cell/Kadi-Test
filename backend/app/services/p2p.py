@@ -574,6 +574,11 @@ def _kadi_format_uzs(value) -> str:
         return str(value or 0)
 
 
+
+def _kadi_normalize_language(value) -> str:
+    lang = str(value or "").strip().lower()
+    return lang if lang in {"ru", "uz", "en"} else "ru"
+
 def _kadi_notify_balance_topup(user, amount) -> None:
     """
     Send Telegram message to user after successful balance top-up.
@@ -585,12 +590,15 @@ def _kadi_notify_balance_topup(user, amount) -> None:
             return
 
         balance = getattr(user, "balance", 0)
-
-        message = (
-            "✅ Баланс пополнен\n\n"
-            f"Сумма: {_kadi_format_uzs(amount)} UZS\n"
-            f"Ваш баланс: {_kadi_format_uzs(balance)} UZS"
-        )
+        lang = _kadi_normalize_language(getattr(user, "language_code", None))
+        amount_text = _kadi_format_uzs(amount)
+        balance_text = _kadi_format_uzs(balance)
+        templates = {
+            "ru": "✅ Баланс пополнен!\n\n💰 Сумма: {amount} UZS\n💳 Ваш баланс: {balance} UZS",
+            "uz": "✅ Balans to‘ldirildi!\n\n💰 Summa: {amount} UZS\n💳 Balansingiz: {balance} UZS",
+            "en": "✅ Balance topped up!\n\n💰 Amount: {amount} UZS\n💳 Your balance: {balance} UZS",
+        }
+        message = templates[lang].format(amount=amount_text, balance=balance_text)
 
         send_telegram_message_sync(telegram_id, message)
 

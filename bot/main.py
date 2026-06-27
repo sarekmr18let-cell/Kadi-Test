@@ -36,7 +36,7 @@ backend = BackendClient(BACKEND_URL)
 
 
 LANGS = {"ru", "en", "uz"}
-USER_LANGS: dict[int, str] = {}
+USER_LANGS: dict[int, str] = {}  # Short-lived cache of backend-confirmed language only.
 
 BOT_TEXTS = {
     "ru": {
@@ -101,7 +101,7 @@ def _normalize_lang(code: str | None) -> str:
 def get_lang(user: types.User | None) -> str:
     if user and user.id in USER_LANGS:
         return USER_LANGS[user.id]
-    return _normalize_lang(getattr(user, "language_code", None))
+    return "ru"
 
 
 def _user_payload(user: types.User | None) -> dict:
@@ -124,7 +124,7 @@ async def load_user_language(user: types.User | None) -> str:
         return lang
     except Exception as e:
         logging.warning("Failed to load user language from backend for telegram_id=%s: %s", getattr(user, "id", None), e)
-        return USER_LANGS.get(user.id, _normalize_lang(getattr(user, "language_code", None)))
+        return USER_LANGS.get(user.id, "ru")
 
 
 async def save_user_language(user: types.User | None, lang: str) -> str:
@@ -293,42 +293,45 @@ async def cmd_profile(message: types.Message):
 @dp.message(Command("orders"))
 async def cmd_orders(message: types.Message):
     """Show user's orders."""
+    lang = await load_user_language(message.from_user)
     try:
         orders = await backend.get_orders(message.from_user.id)
         if not orders:
-            await message.answer(bt(message.from_user, "empty_orders"))
+            await message.answer(bt_lang(lang, "empty_orders"))
             return
-        text = bt(message.from_user, "orders_title") + "\n\n"
+        text = bt_lang(lang, "orders_title") + "\n\n"
         for order in orders[:10]:
             status_emoji = {
                 "created": "🆕", "awaiting_payment": "⏳", "paid": "✅", "processing": "🔄", "completed": "🎉", "cancelled": "❌", "refunded": "💰",
             }.get(order['status'], "📦")
             text += f"{status_emoji} <b>#{order['order_number']}</b>\n"
-            text += f"   {bt(message.from_user, 'amount')}: {order['total_amount']} UZS\n"
-            text += f"   {bt(message.from_user, 'status')}: {order['status']}\n"
-            text += f"   {bt(message.from_user, 'date')}: {order['created_at'][:10]}\n\n"
+            text += f"   {bt_lang(lang, 'amount')}: {order['total_amount']} UZS\n"
+            text += f"   {bt_lang(lang, 'status')}: {order['status']}\n"
+            text += f"   {bt_lang(lang, 'date')}: {order['created_at'][:10]}\n\n"
         await message.answer(text)
     except Exception as e:
-        await message.answer(bt(message.from_user, "load_orders_error"))
+        await message.answer(bt_lang(lang, "load_orders_error"))
         logging.error(f"Orders error: {e}")
 
 
 @dp.message(Command("balance"))
 async def cmd_balance(message: types.Message):
     """Show user balance."""
+    lang = await load_user_language(message.from_user)
     try:
         balance = await backend.get_balance(message.from_user.id)
-        text = f"{bt(message.from_user, 'balance')}\n\n<b>{balance['balance']} {balance['currency']}</b>"
+        text = f"{bt_lang(lang, 'balance')}\n\n<b>{balance['balance']} {balance['currency']}</b>"
         await message.answer(text)
     except Exception as e:
-        await message.answer(bt(message.from_user, "load_balance_error"))
+        await message.answer(bt_lang(lang, "load_balance_error"))
         logging.error(f"Balance error: {e}")
 
 
 @dp.message(Command("support"))
 async def cmd_support(message: types.Message):
     """Show support info."""
-    await message.answer(bt(message.from_user, "support_text", support=SUPPORT_USERNAME, email=SUPPORT_EMAIL))
+    lang = await load_user_language(message.from_user)
+    await message.answer(bt_lang(lang, "support_text", support=SUPPORT_USERNAME, email=SUPPORT_EMAIL))
 
 
 # Telegram Business bridge: when @HUMOcardbot sends a notification to the linked
@@ -425,15 +428,16 @@ async def callback_set_language(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "orders")
 async def callback_orders(callback: types.CallbackQuery):
     """Show orders from inline button. Use callback.from_user, not callback.message.from_user."""
+    lang = await load_user_language(callback.from_user)
     try:
         orders = await backend.get_orders(callback.from_user.id)
 
         if not orders:
-            await callback.message.answer(bt(callback.from_user, "empty_orders"))
+            await callback.message.answer(bt_lang(lang, "empty_orders"))
             await callback.answer()
             return
 
-        text = bt(callback.from_user, "orders_title") + "\n\n"
+        text = bt_lang(lang, "orders_title") + "\n\n"
         for order in orders[:10]:
             status_emoji = {
                 "created": "🆕",
@@ -446,13 +450,13 @@ async def callback_orders(callback: types.CallbackQuery):
             }.get(order['status'], "📦")
 
             text += f"{status_emoji} <b>#{order['order_number']}</b>\n"
-            text += f"   {bt(callback.from_user, 'amount')}: {order['total_amount']} UZS\n"
-            text += f"   {bt(callback.from_user, 'status')}: {order['status']}\n"
-            text += f"   {bt(callback.from_user, 'date')}: {order['created_at'][:10]}\n\n"
+            text += f"   {bt_lang(lang, 'amount')}: {order['total_amount']} UZS\n"
+            text += f"   {bt_lang(lang, 'status')}: {order['status']}\n"
+            text += f"   {bt_lang(lang, 'date')}: {order['created_at'][:10]}\n\n"
 
         await callback.message.answer(text)
     except Exception as e:
-        await callback.message.answer(bt(callback.from_user, "load_orders_error"))
+        await callback.message.answer(bt_lang(lang, "load_orders_error"))
         logging.error(f"Callback orders error: {e}")
     await callback.answer()
 
@@ -460,12 +464,13 @@ async def callback_orders(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "balance")
 async def callback_balance(callback: types.CallbackQuery):
     """Show balance from inline button. Use callback.from_user, not callback.message.from_user."""
+    lang = await load_user_language(callback.from_user)
     try:
         balance = await backend.get_balance(callback.from_user.id)
-        text = f"{bt(callback.from_user, 'balance')}\n\n<b>{balance['balance']} {balance['currency']}</b>"
+        text = f"{bt_lang(lang, 'balance')}\n\n<b>{balance['balance']} {balance['currency']}</b>"
         await callback.message.answer(text)
     except Exception as e:
-        await callback.message.answer(bt(callback.from_user, "load_balance_error"))
+        await callback.message.answer(bt_lang(lang, "load_balance_error"))
         logging.error(f"Callback balance error: {e}")
     await callback.answer()
 
