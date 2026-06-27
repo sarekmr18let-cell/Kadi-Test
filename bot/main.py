@@ -57,6 +57,7 @@ BOT_TEXTS = {
         "support_text": "📞 <b>Поддержка</b>\n\nЕсли возникла проблема с заказом:\n1. Проверь статус в приложении\n2. Напиши @{support}\n3. Или на email: {email}\n\nРаботаем: 24/7",
         "select_language": "Выбери язык:",
         "language_saved": "✅ Язык изменён на русский.",
+        "language_save_failed": "❌ Не удалось сохранить язык. Попробуй ещё раз.",
         "amount": "Сумма",
         "status": "Статус",
         "date": "Дата",
@@ -72,7 +73,7 @@ BOT_TEXTS = {
         "profile_title": "👤 <b>Your Profile</b>", "orders_title": "📦 <b>Your Orders</b>", "empty_orders": "📭 You don't have any orders yet.",
         "load_profile_error": "❌ Error loading profile. Please try again.", "load_orders_error": "❌ Error loading orders.", "load_balance_error": "❌ Error loading balance.",
         "support_text": "📞 <b>Support</b>\n\nIf you have any issues with your order:\n1. Check your order status in the app\n2. Contact @{support}\n3. Or email: {email}\n\nWorking hours: 24/7",
-        "select_language": "Choose language:", "language_saved": "✅ Language changed to English.", "amount": "Amount", "status": "Status", "date": "Date", "orders_count": "Orders", "total_spent": "Total Spent", "referral_link": "Referral Link", "bank_sent": "✅ Bank notification was sent to P2P parser.",
+        "select_language": "Choose language:", "language_saved": "✅ Language changed to English.", "language_save_failed": "❌ Could not save language. Please try again.", "amount": "Amount", "status": "Status", "date": "Date", "orders_count": "Orders", "total_spent": "Total Spent", "referral_link": "Referral Link", "bank_sent": "✅ Bank notification was sent to P2P parser.",
     },
     "uz": {
         "open_shop": "🛍️ Do‘konni ochish", "support": "📢 Yordam", "support_short": "📞 Yordam", "my_orders": "📦 Buyurtmalarim", "balance": "💰 Balans", "language": "🌐 Til",
@@ -81,7 +82,7 @@ BOT_TEXTS = {
         "profile_title": "👤 <b>Profil</b>", "orders_title": "📦 <b>Buyurtmalarim</b>", "empty_orders": "📭 Hozircha buyurtmalaringiz yo‘q.",
         "load_profile_error": "❌ Profilni yuklab bo‘lmadi. Qayta urinib ko‘ring.", "load_orders_error": "❌ Buyurtmalarni yuklab bo‘lmadi.", "load_balance_error": "❌ Balansni yuklab bo‘lmadi.",
         "support_text": "📞 <b>Yordam</b>\n\nBuyurtma bo‘yicha muammo bo‘lsa:\n1. Ilovada statusni tekshiring\n2. @{support} ga yozing\n3. Yoki email: {email}\n\nIsh vaqti: 24/7",
-        "select_language": "Tilni tanlang:", "language_saved": "✅ Til o‘zbekchaga o‘zgartirildi.", "amount": "Summa", "status": "Status", "date": "Sana", "orders_count": "Buyurtmalar", "total_spent": "Sarflangan", "referral_link": "Referal havola", "bank_sent": "✅ Bank xabari P2P parserga yuborildi.",
+        "select_language": "Tilni tanlang:", "language_saved": "✅ Til o‘zbekchaga o‘zgartirildi.", "language_save_failed": "❌ Tilni saqlab bo‘lmadi. Qayta urinib ko‘ring.", "amount": "Summa", "status": "Status", "date": "Sana", "orders_count": "Buyurtmalar", "total_spent": "Sarflangan", "referral_link": "Referal havola", "bank_sent": "✅ Bank xabari P2P parserga yuborildi.",
     },
 }
 
@@ -103,6 +104,40 @@ def get_lang(user: types.User | None) -> str:
     return _normalize_lang(getattr(user, "language_code", None))
 
 
+def _user_payload(user: types.User | None) -> dict:
+    if not user:
+        return {}
+    return {
+        "username": getattr(user, "username", None),
+        "first_name": getattr(user, "first_name", None),
+        "last_name": getattr(user, "last_name", None),
+    }
+
+
+async def load_user_language(user: types.User | None) -> str:
+    if not user:
+        return "ru"
+    try:
+        profile = await backend.get_profile(user.id)
+        lang = _normalize_lang(profile.get("language_code"))
+        USER_LANGS[user.id] = lang
+        return lang
+    except Exception as e:
+        logging.warning("Failed to load user language from backend for telegram_id=%s: %s", getattr(user, "id", None), e)
+        return USER_LANGS.get(user.id, _normalize_lang(getattr(user, "language_code", None)))
+
+
+async def save_user_language(user: types.User | None, lang: str) -> str:
+    if not user:
+        raise ValueError("Telegram user is required")
+    normalized = (lang or "").lower()
+    if normalized not in LANGS:
+        raise ValueError("Unsupported language")
+    result = await backend.save_language(user.id, normalized, **_user_payload(user))
+    saved = _normalize_lang(result.get("language_code"))
+    USER_LANGS[user.id] = saved
+    return saved
+
 
 def build_webapp_url(lang: str | None = None) -> str:
     """
@@ -121,14 +156,18 @@ def build_webapp_url(lang: str | None = None) -> str:
 
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
-def bt(user: types.User | None, key: str, **kwargs) -> str:
-    lang = get_lang(user)
-    text = BOT_TEXTS.get(lang, BOT_TEXTS["ru"]).get(key) or BOT_TEXTS["ru"].get(key) or key
+def bt_lang(lang: str, key: str, **kwargs) -> str:
+    normalized = _normalize_lang(lang)
+    text = BOT_TEXTS.get(normalized, BOT_TEXTS["ru"]).get(key) or BOT_TEXTS["ru"].get(key) or key
     return text.format(**kwargs)
 
 
-def language_keyboard(user: types.User | None) -> types.InlineKeyboardMarkup:
-    current = get_lang(user)
+def bt(user: types.User | None, key: str, **kwargs) -> str:
+    return bt_lang(get_lang(user), key, **kwargs)
+
+
+def language_keyboard_for_lang(lang: str) -> types.InlineKeyboardMarkup:
+    current = _normalize_lang(lang)
     def label(code: str, title: str) -> str:
         return ("✅ " if code == current else "") + title
     return types.InlineKeyboardMarkup(inline_keyboard=[
@@ -136,6 +175,10 @@ def language_keyboard(user: types.User | None) -> types.InlineKeyboardMarkup:
         [types.InlineKeyboardButton(text=label("en", "English"), callback_data="lang:en")],
         [types.InlineKeyboardButton(text=label("uz", "O‘zbek"), callback_data="lang:uz")],
     ])
+
+
+def language_keyboard(user: types.User | None) -> types.InlineKeyboardMarkup:
+    return language_keyboard_for_lang(get_lang(user))
 
 def _admin_ids() -> set[int]:
     ids = set()
@@ -194,12 +237,14 @@ async def cmd_start(message: types.Message):
         except Exception as e:
             logging.warning(f"Referral registration failed: {e}")
 
+    lang = await load_user_language(message.from_user)
+
     try:
         await bot.set_chat_menu_button(
             chat_id=message.chat.id,
             menu_button=MenuButtonWebApp(
-                text=bt(message.from_user, "open_shop"),
-                web_app=WebAppInfo(url=build_webapp_url(get_lang(message.from_user)))
+                text=bt_lang(lang, "open_shop"),
+                web_app=WebAppInfo(url=build_webapp_url(lang))
             )
         )
     except Exception as e:
@@ -207,17 +252,18 @@ async def cmd_start(message: types.Message):
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text=bt(message.from_user, "open_shop"), web_app=WebAppInfo(url=build_webapp_url(get_lang(message.from_user))))],
-            [types.InlineKeyboardButton(text=bt(message.from_user, "language"), callback_data="language")],
-            [types.InlineKeyboardButton(text=bt(message.from_user, "support"), url=f"https://t.me/{SUPPORT_USERNAME}")]
+            [types.InlineKeyboardButton(text=bt_lang(lang, "open_shop"), web_app=WebAppInfo(url=build_webapp_url(lang)))],
+            [types.InlineKeyboardButton(text=bt_lang(lang, "language"), callback_data="language")],
+            [types.InlineKeyboardButton(text=bt_lang(lang, "support"), url=f"https://t.me/{SUPPORT_USERNAME}")]
         ]
     )
-    await message.answer(bt(message.from_user, "welcome"), reply_markup=keyboard)
+    await message.answer(bt_lang(lang, "welcome"), reply_markup=keyboard)
 
 
 @dp.message(Command("language"))
 async def cmd_language(message: types.Message):
-    await message.answer(bt(message.from_user, "select_language"), reply_markup=language_keyboard(message.from_user))
+    lang = await load_user_language(message.from_user)
+    await message.answer(bt_lang(lang, "select_language"), reply_markup=language_keyboard_for_lang(lang))
 
 
 @dp.message(Command("profile"))
@@ -225,6 +271,7 @@ async def cmd_profile(message: types.Message):
     """Show user profile from backend."""
     try:
         profile = await backend.get_profile(message.from_user.id)
+        USER_LANGS[message.from_user.id] = _normalize_lang(profile.get("language_code"))
         text = f"""
 {bt(message.from_user, 'profile_title')}
 
@@ -309,33 +356,34 @@ async def handle_admin_bank_notification_test(message: types.Message):
 @dp.message()
 async def handle_any_message(message: types.Message):
     """Handle any text message - show main menu."""
+    lang = await load_user_language(message.from_user)
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=bt(message.from_user, "open_shop"),
-                    web_app=WebAppInfo(url=build_webapp_url(get_lang(message.from_user)))
+                    text=bt_lang(lang, "open_shop"),
+                    web_app=WebAppInfo(url=build_webapp_url(lang))
                 )
             ],
             [
                 types.InlineKeyboardButton(
-                    text=bt(message.from_user, "language"),
+                    text=bt_lang(lang, "language"),
                     callback_data="language"
                 )
             ],
             [
                 types.InlineKeyboardButton(
-                    text=bt(message.from_user, "my_orders"),
+                    text=bt_lang(lang, "my_orders"),
                     callback_data="orders"
                 ),
                 types.InlineKeyboardButton(
-                    text=bt(message.from_user, "balance"),
+                    text=bt_lang(lang, "balance"),
                     callback_data="balance"
                 )
             ],
             [
                 types.InlineKeyboardButton(
-                    text=bt(message.from_user, "support_short"),
+                    text=bt_lang(lang, "support_short"),
                     url=f"https://t.me/{SUPPORT_USERNAME}"
                 )
             ]
@@ -343,7 +391,7 @@ async def handle_any_message(message: types.Message):
     )
     
     await message.answer(
-        bt(message.from_user, "menu_hint"),
+        bt_lang(lang, "menu_hint"),
         reply_markup=keyboard
     )
 
@@ -352,7 +400,8 @@ async def handle_any_message(message: types.Message):
 
 @dp.callback_query(F.data == "language")
 async def callback_language(callback: types.CallbackQuery):
-    await callback.message.answer(bt(callback.from_user, "select_language"), reply_markup=language_keyboard(callback.from_user))
+    lang = await load_user_language(callback.from_user)
+    await callback.message.answer(bt_lang(lang, "select_language"), reply_markup=language_keyboard_for_lang(lang))
     await callback.answer()
 
 
@@ -362,8 +411,14 @@ async def callback_set_language(callback: types.CallbackQuery):
     if lang not in LANGS:
         await callback.answer()
         return
-    USER_LANGS[callback.from_user.id] = lang
-    await callback.message.edit_text(bt(callback.from_user, "language_saved"), reply_markup=language_keyboard(callback.from_user))
+    try:
+        saved_lang = await save_user_language(callback.from_user, lang)
+    except Exception as e:
+        logging.error("Failed to save bot language for telegram_id=%s: %s", getattr(callback.from_user, "id", None), e)
+        current_lang = await load_user_language(callback.from_user)
+        await callback.answer(bt_lang(current_lang, "language_save_failed"), show_alert=True)
+        return
+    await callback.message.edit_text(bt_lang(saved_lang, "language_saved"), reply_markup=language_keyboard_for_lang(saved_lang))
     await callback.answer()
 
 
