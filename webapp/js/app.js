@@ -2445,10 +2445,11 @@ function showOrderConfirmation(order) {
     modal.className = 'order-success-overlay';
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'order-success-title');
     modal.innerHTML = `
         <div class="order-success-card">
             <div class="order-success-icon" aria-hidden="true">✓</div>
-            <h2 class="order-success-title">${tr('order_paid_number', {
+            <h2 id="order-success-title" class="order-success-title">${tr('order_paid_number', {
                 number: escapeHtml(order.order_number)
             })}</h2>
             <div class="order-success-amount">${formatMoney(order.total_amount, 'UZS')}</div>
@@ -2468,7 +2469,9 @@ function showOrderConfirmation(order) {
 }
 
 function closeModal() {
-    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+    document
+        .querySelectorAll('.modal-overlay, .order-success-overlay')
+        .forEach(modal => modal.remove());
 }
 
 // ===== Orders =====

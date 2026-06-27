@@ -165,7 +165,7 @@ process.stdout.write(JSON.stringify(result));
                 self.assertIn(key, dict_keys[lang], f"{key} missing for {lang}")
 
 
-class PR32OrderSuccessStaticTests(unittest.TestCase):
+class PR33OrderSuccessStaticTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = read("webapp/js/app.js")
@@ -175,6 +175,9 @@ class PR32OrderSuccessStaticTests(unittest.TestCase):
         match = re.search(r"function showOrderConfirmation\(order\) \{(?P<body>.*?)\n\}\n\nfunction closeModal", cls.app, re.S)
         cls.assertIsNotNone(match, "showOrderConfirmation(order) not found")
         cls.confirmation = match.group("body")
+        close_match = re.search(r"function closeModal\(\) \{(?P<body>.*?)\n\}", cls.app, re.S)
+        cls.assertIsNotNone(close_match, "closeModal() not found")
+        cls.close_modal = close_match.group("body")
 
     def test_paid_order_confirmation_removes_legacy_content(self):
         source = self.confirmation
@@ -192,12 +195,20 @@ class PR32OrderSuccessStaticTests(unittest.TestCase):
         self.assertIn('dialog', source)
         self.assertIn('aria-modal', source)
         self.assertIn('true', source)
+        self.assertIn("modal.setAttribute('aria-labelledby', 'order-success-title');", source)
+        self.assertIn('id="order-success-title" class="order-success-title"', source)
         self.assertIn("tr('order_paid_number',", source)
         self.assertIn("number: escapeHtml(order.order_number)", source)
         self.assertIn("closeModal();", source)
         self.assertIn("navigateTo('home');", source)
+        self.assertLess(source.index("closeModal();"), source.index("navigateTo('home');"))
         self.assertNotIn("navigateTo('orders')", source)
         self.assertIn("homeButton.focus();", source)
+
+
+    def test_close_modal_removes_order_success_overlay(self):
+        self.assertIn(".modal-overlay, .order-success-overlay", self.close_modal)
+        self.assertIn("modal.remove()", self.close_modal)
 
     def test_paid_order_confirmation_i18n_keys_exist_for_all_languages(self):
         expected_values = [
@@ -216,6 +227,14 @@ class PR32OrderSuccessStaticTests(unittest.TestCase):
         ]
         for value in expected_values:
             self.assertIn(value, self.i18n)
+
+        for key in (
+            "order_paid_number",
+            "order_processing_automatically",
+            "order_delivery_hint",
+            "order_success_home",
+        ):
+            self.assertEqual(self.i18n.count(key), 3, f"{key} must be defined once per RU/EN/UZ dictionary")
 
     def test_paid_order_confirmation_uses_scoped_css_classes(self):
         for class_name in (
