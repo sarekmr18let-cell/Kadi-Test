@@ -3671,11 +3671,11 @@ function showProductModal(productId = null) {
                     <option value="none" ${product?.target_type === 'none' ? 'selected' : ''}>${tr('admin_account_none')}</option>
                 </select>
                 <label class="checkbox-row"><input type="checkbox" id="product-req-target" ${product?.requires_target_id !== false ? 'checked' : ''}> ${tr('admin_requires_target')}</label>
-                <input id="product-target-label" placeholder="ID игрока / Telegram username" value="${escapeHtml(product?.target_id_label || tr('admin_default_target_label'))}" />
+                <input id="product-target-label" placeholder="${tr('admin_target_placeholder')}" value="${escapeHtml(product?.target_id_label || tr('admin_default_target_label'))}" />
                 <label class="checkbox-row"><input type="checkbox" id="product-req-server" ${product?.requires_server_id ? 'checked' : ''}> ${tr('admin_requires_server')}</label>
-                <input id="product-server-label" placeholder="ID сервера" value="${escapeHtml(product?.target_server_label || tr('admin_default_server_label'))}" />
+                <input id="product-server-label" placeholder="${tr('admin_server_placeholder')}" value="${escapeHtml(product?.target_server_label || tr('admin_default_server_label'))}" />
                 <label class="checkbox-row"><input type="checkbox" id="product-req-region" ${product?.requires_region ? 'checked' : ''}> ${tr('admin_requires_region')}</label>
-                <input id="product-region-label" placeholder="Регион" value="${escapeHtml(product?.target_region_label || tr('admin_region'))}" />
+                <input id="product-region-label" placeholder="${tr('admin_region_placeholder')}" value="${escapeHtml(product?.target_region_label || tr('admin_region'))}" />
                 <label>${tr('admin_region_options')}</label>
                 <textarea id="product-region-options" placeholder="uz_global=🇺🇿 UZB / 🌐 Global
 uz_ph=🇺🇿 UZB / 🇵🇭 PH

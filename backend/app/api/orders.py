@@ -13,6 +13,7 @@ from app.celery_app import celery_app
 from app.services.gamedrops import GameDropsClient
 from app.core.security import get_current_user
 from app.models.models import Order, OrderItem, ProductVariation, PromoCode, P2PPaymentSession, User, Transaction, Product
+from app.services.catalog_visibility import is_public_product_visible
 from app.schemas.schemas import (
     OrderCreateRequest,
     OrderResponse,
@@ -253,14 +254,14 @@ async def create_order(
 
     result = await db.execute(
         select(ProductVariation)
-        .options(selectinload(ProductVariation.product))
+        .options(selectinload(ProductVariation.product).selectinload(Product.category))
         .where(
             ProductVariation.id.in_(variation_ids),
             ProductVariation.is_active == True,
             ProductVariation.stock_status == "instock"
         )
     )
-    variations = {v.id: v for v in result.scalars().all()}
+    variations = {v.id: v for v in result.scalars().all() if is_public_product_visible(v.product)}
 
     if len(variations) != len(set(variation_ids)):
         missing = set(variation_ids) - set(variations.keys())
