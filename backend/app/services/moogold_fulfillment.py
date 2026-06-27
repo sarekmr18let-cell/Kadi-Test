@@ -556,25 +556,48 @@ def _get_gamedrops_order_status(transaction_id: str) -> dict:
     return asyncio.run(_get())
 
 
-def _acquire_gamedrops_status_sync_lock(ttl_seconds: int = 25):
+class _GameDropsStatusSyncLock:
+    def __init__(self, redis_lock, ttl_seconds: int):
+        self._redis_lock = redis_lock
+        self._ttl_seconds = ttl_seconds
+
+    def extend(self) -> bool:
+        try:
+            self._redis_lock.extend(self._ttl_seconds, replace_ttl=True)
+            return True
+        except Exception:
+            logger.warning("GameDrops status sync lock ownership was lost during extend", exc_info=True)
+            return False
+
+    def owned(self) -> bool:
+        try:
+            return bool(self._redis_lock.owned())
+        except Exception:
+            logger.warning("Failed to verify GameDrops status sync lock ownership", exc_info=True)
+            return False
+
+    def release(self) -> None:
+        try:
+            if self.owned():
+                self._redis_lock.release()
+        except Exception:
+            logger.exception("Failed to release GameDrops status sync lock")
+
+
+def _acquire_gamedrops_status_sync_lock(ttl_seconds: int = 120):
     try:
         import redis
 
         redis_client = redis.Redis.from_url(settings.REDIS_URL)
-        lock_key = "lock:gamedrops_status_sync"
-        lock_value = str(time.time())
-        acquired = redis_client.set(lock_key, lock_value, nx=True, ex=ttl_seconds)
-        if not acquired:
+        redis_lock = redis_client.lock(
+            "lock:gamedrops_status_sync",
+            timeout=ttl_seconds,
+            blocking=False,
+            thread_local=False,
+        )
+        if not redis_lock.acquire(blocking=False):
             return None
-
-        def _release():
-            try:
-                if redis_client.get(lock_key) == lock_value.encode():
-                    redis_client.delete(lock_key)
-            except Exception:
-                logger.exception("Failed to release GameDrops status sync lock")
-
-        return _release
+        return _GameDropsStatusSyncLock(redis_lock, ttl_seconds)
     except Exception:
         logger.exception("Failed to acquire GameDrops status sync Redis lock")
         return None
@@ -588,8 +611,8 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
     creates a new GameDrops order and is safe to run periodically or manually for
     a single local order id, for example: sync_gamedrops_order_statuses.delay(41).
     """
-    release_lock = _acquire_gamedrops_status_sync_lock()
-    if release_lock is None:
+    status_lock = _acquire_gamedrops_status_sync_lock()
+    if status_lock is None:
         return {"status": "skipped", "reason": "lock_not_acquired", "order_id": order_id}
 
     from app.models.models import MooGoldFulfillment, Order
@@ -600,6 +623,7 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
     errors = 0
     notifications: list[int] = []
     items: list[dict[str, Any]] = []
+    lock_lost = False
 
     try:
         with SyncSessionLocal() as db:
@@ -632,7 +656,28 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
 
                 previous_order_status = order.status
                 try:
+                    if not status_lock.extend():
+                        lock_lost = True
+                        items.append({
+                            "fulfillment_id": fulfillment.id,
+                            "order_id": fulfillment.order_id,
+                            "transaction_id": transaction_id,
+                            "status": "lock_lost",
+                        })
+                        break
+
                     response = _get_gamedrops_order_status(transaction_id)
+
+                    if not status_lock.extend() or not status_lock.owned():
+                        lock_lost = True
+                        items.append({
+                            "fulfillment_id": fulfillment.id,
+                            "order_id": fulfillment.order_id,
+                            "transaction_id": transaction_id,
+                            "status": "lock_lost",
+                        })
+                        break
+
                     raw_status = _extract_gamedrops_status(response)
                     mapped_status = _map_gamedrops_status(raw_status)
 
@@ -688,11 +733,12 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
             "checked": checked,
             "updated": updated,
             "errors": errors,
+            "lock_lost": lock_lost,
             "completed_notifications": sorted(set(notifications)),
             "items": items,
         }
     finally:
-        release_lock()
+        status_lock.release()
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
