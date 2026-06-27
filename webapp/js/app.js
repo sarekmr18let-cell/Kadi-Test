@@ -53,7 +53,7 @@ function initLanguageSwitcher() {
                 e.stopPropagation();
                 const lang = option.dataset.lang;
                 if (!lang) return;
-                window.I18N?.setLang(lang);
+                window.I18N?.setLang(lang, { source: 'user' });
                 setCurrentLabel(lang);
                 closeMenu();
             });
@@ -63,10 +63,14 @@ function initLanguageSwitcher() {
     }
 
     if (selector) {
-        selector.addEventListener('change', (e) => window.I18N?.setLang(e.target.value));
+        selector.addEventListener('change', (e) => window.I18N?.setLang(e.target.value, { source: 'user' }));
     }
 
-    window.addEventListener('languageChanged', () => {
+    window.addEventListener('languageChanged', (event) => {
+        const lang = event.detail?.lang || getCurrentLang();
+        if (event.detail?.source === 'user') {
+            saveSelectedLanguage(lang).catch(() => {});
+        }
         setCurrentLabel();
         applyTranslations(document);
         refreshCurrentPageText();
@@ -101,6 +105,9 @@ const state = {
     currentPage: 'home',
     telegramUser: null,
     isPlacingOrder: false,
+    authReady: false,
+    pendingLanguageSave: null,
+    languageSaveInFlight: false,
 };
 
 // Safe localStorage initialization
@@ -202,6 +209,72 @@ async function api(method, path, body = null) {
     }
 }
 
+function normalizeLanguageCode(lang) {
+    const value = String(lang || '').toLowerCase();
+    if (value.startsWith('ru')) return 'ru';
+    if (value.startsWith('uz')) return 'uz';
+    if (value.startsWith('en')) return 'en';
+    return 'ru';
+}
+
+function applyLanguageLocally(lang, source = 'system') {
+    const normalized = normalizeLanguageCode(lang);
+    if (!window.I18N?.setLang) return normalized;
+
+    window.I18N.setLang(normalized, { source, silent: true });
+    applyTranslations(document);
+    window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang: normalized, source } }));
+    return normalized;
+}
+
+function applyLanguageFromProfile(profile) {
+    const profileLang = profile?.language_code;
+    if (!profileLang) return;
+
+    if (state.pendingLanguageSave) {
+        const pendingLang = normalizeLanguageCode(state.pendingLanguageSave);
+        state.user = { ...(state.user || {}), ...(profile || {}), language_code: pendingLang };
+        applyLanguageLocally(pendingLang, 'pending');
+        return;
+    }
+
+    const normalized = applyLanguageLocally(profileLang, 'profile');
+    state.user = { ...(state.user || {}), ...(profile || {}), language_code: normalized };
+}
+
+async function saveSelectedLanguage(lang) {
+    const normalized = normalizeLanguageCode(lang);
+    state.pendingLanguageSave = normalized;
+
+    if (!state.token || !state.authReady || state.languageSaveInFlight) {
+        return;
+    }
+
+    state.languageSaveInFlight = true;
+    try {
+        while (state.pendingLanguageSave && state.token && state.authReady) {
+            const langToSave = state.pendingLanguageSave;
+            state.pendingLanguageSave = null;
+            const profile = await api('PATCH', '/users/language', { language_code: langToSave });
+
+            if (!state.pendingLanguageSave) {
+                state.user = { ...(state.user || {}), ...(profile || {}), language_code: langToSave };
+                applyLanguageLocally(langToSave, 'saved');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to save language preference:', error);
+        throw error;
+    } finally {
+        state.languageSaveInFlight = false;
+    }
+}
+
+async function flushPendingLanguageSave() {
+    if (!state.pendingLanguageSave || !state.token || !state.authReady) return;
+    await saveSelectedLanguage(state.pendingLanguageSave);
+}
+
 // ===== Auth =====
 async function authenticate() {
     if (!tg?.initData) {
@@ -217,13 +290,17 @@ async function authenticate() {
         
         if (result) {
             state.token = result.access_token;
+            state.authReady = false;
             safeSet('access_token', result.access_token);
             safeSet('refresh_token', result.refresh_token);
             
             // Get user profile
             const profile = await api('GET', '/auth/me');
             state.user = profile;
-    applyTelegramAvatarPhoto(profile);
+            applyLanguageFromProfile(profile);
+            state.authReady = true;
+            await flushPendingLanguageSave();
+    applyTelegramAvatarPhoto(state.user);
             
             // Show admin button if admin
             if (profile?.is_admin) {
@@ -483,6 +560,14 @@ function productBadge(name) {
 
 // ===== Home Page =====
 async function loadHomePage() {
+  try {
+    const languageProfile = await api('GET', '/users/profile');
+    if (languageProfile?.language_code && languageProfile.language_code !== window.I18N?.getLang()) {
+      window.I18N?.setLang(languageProfile.language_code);
+    }
+  } catch (err) {
+    console.warn('Language load failed:', err);
+  }
     try {
         updateHeaderBalance();
         const [categories, products] = await Promise.all([
@@ -569,10 +654,10 @@ function tOr(key, fallback) {
 
 function getAvailabilityUi(status) {
     if (status === 'coming_soon') {
-        return { overlay: 'СКОРО...', toast: tOr('product_coming_soon', 'Скоро будет доступно'), label: 'Coming soon' };
+        return { overlay: tr('coming_soon', 'СКОРО...'), toast: tOr('product_coming_soon', 'Скоро будет доступно'), label: 'Coming soon' };
     }
     if (status === 'maintenance') {
-        return { overlay: 'ТЕХ. РАБОТЫ', toast: tOr('product_temporarily_unavailable', 'Товар временно недоступен'), label: 'Maintenance' };
+        return { overlay: tr('maintenance', 'ТЕХ. РАБОТЫ'), toast: tOr('product_temporarily_unavailable', 'Товар временно недоступен'), label: 'Maintenance' };
     }
     if (status === 'hidden') {
         return { overlay: 'UNAVAILABLE', toast: tOr('product_unavailable', 'Товар недоступен'), label: 'Hidden' };
@@ -2000,6 +2085,8 @@ function clearAuth() {
     safeRemove('refresh_token');
     state.token = null;
     state.user = null;
+    state.authReady = false;
+    state.languageSaveInFlight = false;
 }
 
 function updateCartBadge() {

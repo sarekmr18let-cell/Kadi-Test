@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,6 +16,21 @@ router = APIRouter()
 class ReferralRequest(BaseModel):
     telegram_id: int
     referrer_id: int
+
+
+class BotLanguageUpdate(BaseModel):
+    language_code: str
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+    @field_validator("language_code")
+    @classmethod
+    def validate_language_code(cls, value: str) -> str:
+        normalized = (value or "").lower()
+        if normalized not in {"ru", "uz", "en"}:
+            raise ValueError("language_code must be one of: ru, uz, en")
+        return normalized
 
 
 def verify_internal_bot_secret(x_bot_secret: Optional[str] = Header(None, alias="X-Bot-Secret")) -> None:
@@ -63,6 +78,7 @@ async def get_profile_for_bot(telegram_id: int, db: AsyncSession = Depends(get_d
         username=user.username,
         first_name=user.first_name,
         last_name=user.last_name,
+        language_code=user.language_code or "ru",
         is_admin=user.is_admin,
         is_blocked=user.is_blocked,
         balance=user.balance,
@@ -72,6 +88,37 @@ async def get_profile_for_bot(telegram_id: int, db: AsyncSession = Depends(get_d
         orders_count=orders_count,
         total_spent=round(total_spent, 2),
     )
+
+
+@router.patch("/profile/{telegram_id}/language", dependencies=[Depends(verify_internal_bot_secret)])
+async def update_language_for_bot(
+    telegram_id: int,
+    payload: BotLanguageUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        user = User(
+            telegram_id=telegram_id,
+            username=payload.username,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            language_code=payload.language_code,
+            referral_code=f"REF{telegram_id}",
+        )
+        db.add(user)
+    else:
+        if user.is_blocked:
+            raise HTTPException(status_code=403, detail="User is blocked")
+        user.language_code = payload.language_code
+        user.username = payload.username or user.username
+        user.first_name = payload.first_name or user.first_name
+        user.last_name = payload.last_name or user.last_name
+
+    await db.commit()
+    return {"telegram_id": telegram_id, "language_code": payload.language_code}
 
 
 @router.get("/orders/{telegram_id}", response_model=List[OrderResponse], dependencies=[Depends(verify_internal_bot_secret)])

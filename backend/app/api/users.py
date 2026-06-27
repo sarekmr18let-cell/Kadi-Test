@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -8,9 +9,12 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.models import User, Order, Transaction, OrderItem, ProductVariation
-from app.schemas.schemas import UserProfile, TransactionResponse, BalanceResponse
+from app.schemas.schemas import UserProfile, TransactionResponse, BalanceResponse, UserLanguageUpdate
 
 router = APIRouter()
+
+class LanguageUpdate(BaseModel):
+    language_code: str
 
 
 @router.get("/profile", response_model=UserProfile)
@@ -44,6 +48,7 @@ async def get_profile(
         username=user.username,
         first_name=user.first_name,
         last_name=user.last_name,
+        language_code=user.language_code or "ru",
         is_admin=user.is_admin,
         is_blocked=user.is_blocked,
         balance=user.balance,
@@ -54,6 +59,67 @@ async def get_profile(
         total_spent=round(total_spent, 2),
     )
 
+
+@router.patch("/language", response_model=UserProfile)
+async def update_language(
+    payload: UserLanguageUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == int(current_user["sub"])))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.language_code = payload.language_code
+    await db.commit()
+    await db.refresh(user)
+
+    result = await db.execute(select(func.count(Order.id)).where(Order.user_id == user.id))
+    orders_count = result.scalar() or 0
+
+    result = await db.execute(
+        select(func.sum(Order.total_amount)).where(
+            Order.user_id == user.id,
+            Order.status == "completed",
+        )
+    )
+    total_spent = result.scalar() or 0.0
+
+    return UserProfile(
+        id=user.id,
+        telegram_id=user.telegram_id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        language_code=user.language_code or "ru",
+        is_admin=user.is_admin,
+        is_blocked=user.is_blocked,
+        balance=user.balance,
+        referral_code=user.referral_code,
+        referral_bonus_earned=user.referral_bonus_earned,
+        created_at=user.created_at,
+        orders_count=orders_count,
+        total_spent=round(total_spent, 2),
+    )
+
+
+@router.patch("/language")
+async def update_language(
+    payload: LanguageUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    language_code = payload.language_code.strip().lower()
+    if language_code not in {"ru", "uz", "en"}:
+        raise HTTPException(status_code=400, detail="Unsupported language")
+    result = await db.execute(select(User).where(User.id == int(current_user["sub"])))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.language_code = language_code
+    await db.commit()
+    return {"language_code": language_code}
 
 @router.get("/balance", response_model=BalanceResponse)
 async def get_balance(
