@@ -33,6 +33,7 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: int
+    language_code: str = "ru"
     is_admin: bool
     is_blocked: bool
     balance: float
@@ -47,6 +48,18 @@ class UserResponse(UserBase):
 class UserProfile(UserResponse):
     orders_count: int
     total_spent: float
+
+
+class UserLanguageUpdate(BaseModel):
+    language_code: str
+
+    @field_validator("language_code")
+    @classmethod
+    def validate_language_code(cls, value: str) -> str:
+        normalized = (value or "").lower()
+        if normalized not in {"ru", "uz", "en"}:
+            raise ValueError("language_code must be one of: ru, uz, en")
+        return normalized
 
 
 # ============= Category =============

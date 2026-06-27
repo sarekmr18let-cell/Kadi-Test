@@ -63,6 +63,7 @@ async def get_profile_for_bot(telegram_id: int, db: AsyncSession = Depends(get_d
         username=user.username,
         first_name=user.first_name,
         last_name=user.last_name,
+        language_code=user.language_code or "ru",
         is_admin=user.is_admin,
         is_blocked=user.is_blocked,
         balance=user.balance,

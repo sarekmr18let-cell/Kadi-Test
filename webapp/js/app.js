@@ -53,7 +53,7 @@ function initLanguageSwitcher() {
                 e.stopPropagation();
                 const lang = option.dataset.lang;
                 if (!lang) return;
-                window.I18N?.setLang(lang);
+                window.I18N?.setLang(lang, { source: 'user' });
                 setCurrentLabel(lang);
                 closeMenu();
             });
@@ -63,10 +63,14 @@ function initLanguageSwitcher() {
     }
 
     if (selector) {
-        selector.addEventListener('change', (e) => window.I18N?.setLang(e.target.value));
+        selector.addEventListener('change', (e) => window.I18N?.setLang(e.target.value, { source: 'user' }));
     }
 
-    window.addEventListener('languageChanged', () => {
+    window.addEventListener('languageChanged', (event) => {
+        const lang = event.detail?.lang || getCurrentLang();
+        if (event.detail?.source === 'user') {
+            saveSelectedLanguage(lang).catch(() => {});
+        }
         setCurrentLabel();
         applyTranslations(document);
         refreshCurrentPageText();
@@ -101,6 +105,8 @@ const state = {
     currentPage: 'home',
     telegramUser: null,
     isPlacingOrder: false,
+    authReady: false,
+    pendingLanguageSave: null,
 };
 
 // Safe localStorage initialization
@@ -202,6 +208,38 @@ async function api(method, path, body = null) {
     }
 }
 
+function applyLanguageFromProfile(profile) {
+    const lang = profile?.language_code;
+    if (!lang || !window.I18N?.setLang) return;
+    window.I18N.setLang(lang, { source: 'profile', silent: true });
+    applyTranslations(document);
+    window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang, source: 'profile' } }));
+}
+
+async function saveSelectedLanguage(lang) {
+    if (!lang) return;
+    if (!state.token || !state.authReady) {
+        state.pendingLanguageSave = lang;
+        return;
+    }
+
+    try {
+        const profile = await api('PATCH', '/users/language', { language_code: lang });
+        state.user = { ...(state.user || {}), ...(profile || {}), language_code: lang };
+        state.pendingLanguageSave = null;
+    } catch (error) {
+        console.error('Failed to save language preference:', error);
+        showToast('error', tr('request_failed'));
+        throw error;
+    }
+}
+
+async function flushPendingLanguageSave() {
+    if (!state.pendingLanguageSave || !state.token || !state.authReady) return;
+    const lang = state.pendingLanguageSave;
+    await saveSelectedLanguage(lang);
+}
+
 // ===== Auth =====
 async function authenticate() {
     if (!tg?.initData) {
@@ -217,13 +255,17 @@ async function authenticate() {
         
         if (result) {
             state.token = result.access_token;
+            state.authReady = false;
             safeSet('access_token', result.access_token);
             safeSet('refresh_token', result.refresh_token);
             
             // Get user profile
             const profile = await api('GET', '/auth/me');
             state.user = profile;
-    applyTelegramAvatarPhoto(profile);
+            applyLanguageFromProfile(profile);
+            state.authReady = true;
+            await flushPendingLanguageSave();
+    applyTelegramAvatarPhoto(state.user);
             
             // Show admin button if admin
             if (profile?.is_admin) {
@@ -2000,6 +2042,7 @@ function clearAuth() {
     safeRemove('refresh_token');
     state.token = null;
     state.user = null;
+    state.authReady = false;
 }
 
 function updateCartBadge() {

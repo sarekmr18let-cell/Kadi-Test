@@ -208,13 +208,17 @@
     if (selector && selector.value !== getLang()) selector.value = getLang();
   }
 
-  function setLang(lang) {
+  function setLang(lang, options = {}) {
     const next = normalize(lang);
     try {
       localStorage.setItem('app_language', next);
     } catch (_) {}
     apply(document);
-    window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang: next } }));
+    if (!options.silent) {
+      window.dispatchEvent(new CustomEvent('languageChanged', {
+        detail: { lang: next, source: options.source || 'manual' },
+      }));
+    }
   }
 
 
