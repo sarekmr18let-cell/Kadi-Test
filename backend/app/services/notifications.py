@@ -28,7 +28,120 @@ def escape_html(text):
     )
 
 
-def send_telegram_message_sync(chat_id: int, text: str, reply_markup: dict = None):
+def _normalize_lang(code: str | None) -> str:
+    normalized = (code or "").lower()
+    if normalized in {"ru", "uz", "en"}:
+        return normalized
+    return "ru"
+
+
+def _as_tashkent_datetime(value):
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+
+    if value is None:
+        return ""
+    if getattr(value, "tzinfo", None) is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(ZoneInfo("Asia/Tashkent")).strftime("%d.%m.%Y, %H:%M")
+
+
+def _localized_completed_text(lang: str) -> dict[str, str]:
+    normalized = _normalize_lang(lang)
+    texts = {
+        "ru": {
+            "delivered": "✅ Заказ #{order_number} доставлен!",
+            "completed": "Заказ выполнен.",
+            "admin_title": "🔔 Обновление заказа",
+            "admin_user": "Пользователь:",
+        },
+        "uz": {
+            "delivered": "✅ Buyurtma #{order_number} yetkazildi!",
+            "completed": "Buyurtma bajarildi.",
+            "admin_title": "🔔 Buyurtma yangilanishi",
+            "admin_user": "Foydalanuvchi:",
+        },
+        "en": {
+            "delivered": "✅ Order #{order_number} delivered!",
+            "completed": "Order completed.",
+            "admin_title": "🔔 Order Update",
+            "admin_user": "User:",
+        },
+    }
+    return texts[normalized]
+
+
+def _variation_product_name(item) -> str:
+    variation = getattr(item, "variation", None)
+    product = getattr(variation, "product", None)
+    return getattr(product, "name", None) or ""
+
+
+def _variation_name(item) -> str:
+    variation = getattr(item, "variation", None)
+    return getattr(variation, "name", None) or ""
+
+
+def _order_region(order) -> str:
+    return getattr(order, "target_region_label", None) or getattr(order, "target_region", None) or ""
+
+
+def _order_recipient(order) -> str:
+    verified = getattr(order, "verified_target_name", None)
+    if verified:
+        return str(verified)
+    target_id = getattr(order, "target_id", None) or ""
+    target_server = getattr(order, "target_server", None) or ""
+    if target_id and target_server:
+        return f"{target_id} ({target_server})"
+    return str(target_id or target_server or "")
+
+
+def build_completed_order_message(order, user) -> str:
+    lang = _normalize_lang(getattr(user, "language_code", None))
+    text = _localized_completed_text(lang)
+    order_number = escape_html(getattr(order, "order_number", ""))
+    completed_at = _as_tashkent_datetime(getattr(order, "updated_at", None) or getattr(order, "created_at", None))
+    items = list(getattr(order, "items", None) or [])
+    product_name = _variation_product_name(items[0]) if items else ""
+    region = _order_region(order)
+    recipient = _order_recipient(order)
+
+    lines = [
+        text["delivered"].format(order_number=order_number),
+        "",
+        f"📅 {escape_html(completed_at)}",
+    ]
+
+    product_line = escape_html(product_name)
+    if region:
+        product_line = f"{product_line} · {escape_html(region)}" if product_line else escape_html(region)
+    if product_line:
+        lines.append(f"📂 {product_line}")
+
+    for item in items:
+        package = escape_html(_variation_name(item))
+        quantity = int(getattr(item, "quantity", 1) or 1)
+        if quantity > 1:
+            package = f"{package} ×{quantity}"
+        lines.append(f"📦 {package}")
+
+    if recipient:
+        lines.append(f"👤 {escape_html(recipient)}")
+
+    lines.extend(["", text["completed"]])
+    return "\n".join(lines)
+
+
+def build_completed_admin_message(order, user, user_message: str) -> str:
+    lang = _normalize_lang(getattr(user, "language_code", None))
+    text = _localized_completed_text(lang)
+    username = getattr(user, "username", None)
+    user_label = f"@{escape_html(username)}" if username else escape_html(getattr(user, "telegram_id", ""))
+    return f"{text['admin_title']}\n\n{user_message}\n\n{text['admin_user']} {user_label}"
+
+
+def send_telegram_message_sync(chat_id: int, text: str, reply_markup: dict = None) -> bool:
     """Send message via Telegram Bot API (sync version for Celery)."""
     url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
     payload = {
@@ -42,54 +155,92 @@ def send_telegram_message_sync(chat_id: int, text: str, reply_markup: dict = Non
     try:
         response = httpx.post(url, json=payload, timeout=30.0)
         response.raise_for_status()
+        return True
     except Exception as e:
         logger.error(f"Failed to send Telegram message to {chat_id}: {e}")
+        return False
+
+
+def _notification_redis_client():
+    import redis
+
+    return redis.Redis.from_url(settings.REDIS_URL)
+
+
+def _completed_notification_lock(redis_client, order_id: int):
+    return redis_client.lock(
+        f"lock:order_completed_notification:{order_id}",
+        timeout=120,
+        blocking=False,
+        thread_local=False,
+    )
 
 
 @shared_task
 def send_order_notification(order_id: int, status: str):
-    """Send order status notification to user and admin."""
-    from app.models.models import Order, User
+    """Send final completed notification only; intermediate statuses are disabled."""
+    if status != "completed":
+        return {"status": "disabled", "order_id": order_id, "notification_status": status}
+
+    from app.models.models import Order, User, OrderItem, ProductVariation, Product
     from sqlalchemy import select
+    from sqlalchemy.orm import joinedload
 
-    with SyncSessionLocal() as db:
-        result = db.execute(select(Order).where(Order.id == order_id))
-        order = result.scalar_one_or_none()
-        if not order:
-            return
+    redis_client = _notification_redis_client()
+    lock = _completed_notification_lock(redis_client, order_id)
+    if not lock.acquire(blocking=False):
+        return {"status": "duplicate", "order_id": order_id}
 
-        result = db.execute(select(User).where(User.id == order.user_id))
-        user = result.scalar_one_or_none()
-        if not user:
-            return
+    marker_key = f"sent:order_completed_notification:{order_id}"
+    marker_ttl_seconds = 90 * 24 * 60 * 60
 
-        # Status messages
-        status_messages = {
-            "created": "🛒 <b>New Order</b>\nYour order has been created.",
-            "awaiting_payment": "⏳ <b>Awaiting Payment</b>\nPlease complete your payment.",
-            "paid": "✅ <b>Payment Received</b>\nYour order is being processed.",
-            "processing": "🔄 <b>Processing</b>\nYour order is being fulfilled.",
-            "completed": "🎉 <b>Order Completed!</b>\nYour items have been delivered.",
-            "cancelled": "❌ <b>Order Cancelled</b>\nYour order has been cancelled.",
-            "refunded": "💰 <b>Refunded</b>\nYour payment has been refunded.",
-        }
+    try:
+        if redis_client.exists(marker_key):
+            return {"status": "duplicate", "order_id": order_id}
 
-        message = status_messages.get(status, f"📦 Order status: {status}")
-        message += f"\n\n<b>Order #</b>{escape_html(order.order_number)}"
-        message += f"\n<b>Amount:</b> {escape_html(order.total_amount)} {escape_html(order.currency)}"
+        with SyncSessionLocal() as db:
+            result = db.execute(
+                select(Order)
+                .options(
+                    joinedload(Order.items)
+                    .joinedload(OrderItem.variation)
+                    .joinedload(ProductVariation.product)
+                )
+                .where(Order.id == order_id)
+            )
+            order = result.unique().scalar_one_or_none()
+            if not order:
+                return {"status": "not_found", "order_id": order_id}
 
-        # Send to user
-        send_telegram_message_sync(user.telegram_id, message)
+            result = db.execute(select(User).where(User.id == order.user_id))
+            user = result.scalar_one_or_none()
+            if not user:
+                return {"status": "user_not_found", "order_id": order_id}
 
-        # Send to admin
-        admin_tg_id = settings.ADMIN_TG_ID
-        if admin_tg_id and str(admin_tg_id).strip():
-            try:
-                admin_tg_id_int = int(str(admin_tg_id).strip())
-                admin_message = f"🔔 <b>Order Update</b>\n\n{message}\n\nUser: @{escape_html(user.username) or escape_html(user.telegram_id)}"
-                send_telegram_message_sync(admin_tg_id_int, admin_message)
-            except ValueError:
-                logger.error(f"Invalid ADMIN_TG_ID value: {admin_tg_id!r}")
+            user_message = build_completed_order_message(order, user)
+            user_sent = send_telegram_message_sync(user.telegram_id, user_message)
+            if not user_sent:
+                return {"status": "send_failed", "order_id": order_id}
+
+            redis_client.set(marker_key, "1", ex=marker_ttl_seconds)
+
+            admin_sent = False
+            admin_tg_id = settings.ADMIN_TG_ID
+            if admin_tg_id and str(admin_tg_id).strip():
+                try:
+                    admin_tg_id_int = int(str(admin_tg_id).strip())
+                    admin_message = build_completed_admin_message(order, user, user_message)
+                    admin_sent = send_telegram_message_sync(admin_tg_id_int, admin_message)
+                except ValueError:
+                    logger.error(f"Invalid ADMIN_TG_ID value: {admin_tg_id!r}")
+
+            return {"status": "sent", "order_id": order_id, "user_sent": user_sent, "admin_sent": admin_sent}
+    finally:
+        try:
+            if lock.owned():
+                lock.release()
+        except Exception:
+            logger.exception("Failed to release completed notification lock")
 
 
 @shared_task
