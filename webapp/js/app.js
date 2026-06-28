@@ -3421,71 +3421,123 @@ function getVariationCostMetrics(variation = {}) {
     };
 }
 
+function normalizeAdminNumber(raw, options = {}) {
+    try {
+        return window.AdminCatalogUtils.normalizeAdminNumber(raw, options);
+    } catch (error) {
+        throw new Error(tr(error.message || 'admin_invalid_number'));
+    }
+}
+
+function getAdminProductPriceRange(product = {}) {
+    return window.AdminCatalogUtils.getAdminProductPriceRange(product, {
+        formatMoney,
+        noActiveText: tr('admin_no_active_variation_prices'),
+    });
+}
+function adminProviderLabel(item = {}) {
+    const provider = String(item.provider || '').toLowerCase();
+    if (provider === 'gamedrops') return 'GameDrops';
+    if (provider === 'moogold') return 'MooGold';
+    return item.provider || 'KADI';
+}
+
+function getAdminVariationRegion(v = {}) {
+    return window.AdminCatalogUtils.getAdminVariationRegion(v);
+}
+
+function getAdminRegionTabs(product = {}) {
+    return window.AdminCatalogUtils.buildRegionTabs(product, tr('all'));
+}
+
+function adminVariationMatchesRegion(v, region) {
+    return window.AdminCatalogUtils.variationMatchesRegion(v, region);
+}
+
+function renderAdminCategories(products) {
+    const q = String(document.getElementById('admin-catalog-search')?.value || '').trim().toLowerCase();
+    const realCategories = (state.adminCategories || []);
+    const hasUncategorized = products.some(p => !(p.category_id || p.category?.id));
+    const categories = [...realCategories, ...(hasUncategorized ? [{ id: '__none__', name: tr('admin_uncategorized'), slug: '', icon: '📦', is_active: true }] : [])]
+        .filter(c => !q || `${c.name} ${c.slug}`.toLowerCase().includes(q));
+    return categories.map(c => {
+        const categoryProducts = c.id === '__none__' ? products.filter(p => !(p.category_id || p.category?.id)) : products.filter(p => Number(p.category_id || p.category?.id) === Number(c.id));
+        return `<div class="admin-catalog-row" onclick="selectAdminCategory('${c.id}')">
+            <div class="admin-catalog-main"><strong>${escapeHtml(c.icon || '📁')} ${escapeHtml(c.name)}</strong><span>${escapeHtml(c.slug || '')}</span></div>
+            <div class="admin-catalog-meta"><b>${categoryProducts.length}</b><span>${tr('admin_products_count')}</span></div>
+            <div class="status ${c.is_active ? 'status-completed' : 'status-cancelled'}">${c.is_active ? tr('active') : tr('disabled')}</div>
+            ${c.id === '__none__' ? '' : `<div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showCategoryModal('${c.id}')">${tr('edit')}</button><button onclick="disableCategory('${c.id}')">${tr('disable')}</button></div>`}
+        </div>`;
+    }).join('') || `<div class="empty-state">${tr('admin_no_categories')}</div>`;
+}
+
+function renderAdminProducts(products) {
+    const categoryId = state.adminCatalogCategoryId;
+    const q = String(document.getElementById('admin-catalog-search')?.value || '').trim().toLowerCase();
+    const category = categoryId === '__none__' ? { name: tr('admin_uncategorized') } : (state.adminCategories || []).find(c => Number(c.id) === Number(categoryId));
+    const rows = products.filter(p => categoryId === '__none__' ? !(p.category_id || p.category?.id) : Number(p.category_id || p.category?.id) === Number(categoryId))
+        .filter(p => !q || `${p.name} ${p.description || ''}`.toLowerCase().includes(q));
+    return `<div class="admin-catalog-toolbar"><button class="btn-secondary" onclick="selectAdminCategory(null)">← ${tr('admin_back_categories')}</button><strong>${escapeHtml(category?.name || '')}</strong></div>
+        ${rows.map(p => `<div class="admin-catalog-row" onclick="selectAdminProduct(${p.id})">
+            <div class="admin-catalog-main"><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(adminProviderLabel(p))} • ${tr('admin_variations')}: ${(p.variations || []).length}</span></div>
+            <div class="admin-catalog-meta"><b>${escapeHtml(getAdminProductPriceRange(p))}</b><span>${escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label)}</span></div>
+            <div class="status ${p.is_active ? 'status-completed' : 'status-cancelled'}">${p.is_active ? tr('active') : tr('disabled')}</div>
+            <div class="inline-actions" onclick="event.stopPropagation()"><button onclick="showProductModal(${p.id})">${tr('edit')}</button><button onclick="showVariationModal(${p.id})">+ ${tr('admin_variation')}</button><button onclick="deleteProduct(${p.id})">${tr('disable')}</button></div>
+        </div>`).join('') || `<div class="empty-state">${tr('no_products')}</div>`}`;
+}
+
+function renderAdminProductDetail(products) {
+    const product = products.find(p => Number(p.id) === Number(state.adminCatalogProductId));
+    if (!product) return renderAdminProducts(products);
+    const region = state.adminVariationRegion || 'all';
+    const variations = [...(product.variations || [])].filter(v => adminVariationMatchesRegion(v, region)).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
+    return `<div class="admin-catalog-toolbar"><button class="btn-secondary" onclick="selectAdminProduct(null)">← ${tr('admin_back_products')}</button><strong>${escapeHtml(product.name)}</strong></div>
+        <div class="admin-product-summary"><div>${escapeHtml(product.description || '')}</div><div>${escapeHtml(adminProviderLabel(product))} • ${escapeHtml(product.category?.name || '')}</div></div>
+        ${getAdminRegionTabs(product).length ? `<div class="variation-group-tabs admin-region-tabs">
+            ${getAdminRegionTabs(product).map(r => `<button type="button" class="variation-group-chip ${region === r.code ? 'selected' : ''}" onclick="setAdminVariationRegion('${escapeHtml(r.code)}')">${escapeHtml(r.label)}</button>`).join('')}
+        </div>` : ''}
+        <div class="admin-variation-list">${variations.map(v => renderAdminVariationRow(product, v)).join('') || `<div class="empty-state">${tr('admin_no_variations')}</div>`}</div>
+        <div class="actions"><button onclick="showVariationModal(${product.id})">+ ${tr('admin_add_variation')}</button><button onclick="showProductModal(${product.id})">${tr('admin_edit_product')}</button></div>`;
+}
+
+function renderAdminVariationRow(product, v) {
+    const metrics = getVariationCostMetrics(v);
+    const provider = adminProviderLabel(v.provider ? v : product);
+    const providerPrice = v.provider_price !== null && v.provider_price !== undefined ? `${Number(v.provider_price).toLocaleString('ru-RU', { maximumFractionDigits: 4 })} ${escapeHtml(v.provider_currency || '')}` : '—';
+    return `<div class="admin-variation-row admin-variation-card">
+        ${v.image_url ? `<img src="${escapeHtml(v.image_url)}" alt="">` : ''}
+        <div class="admin-catalog-main"><strong>${escapeHtml(v.name)}</strong><span>${tr('admin_region')}: ${escapeHtml(getAdminVariationRegion(v))} • ${escapeHtml(v.stock_status)}</span><span>${provider} ID: ${escapeHtml(v.provider_variation_id || v.moogold_variation_id || '-')}</span></div>
+        <div class="admin-variation-prices"><b>${formatMoney(v.price, 'UZS')}</b><span>${tr('admin_provider_price')}: ${providerPrice}</span><span>${tr('admin_cost_price')}: ${metrics.costText}</span><span>${tr('admin_profit')}: ${metrics.profitText} • ${tr('admin_margin')}: ${metrics.marginText}</span><span>${provider} • ${v.is_active ? tr('active') : tr('disabled')}</span></div>
+        <div class="inline-actions"><button onclick="showVariationModal(${product.id}, ${v.id})">${tr('edit')}</button><button onclick="deleteVariation(${v.id})">${tr('disable')}</button></div>
+    </div>`;
+}
+
+function selectAdminCategory(id) { state.adminCatalogCategoryId = id; state.adminCatalogProductId = null; renderAdminCatalog(); }
+function selectAdminProduct(id) { state.adminCatalogProductId = id; state.adminVariationRegion = 'all'; renderAdminCatalog(); }
+function setAdminVariationRegion(region) { state.adminVariationRegion = region; renderAdminCatalog(); }
+function renderAdminCatalog() {
+    const container = document.getElementById('admin-products-list');
+    if (!container) return;
+    const products = state.adminProducts || [];
+    if (state.adminCatalogProductId) container.innerHTML = renderAdminProductDetail(products);
+    else if (state.adminCatalogCategoryId) container.innerHTML = renderAdminProducts(products);
+    else container.innerHTML = renderAdminCategories(products);
+}
+
 async function loadAdminProducts() {
     try {
-        const [products, categories] = await Promise.all([
-            api('GET', '/admin/products'),
-            api('GET', '/admin/categories'),
-        ]);
+        const [products, categories] = await Promise.all([api('GET', '/admin/products'), api('GET', '/admin/categories')]);
         state.adminProducts = products || [];
         state.adminCategories = categories || [];
         const container = document.getElementById('admin-products-list');
-
-        container.innerHTML = state.adminProducts?.map(p => `
-            <div class="admin-order-item">
-                <div class="header">
-                    <div>
-                        <strong>${escapeHtml(p.name)}</strong>
-                        <div style="font-size: 12px; color: var(--text-muted);">
-                            ${escapeHtml(p.category?.name || 'No category')} • Product MooGold ID: ${escapeHtml(p.moogold_id || '-')}<br>
-                            Status: ${escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label)}<br>
-                            Requirements: ${p.requires_target_id ? escapeHtml(p.target_id_label || 'ID') : 'no ID'}${p.requires_server_id ? ' • ' + escapeHtml(p.target_server_label || 'Server') : ''}${p.requires_region ? ' • ' + escapeHtml(p.target_region_label || 'Регион') : ''}
-                        </div>
-                    </div>
-                    <div class="status ${p.is_active ? 'status-completed' : 'status-cancelled'}">${p.is_active ? escapeHtml(getAvailabilityUi(getProductAvailabilityStatus(p)).label) : 'off'}</div>
-                </div>
-                ${p.description ? `<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">${escapeHtml(p.description)}</div>` : ''}
-                <div class="admin-variation-list">
-                    ${[...(p.variations || [])].sort((a, b) => {
-                        const sortDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
-                        if (sortDiff !== 0) return sortDiff;
-                        return Number(a.id || 0) - Number(b.id || 0) || String(a.name || '').localeCompare(String(b.name || ''));
-                    }).map(v => {
-                        const metrics = getVariationCostMetrics(v);
-                        return `
-                        <div class="admin-variation-row">
-                            ${v.image_url ? `<img src="${escapeHtml(v.image_url)}" alt="" style="width: 38px; height: 38px; object-fit: contain; border-radius: 10px; background: rgba(255,255,255,0.06); flex: 0 0 auto;">` : ''}
-                            <div>
-                                <strong>${escapeHtml(v.name)}</strong>
-                                <div style="font-size: 12px; color: var(--text-muted);">
-                                    ${escapeHtml(v.stock_status)} • Sort: ${escapeHtml(v.sort_order ?? 0)} • MooGold variation: ${escapeHtml(v.moogold_variation_id || '-')}
-                                </div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="color: var(--neon-green);">Sell price: ${formatMoney(v.price, 'UZS')}</div>
-                                <div style="font-size: 12px; color: var(--text-muted); line-height: 1.45;">
-                                    Cost: ${metrics.costText}<br>
-                                    Profit: ${metrics.profitText}<br>
-                                    Margin: ${metrics.marginText}
-                                </div>
-                                <div class="inline-actions">
-                                    <button onclick="showVariationModal(${p.id}, ${v.id})">Edit</button>
-                                    <button onclick="deleteVariation(${v.id})">Off</button>
-                                </div>
-                            </div>
-                        </div>`;
-                    }).join('') || '<div style="color: var(--text-muted); font-size: 13px;">No variations yet. Add 86/172/257 etc.</div>'}
-                </div>
-                <div class="actions">
-                    <button onclick="showProductModal(${p.id})">Edit Product</button>
-                    <button onclick="showVariationModal(${p.id})">+ Variation</button>
-                    <button style="color: var(--neon-red);" onclick="deleteProduct(${p.id})">Disable</button>
-                </div>
-            </div>
-        `).join('') || '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No products</div>';
+        if (!document.getElementById('admin-catalog-search')) {
+            container.insertAdjacentHTML('beforebegin', `<input type="search" id="admin-catalog-search" class="admin-catalog-search" placeholder="${escapeHtml(tr('admin_catalog_search'))}">`);
+            document.getElementById('admin-catalog-search')?.addEventListener('input', renderAdminCatalog);
+        }
+        renderAdminCatalog();
     } catch (error) {
         console.error('Admin products error:', error);
-        showToast('error', 'Failed to load products');
+        showToast('error', tr('admin_load_products_failed'));
     }
 }
 
@@ -3516,25 +3568,29 @@ function parseРегионOptionsFromLines(text) {
         .filter(r => r.code && r.label);
 }
 
-function showAddCategoryModal() {
+function showAddCategoryModal() { showCategoryModal(); }
+
+function showCategoryModal(categoryId = null) {
+    const category = categoryId && categoryId !== '__none__' ? (state.adminCategories || []).find(c => Number(c.id) === Number(categoryId)) : null;
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
         <div class="modal-sheet">
             <div class="modal-header">
-                <h2>📁 Add Category</h2>
+                <h2>${category ? tr('admin_edit_category') : tr('admin_add_category')}</h2>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="form-section admin-form">
-                <label>Name</label>
-                <input id="cat-name" placeholder="Mobile Legends" />
-                <label>Slug</label>
-                <input id="cat-slug" placeholder="mobile-legends" />
-                <label>Icon</label>
-                <input id="cat-icon" placeholder="🎮" />
-                <label>Sort order</label>
-                <input id="cat-sort" inputmode="numeric" value="0" />
-                <button class="btn-primary" id="save-category-btn">Save Category</button>
+                <div id="category-error" class="modal-error hidden"></div>
+                <label>${tr('name')}</label>
+                <input id="cat-name" placeholder="Mobile Legends" value="${escapeHtml(category?.name || '')}" />
+                <label>${tr('slug')}</label>
+                <input id="cat-slug" placeholder="mobile-legends" value="${escapeHtml(category?.slug || '')}" />
+                <label>${tr('icon')}</label>
+                <input id="cat-icon" placeholder="🎮" value="${escapeHtml(category?.icon || '')}" />
+                <label>${tr('admin_sort_order')}</label>
+                <input id="cat-sort" inputmode="numeric" value="${escapeHtml(category?.sort_order ?? 0)}" />
+                <button class="btn-primary" id="save-category-btn">${tr('save')}</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3543,23 +3599,38 @@ function showAddCategoryModal() {
         const slug = e.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         if (!document.getElementById('cat-slug').value) document.getElementById('cat-slug').value = slug;
     });
-    modal.querySelector('#save-category-btn').addEventListener('click', saveCategory);
+    modal.querySelector('#save-category-btn').addEventListener('click', () => saveCategory(category?.id || null));
 }
 
-async function saveCategory() {
+async function saveCategory(categoryId = null) {
+    const errorBox = document.getElementById('category-error');
     try {
+        if (errorBox) { errorBox.textContent = ''; errorBox.classList.add('hidden'); }
         const payload = {
             name: document.getElementById('cat-name').value.trim(),
             slug: document.getElementById('cat-slug').value.trim(),
             icon: document.getElementById('cat-icon').value.trim() || null,
-            sort_order: Number(document.getElementById('cat-sort').value || 0),
+            sort_order: normalizeAdminNumber(document.getElementById('cat-sort').value || 0, { min: 0 }),
         };
-        await api('POST', '/admin/categories', payload);
+        await api(categoryId ? 'PUT' : 'POST', categoryId ? `/admin/categories/${categoryId}` : '/admin/categories', payload);
         closeModal();
-        showToast('success', 'Category saved');
+        showToast('success', tr('admin_category_saved'));
         loadAdminProducts();
     } catch (error) {
-        showToast('error', error.message || 'Failed to save category');
+        if (errorBox) { errorBox.textContent = error.message || tr('admin_save_failed'); errorBox.classList.remove('hidden'); }
+        showToast('error', error.message || tr('admin_save_failed'));
+    }
+}
+
+async function disableCategory(categoryId) {
+    if (categoryId === '__none__') return;
+    if (!confirm(tr('admin_disable_category_confirm'))) return;
+    try {
+        await api('DELETE', `/admin/categories/${categoryId}`);
+        showToast('success', tr('admin_category_disabled'));
+        loadAdminProducts();
+    } catch (error) {
+        showToast('error', error.message || tr('admin_disable_category_failed'));
     }
 }
 
@@ -3570,51 +3641,51 @@ function showProductModal(productId = null) {
     modal.innerHTML = `
         <div class="modal-sheet">
             <div class="modal-header">
-                <h2>${product ? '✏️ Edit Product' : '➕ Add Product'}</h2>
+                <h2>${product ? tr('admin_edit_product') : tr('admin_add_product')}</h2>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="form-section admin-form">
-                <label>Name</label>
+                <label>${tr('name')}</label>
                 <input id="product-name" placeholder="Mobile Legends" value="${escapeHtml(product?.name || '')}" />
-                <label>Category</label>
+                <label>${tr('admin_category')}</label>
                 <select id="product-category">${categoryOptions(product?.category_id)}</select>
-                <label>Description</label>
-                <textarea id="product-description" placeholder="Short product description">${escapeHtml(product?.description || '')}</textarea>
-                <label>Image URL</label>
-                <div class="admin-image-url-row"><input id="product-image" placeholder="/uploads/..." value="${escapeHtml(product?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-product-media-btn">Choose from Media</button></div>
+                <label>${tr('admin_description')}</label>
+                <textarea id="product-description" placeholder="${tr('admin_description_placeholder')}">${escapeHtml(product?.description || '')}</textarea>
+                <label>${tr('admin_image_url')}</label>
+                <div class="admin-image-url-row"><input id="product-image" placeholder="/uploads/..." value="${escapeHtml(product?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-product-media-btn">${tr('admin_choose_from_media')}</button></div>
                 <div id="product-image-preview" class="admin-image-preview"></div>
-                <label>Product status</label>
+                <label>${tr('admin_product_status')}</label>
                 <select id="product-availability-status">
-                    <option value="available" ${getProductAvailabilityStatus(product) === 'available' ? 'selected' : ''}>Available</option>
-                    <option value="coming_soon" ${getProductAvailabilityStatus(product) === 'coming_soon' ? 'selected' : ''}>Coming soon</option>
-                    <option value="maintenance" ${getProductAvailabilityStatus(product) === 'maintenance' ? 'selected' : ''}>Maintenance</option>
-                    <option value="hidden" ${getProductAvailabilityStatus(product) === 'hidden' ? 'selected' : ''}>Hidden</option>
+                    <option value="available" ${getProductAvailabilityStatus(product) === 'available' ? 'selected' : ''}>${tr('admin_status_available')}</option>
+                    <option value="coming_soon" ${getProductAvailabilityStatus(product) === 'coming_soon' ? 'selected' : ''}>${tr('admin_status_coming_soon')}</option>
+                    <option value="maintenance" ${getProductAvailabilityStatus(product) === 'maintenance' ? 'selected' : ''}>${tr('admin_status_maintenance')}</option>
+                    <option value="hidden" ${getProductAvailabilityStatus(product) === 'hidden' ? 'selected' : ''}>${tr('admin_status_hidden')}</option>
                 </select>
-                <label>MooGold Product ID</label>
-                <input id="product-moogold" inputmode="numeric" placeholder="Optional" value="${escapeHtml(product?.moogold_id || '')}" />
+                <label>${tr('admin_provider_product_id')}</label>
+                <input id="product-moogold" inputmode="numeric" placeholder="${tr('optional')}" value="${escapeHtml(product?.moogold_id || '')}" />
 
-                <label>Account type</label>
+                <label>${tr('admin_account_type')}</label>
                 <select id="product-target-type">
-                    <option value="game_id" ${product?.target_type === 'game_id' ? 'selected' : ''}>Game / User ID</option>
-                    <option value="telegram_username" ${product?.target_type === 'telegram_username' ? 'selected' : ''}>Telegram username</option>
-                    <option value="none" ${product?.target_type === 'none' ? 'selected' : ''}>No account data</option>
+                    <option value="game_id" ${product?.target_type === 'game_id' ? 'selected' : ''}>${tr('admin_account_game_id')}</option>
+                    <option value="telegram_username" ${product?.target_type === 'telegram_username' ? 'selected' : ''}>${tr('admin_account_telegram')}</option>
+                    <option value="none" ${product?.target_type === 'none' ? 'selected' : ''}>${tr('admin_account_none')}</option>
                 </select>
-                <label class="checkbox-row"><input type="checkbox" id="product-req-target" ${product?.requires_target_id !== false ? 'checked' : ''}> Requires player/user ID</label>
-                <input id="product-target-label" placeholder="ID игрока / Telegram username" value="${escapeHtml(product?.target_id_label || 'ID игрока / аккаунта')}" />
-                <label class="checkbox-row"><input type="checkbox" id="product-req-server" ${product?.requires_server_id ? 'checked' : ''}> Requires server ID</label>
-                <input id="product-server-label" placeholder="ID сервера" value="${escapeHtml(product?.target_server_label || 'Server ID')}" />
-                <label class="checkbox-row"><input type="checkbox" id="product-req-region" ${product?.requires_region ? 'checked' : ''}> Requires region</label>
-                <input id="product-region-label" placeholder="Регион" value="${escapeHtml(product?.target_region_label || 'Регион')}" />
-                <label>Регион options, one per line: code=label</label>
+                <label class="checkbox-row"><input type="checkbox" id="product-req-target" ${product?.requires_target_id !== false ? 'checked' : ''}> ${tr('admin_requires_target')}</label>
+                <input id="product-target-label" placeholder="${tr('admin_target_placeholder')}" value="${escapeHtml(product?.target_id_label || tr('admin_default_target_label'))}" />
+                <label class="checkbox-row"><input type="checkbox" id="product-req-server" ${product?.requires_server_id ? 'checked' : ''}> ${tr('admin_requires_server')}</label>
+                <input id="product-server-label" placeholder="${tr('admin_server_placeholder')}" value="${escapeHtml(product?.target_server_label || tr('admin_default_server_label'))}" />
+                <label class="checkbox-row"><input type="checkbox" id="product-req-region" ${product?.requires_region ? 'checked' : ''}> ${tr('admin_requires_region')}</label>
+                <input id="product-region-label" placeholder="${tr('admin_region_placeholder')}" value="${escapeHtml(product?.target_region_label || tr('admin_region'))}" />
+                <label>${tr('admin_region_options')}</label>
                 <textarea id="product-region-options" placeholder="uz_global=🇺🇿 UZB / 🌐 Global
 uz_ph=🇺🇿 UZB / 🇵🇭 PH
 ru=🇷🇺 RU">${escapeHtml(regionOptionsToLines(product?.region_options || []))}</textarea>
-                <label>Input help text</label>
-                <textarea id="product-help" placeholder="Например: проверьте ID и сервер перед покупкой">${escapeHtml(product?.input_help_text || '')}</textarea>
+                <label>${tr('admin_input_help_text')}</label>
+                <textarea id="product-help" placeholder="${tr('admin_input_help_placeholder')}">${escapeHtml(product?.input_help_text || '')}</textarea>
 
-                <label>Sort order</label>
+                <label>${tr('admin_sort_order')}</label>
                 <input id="product-sort" inputmode="numeric" value="${escapeHtml(product?.sort_order ?? 0)}" />
-                <button class="btn-primary" id="save-product-btn">Save Product</button>
+                <button class="btn-primary" id="save-product-btn">${tr('admin_save_product')}</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3637,9 +3708,9 @@ async function saveProduct(productId = null) {
             requires_target_id: document.getElementById('product-req-target').checked,
             requires_server_id: document.getElementById('product-req-server').checked,
             requires_region: document.getElementById('product-req-region').checked,
-            target_id_label: document.getElementById('product-target-label').value.trim() || 'ID игрока / аккаунта',
-            target_server_label: document.getElementById('product-server-label').value.trim() || 'Server ID',
-            target_region_label: document.getElementById('product-region-label').value.trim() || 'Регион',
+            target_id_label: document.getElementById('product-target-label').value.trim() || tr('admin_default_target_label'),
+            target_server_label: document.getElementById('product-server-label').value.trim() || tr('admin_default_server_label'),
+            target_region_label: document.getElementById('product-region-label').value.trim() || tr('admin_region'),
             region_options: parseРегионOptionsFromLines(document.getElementById('product-region-options').value),
             input_help_text: document.getElementById('product-help').value.trim() || null,
             sort_order: Number(document.getElementById('product-sort').value || 0),
@@ -3650,10 +3721,10 @@ async function saveProduct(productId = null) {
             await api('POST', '/admin/products', payload);
         }
         closeModal();
-        showToast('success', 'Product saved');
+        showToast('success', tr('admin_product_saved'));
         loadAdminProducts();
     } catch (error) {
-        showToast('error', error.message || 'Failed to save product');
+        showToast('error', error.message || tr('admin_save_product_failed'));
     }
 }
 
@@ -3665,90 +3736,148 @@ function showVariationModal(productId, variationId = null) {
     modal.innerHTML = `
         <div class="modal-sheet">
             <div class="modal-header">
-                <h2>${variation ? '✏️ Edit Variation' : '➕ Add Variation'}</h2>
+                <h2>${variation ? tr('admin_edit_variation') : tr('admin_add_variation')}</h2>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="form-section admin-form">
-                <label>Variation name</label>
+                <div id="variation-error" class="modal-error hidden"></div>
+                <label>${tr('admin_variation_name')}</label>
                 <input id="variation-name" placeholder="86 Diamonds" value="${escapeHtml(variation?.name || '')}" />
-                <label>Price in UZS</label>
+                <label>${tr('admin_sell_price')}</label>
                 <input id="variation-price" inputmode="numeric" placeholder="18000" value="${escapeHtml(variation?.price ?? '')}" />
-                <label>Cost price</label>
+                <label>${tr('admin_cost_price')}</label>
                 <input id="variation-cost-price" inputmode="numeric" placeholder="118000" value="${escapeHtml(variation?.cost_price ?? '')}" />
-                <label>Cost currency</label>
+                <label>${tr('admin_cost_currency')}</label>
                 <select id="variation-cost-currency">
                     ${['UZS', 'USD', 'USDT'].map(currency => `<option value="${currency}" ${String(variation?.cost_currency || 'UZS').toUpperCase() === currency ? 'selected' : ''}>${currency}</option>`).join('')}
                 </select>
-                <label>Stock status</label>
+                <label>${tr('admin_provider')}</label>
+                <select id="variation-provider">
+                    ${['manual', 'gamedrops', 'moogold'].map(provider => `<option value="${provider}" ${String(variation?.provider || product?.provider || 'manual').toLowerCase() === provider ? 'selected' : ''}>${provider === 'gamedrops' ? 'GameDrops' : provider === 'moogold' ? 'MooGold' : tr('admin_provider_manual')}</option>`).join('')}
+                </select>
+                <label>${tr('admin_provider_variation_id')}</label>
+                <input id="variation-provider-id" placeholder="offer_id" value="${escapeHtml(variation?.provider_variation_id || '')}" />
+                <label>${tr('admin_provider_price')}</label>
+                <input id="variation-provider-price" readonly value="${escapeHtml(variation?.provider_price ?? '')}" />
+                <label>${tr('admin_provider_currency')}</label>
+                <input id="variation-provider-currency" readonly value="${escapeHtml(variation?.provider_currency || '')}" />
+                <label>${tr('admin_stock_status')}</label>
                 <select id="variation-stock">
                     <option value="instock" ${variation?.stock_status === 'instock' ? 'selected' : ''}>instock</option>
                     <option value="outofstock" ${variation?.stock_status === 'outofstock' ? 'selected' : ''}>outofstock</option>
                 </select>
-                <label>Image URL</label>
-                <div class="admin-image-url-row"><input id="variation-image" placeholder="/uploads/..." value="${escapeHtml(variation?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-variation-media-btn">Choose from Media</button></div>
+                <label>${tr('admin_image_url')}</label>
+                <div class="admin-image-url-row"><input id="variation-image" placeholder="/uploads/..." value="${escapeHtml(variation?.image_url || '')}" /><button type="button" class="btn-secondary" id="choose-variation-media-btn">${tr('admin_choose_from_media')}</button></div>
                 <div id="variation-image-preview" class="admin-image-preview"></div>
-                <label>Sort order</label>
+                <label>${tr('admin_sort_order')}</label>
                 <input id="variation-sort" inputmode="numeric" value="${escapeHtml(variation?.sort_order ?? 0)}" />
-                <label>MooGold Variation ID</label>
-                <input id="variation-moogold" inputmode="numeric" placeholder="Required for auto delivery" value="${escapeHtml(variation?.moogold_variation_id || '')}" />
+                <label data-provider-field="moogold-label">${tr('admin_legacy_moogold_id')}</label>
+                <input id="variation-moogold" inputmode="numeric" placeholder="${tr('optional')}" value="${escapeHtml(variation?.moogold_variation_id || '')}" />
+                <label>${tr('admin_region')}</label>
+                <input id="variation-region" placeholder="global / ru" value="${escapeHtml(getAdminVariationRegion(variation || {}))}" />
                 ${variation ? `
-                    <label class="checkbox-row"><input type="checkbox" id="variation-active" ${variation.is_active ? 'checked' : ''}> Active</label>
+                    <label class="checkbox-row"><input type="checkbox" id="variation-active" ${variation.is_active ? 'checked' : ''}> ${tr('active')}</label>
                 ` : ''}
-                <button class="btn-primary" id="save-variation-btn">Save Variation</button>
+                <button class="btn-primary" id="save-variation-btn">${tr('save')}</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
     modal.querySelector('.modal-close').addEventListener('click', closeModal);
+    const providerSelect = modal.querySelector('#variation-provider');
+    const moogoldLabel = modal.querySelector('[data-provider-field="moogold-label"]');
+    const moogoldInput = modal.querySelector('#variation-moogold');
+    const syncProviderFields = () => {
+        const isMooGold = String(providerSelect?.value || '').toLowerCase() === 'moogold';
+        if (moogoldLabel) moogoldLabel.classList.toggle('hidden', !isMooGold);
+        if (moogoldInput) moogoldInput.classList.toggle('hidden', !isMooGold);
+    };
+    providerSelect?.addEventListener('change', syncProviderFields);
+    syncProviderFields();
     modal.querySelector('#save-variation-btn').addEventListener('click', () => saveVariation(productId, variation?.id || null));
     modal.querySelector('#choose-variation-media-btn')?.addEventListener('click', async () => { if (!state.adminMedia) await loadAdminMedia(); mediaImagePicker('variation-image'); });
     bindImagePreview('variation-image', 'variation-image-preview');
 }
 
 async function saveVariation(productId, variationId = null) {
+    const btn = document.getElementById('save-variation-btn');
+    const errorBox = document.getElementById('variation-error');
+    if (btn?.disabled) return;
     try {
-        const payload = {
+        if (errorBox) { errorBox.textContent = ''; errorBox.classList.add('hidden'); }
+        const product = (state.adminProducts || []).find(p => Number(p.id) === Number(productId));
+        const original = variationId ? (product?.variations || []).find(v => Number(v.id) === Number(variationId)) : null;
+        const current = {
             name: document.getElementById('variation-name').value.trim(),
-            price: Number(document.getElementById('variation-price').value || 0),
-            cost_price: document.getElementById('variation-cost-price').value ? Number(document.getElementById('variation-cost-price').value) : null,
+            price: normalizeAdminNumber(document.getElementById('variation-price').value, { min: 0.000001 }),
+            cost_price: normalizeAdminNumber(document.getElementById('variation-cost-price').value, { allowEmpty: true, min: 0 }),
             cost_currency: document.getElementById('variation-cost-currency').value || 'UZS',
             stock_status: document.getElementById('variation-stock').value,
             image_url: document.getElementById('variation-image').value.trim() || null,
-            sort_order: Number(document.getElementById('variation-sort').value || 0),
-            moogold_variation_id: document.getElementById('variation-moogold').value ? Number(document.getElementById('variation-moogold').value) : null,
+            sort_order: normalizeAdminNumber(document.getElementById('variation-sort').value || 0, { min: 0 }),
+            provider: document.getElementById('variation-provider')?.value || 'manual',
+            provider_variation_id: document.getElementById('variation-provider-id')?.value.trim() || null,
+            moogold_variation_id: normalizeAdminNumber(document.getElementById('variation-moogold').value, { allowEmpty: true, min: 1 }),
+            region: document.getElementById('variation-region')?.value.trim() || null,
         };
-        if (variationId) {
+        if (!Number.isFinite(current.price) || current.price <= 0 || !Number.isFinite(current.sort_order)) throw new Error(tr('admin_invalid_number'));
+        if (current.provider === 'gamedrops' && !current.provider_variation_id) throw new Error(tr('admin_provider_variation_required'));
+        const productRegions = window.AdminCatalogUtils.getProductRegionOptions(product || {});
+        if ((current.provider === 'gamedrops' || product?.requires_region) && !current.region) throw new Error(tr('admin_region_required'));
+        if (current.region && productRegions.length && !productRegions.some(r => String(r.code) === String(current.region))) throw new Error(tr('admin_region_required'));
+        const payload = variationId ? {} : { ...current };
+        if (variationId && original) {
+            const comparisons = {
+                name: original.name || '',
+                price: Number(original.price),
+                cost_price: original.cost_price === null || original.cost_price === undefined ? null : Number(original.cost_price),
+                cost_currency: original.cost_currency || 'UZS',
+                stock_status: original.stock_status || 'instock',
+                image_url: original.image_url || null,
+                sort_order: Number(original.sort_order || 0),
+                provider: String(original.provider || product?.provider || 'manual').toLowerCase(),
+                provider_variation_id: original.provider_variation_id || null,
+                moogold_variation_id: original.moogold_variation_id || null,
+                region: getAdminVariationRegion(original) || null,
+            };
+            Object.keys(current).forEach(key => {
+                if (current[key] !== comparisons[key]) payload[key] = current[key];
+            });
             payload.is_active = document.getElementById('variation-active')?.checked ?? true;
-            await api('PUT', `/admin/variations/${variationId}`, payload);
-        } else {
-            await api('POST', `/admin/products/${productId}/variations`, payload);
+            if (payload.is_active === (original.is_active ?? true)) delete payload.is_active;
         }
+        btn.disabled = true;
+        btn.textContent = tr('saving');
+        await api(variationId ? 'PATCH' : 'POST', variationId ? `/admin/variations/${variationId}` : `/admin/products/${productId}/variations`, payload);
         closeModal();
-        showToast('success', 'Variation saved');
-        loadAdminProducts();
+        showToast('success', tr('admin_variation_saved'));
+        await loadAdminProducts();
     } catch (error) {
-        showToast('error', error.message || 'Failed to save variation');
+        if (errorBox) { errorBox.textContent = error.message || tr('admin_save_failed'); errorBox.classList.remove('hidden'); }
+        showToast('error', error.message || tr('admin_save_failed'));
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = tr('save'); }
     }
 }
 
 async function deleteVariation(variationId) {
-    if (!confirm('Disable this variation?')) return;
+    if (!confirm(tr('admin_disable_variation_confirm'))) return;
     try {
         await api('DELETE', `/admin/variations/${variationId}`);
-        showToast('success', 'Variation disabled');
+        showToast('success', tr('admin_variation_disabled'));
         loadAdminProducts();
     } catch (error) {
-        showToast('error', 'Failed to disable variation');
+        showToast('error', tr('admin_disable_variation_failed'));
     }
 }
 
 async function deleteProduct(productId) {
-    if (!confirm('Disable this product?')) return;
+    if (!confirm(tr('admin_disable_product_confirm'))) return;
     try {
         await api('DELETE', `/admin/products/${productId}`);
-        showToast('success', 'Product disabled');
+        showToast('success', tr('admin_product_disabled'));
         loadAdminProducts();
     } catch (error) {
-        showToast('error', 'Failed to disable product');
+        showToast('error', tr('admin_disable_product_failed'));
     }
 }
 

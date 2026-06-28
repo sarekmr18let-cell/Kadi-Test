@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 import json
+import math
 import os
 import re
 
@@ -23,7 +24,7 @@ from app.models.models import (
 )
 from app.schemas.schemas import (
     DashboardStats, OrderResponse,
-    ProductCreate, ProductResponse, CategoryCreate, CategoryResponse,
+    ProductCreate, ProductResponse, CategoryCreate, CategoryUpdate, CategoryResponse,
     UserResponse, OrderStatusUpdate, ProductVariationCreate, ProductVariationUpdate, ProductVariationResponse,
     P2PCardCreate, P2PCardUpdate, P2PCardResponse, P2PPaymentSessionResponse, P2PIncomingPaymentResponse,
     BalanceTopUpResponse, BalanceTopUpAdminUpdate
@@ -31,7 +32,46 @@ from app.schemas.schemas import (
 from app.services.notifications import send_order_notification
 from app.services.p2p import count_promo_usage_if_needed, clean_card_number, card_last4, credit_balance_topup, expire_old_balance_topups, parse_incoming_payment_payload, process_incoming_p2p_payment
 from app.services.moogold_fulfillment import fulfill_order_via_moogold
+from app.services.admin_catalog import AdminCatalogValidationError, prepare_variation_payload, normalize_variation_provider, normalize_provider_variation_id, assert_unique_provider_variation_mapping, apply_category_update
 
+
+
+def _admin_validation_error(exc: AdminCatalogValidationError) -> HTTPException:
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+def _prepare_admin_variation_payload(*args, **kwargs) -> dict:
+    try:
+        return prepare_variation_payload(*args, **kwargs)
+    except AdminCatalogValidationError as exc:
+        raise _admin_validation_error(exc) from exc
+
+
+async def _ensure_unique_provider_variation_mapping(
+    db: AsyncSession,
+    *,
+    provider: str | None,
+    provider_variation_id: str | None,
+    exclude_variation_id: int | None = None,
+) -> None:
+    try:
+        normalized_provider = normalize_variation_provider(provider)
+    except AdminCatalogValidationError as exc:
+        raise _admin_validation_error(exc) from exc
+    normalized_provider_variation_id = normalize_provider_variation_id(provider_variation_id)
+    if normalized_provider != "gamedrops" or not normalized_provider_variation_id:
+        return
+    query = select(ProductVariation).where(
+        ProductVariation.provider == normalized_provider,
+        ProductVariation.provider_variation_id == normalized_provider_variation_id,
+    )
+    if exclude_variation_id is not None:
+        query = query.where(ProductVariation.id != exclude_variation_id)
+    result = await db.execute(query.limit(1))
+    try:
+        assert_unique_provider_variation_mapping(result.scalar_one_or_none(), exclude_variation_id=exclude_variation_id)
+    except AdminCatalogValidationError as exc:
+        raise _admin_validation_error(exc) from exc
 
 MEDIA_UPLOAD_DIR = Path(os.getenv("MEDIA_UPLOAD_DIR", "uploads")).resolve()
 MEDIA_URL_PREFIX = "/uploads"
@@ -811,7 +851,13 @@ async def create_product_variation(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    new_variation = ProductVariation(product_id=product_id, **variation.model_dump())
+    payload = _prepare_admin_variation_payload(variation.model_dump(exclude_unset=True), product=product, require_price=True)
+    await _ensure_unique_provider_variation_mapping(
+        db,
+        provider=payload.get("provider"),
+        provider_variation_id=payload.get("provider_variation_id"),
+    )
+    new_variation = ProductVariation(product_id=product_id, **payload)
     db.add(new_variation)
     await db.commit()
     await db.refresh(new_variation)
@@ -825,18 +871,47 @@ async def update_product_variation(
     admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(ProductVariation).where(ProductVariation.id == variation_id))
+    result = await db.execute(select(ProductVariation).options(selectinload(ProductVariation.product)).where(ProductVariation.id == variation_id))
     existing = result.scalar_one_or_none()
     if not existing:
         raise HTTPException(status_code=404, detail="Variation not found")
 
-    for key, value in variation.model_dump().items():
-        setattr(existing, key, value)
+    payload = _prepare_admin_variation_payload(
+        variation.model_dump(exclude_unset=True),
+        product=existing.product,
+        existing=existing,
+        require_price=False,
+    )
+    await _ensure_unique_provider_variation_mapping(
+        db,
+        provider=payload.get("provider", existing.provider),
+        provider_variation_id=payload.get("provider_variation_id", existing.provider_variation_id),
+        exclude_variation_id=existing.id,
+    )
+
+    # Safe partial update: omitted provider fields stay untouched for GameDrops/MooGold mappings.
+    allowed_fields = {
+        "name", "price", "cost_price", "cost_currency", "stock_status",
+        "image_url", "sort_order", "moogold_variation_id", "is_active",
+        "provider", "provider_variation_id", "provider_price", "provider_currency", "provider_meta",
+    }
+    for key, value in payload.items():
+        if key in allowed_fields and hasattr(existing, key):
+            setattr(existing, key, value)
 
     await db.commit()
     await db.refresh(existing)
     return existing
 
+
+@router.patch("/variations/{variation_id}", response_model=ProductVariationResponse)
+async def patch_product_variation(
+    variation_id: int,
+    variation: ProductVariationUpdate,
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    return await update_product_variation(variation_id, variation, admin, db)
 
 @router.delete("/variations/{variation_id}")
 async def delete_product_variation(
@@ -886,6 +961,43 @@ async def create_category(
     await db.commit()
     await db.refresh(new_category)
     return new_category
+
+
+@router.put("/categories/{category_id}", response_model=CategoryResponse)
+async def update_category(
+    category_id: int,
+    category: CategoryUpdate,
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    existing = result.scalar_one_or_none()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Category not found")
+    payload = category.model_dump(exclude_unset=True)
+    if "slug" in payload and payload["slug"] != existing.slug:
+        duplicate = await db.execute(select(Category).where(Category.slug == payload["slug"], Category.id != category_id))
+        if duplicate.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Category slug already exists")
+    apply_category_update(existing, payload)
+    await db.commit()
+    await db.refresh(existing)
+    return existing
+
+
+@router.delete("/categories/{category_id}")
+async def delete_category(
+    category_id: int,
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    category.is_active = False
+    await db.commit()
+    return {"status": "success", "message": "Category deactivated"}
 
 
 @router.get("/categories", response_model=List[CategoryResponse])

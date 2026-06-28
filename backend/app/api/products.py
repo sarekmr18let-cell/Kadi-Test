@@ -8,6 +8,7 @@ import json
 
 from app.core.database import get_db
 from app.models.models import Product, Category
+from app.services.catalog_visibility import is_public_product_visible
 from app.schemas.schemas import (
     ProductResponse,
     ProductListItem,
@@ -72,7 +73,7 @@ async def list_products(
         query = query.where(Product.name.ilike(f"%{search}%"))
 
     result = await db.execute(query.order_by(Product.sort_order))
-    products = result.scalars().all()
+    products = [p for p in result.scalars().all() if is_public_product_visible(p)]
     return [product_to_list_item(product) for product in products]
 
 
@@ -108,7 +109,7 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
         .where(Product.id == product_id, Product.is_active == True, Product.availability_status != "hidden")
     )
     product = result.scalar_one_or_none()
-    if not product:
+    if not is_public_product_visible(product):
         raise HTTPException(status_code=404, detail="Product not found")
 
     # Hide inactive variations from Mini App and sort real provider packages.
