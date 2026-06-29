@@ -3503,12 +3503,34 @@ function renderAdminProductDetail(products) {
 function renderAdminVariationRow(product, v) {
     const metrics = getVariationCostMetrics(v);
     const provider = adminProviderLabel(v.provider ? v : product);
+    const providerId = v.provider_variation_id || v.moogold_variation_id || '-';
     const providerPrice = v.provider_price !== null && v.provider_price !== undefined ? `${Number(v.provider_price).toLocaleString('ru-RU', { maximumFractionDigits: 4 })} ${escapeHtml(v.provider_currency || '')}` : '—';
+    const rows = [
+        [tr('admin_region'), getAdminVariationRegion(v)],
+        [tr('status'), v.stock_status],
+        [tr('admin_provider'), provider],
+        [tr('admin_provider_variation_id'), providerId],
+    ];
+    const financeRows = [
+        [tr('admin_provider_price'), providerPrice],
+        [tr('admin_cost_price'), metrics.costText],
+        [tr('admin_profit'), metrics.profitText],
+        [tr('admin_margin'), metrics.marginText],
+    ];
     return `<div class="admin-variation-row admin-variation-card">
-        ${v.image_url ? `<img src="${escapeHtml(v.image_url)}" alt="">` : ''}
-        <div class="admin-catalog-main"><strong>${escapeHtml(v.name)}</strong><span>${tr('admin_region')}: ${escapeHtml(getAdminVariationRegion(v))} • ${escapeHtml(v.stock_status)}</span><span>${provider} ID: ${escapeHtml(v.provider_variation_id || v.moogold_variation_id || '-')}</span></div>
-        <div class="admin-variation-prices"><b>${formatMoney(v.price, 'UZS')}</b><span>${tr('admin_provider_price')}: ${providerPrice}</span><span>${tr('admin_cost_price')}: ${metrics.costText}</span><span>${tr('admin_profit')}: ${metrics.profitText} • ${tr('admin_margin')}: ${metrics.marginText}</span><span>${provider} • ${v.is_active ? tr('active') : tr('disabled')}</span></div>
-        <div class="inline-actions"><button onclick="showVariationModal(${product.id}, ${v.id})">${tr('edit')}</button><button onclick="deleteVariation(${v.id})">${tr('disable')}</button></div>
+        ${v.image_url ? `<img class="admin-variation-image" src="${escapeHtml(v.image_url)}" alt="">` : ''}
+        <div class="admin-variation-head">
+            <strong class="admin-variation-title">${escapeHtml(v.name)}</strong>
+            <b class="admin-variation-price">${formatMoney(v.price, 'UZS')}</b>
+        </div>
+        <div class="admin-variation-meta">
+            ${rows.map(([label, value]) => `<div class="admin-variation-row-item"><span class="admin-variation-label">${escapeHtml(label)}:</span><span class="admin-variation-value">${escapeHtml(value)}</span></div>`).join('')}
+            <div class="admin-variation-row-item"><span class="admin-variation-label">${escapeHtml(provider)}:</span><span class="admin-variation-value">${v.is_active ? tr('active') : tr('disabled')}</span></div>
+        </div>
+        <div class="admin-variation-finance">
+            ${financeRows.map(([label, value]) => `<div class="admin-variation-row-item"><span class="admin-variation-label">${escapeHtml(label)}:</span><span class="admin-variation-value">${escapeHtml(value)}</span></div>`).join('')}
+        </div>
+        <div class="admin-variation-actions"><button onclick="showVariationModal(${product.id}, ${v.id})">${tr('edit')}</button><button onclick="deleteVariation(${v.id})">${tr('disable')}</button></div>
     </div>`;
 }
 
@@ -3758,9 +3780,9 @@ function showVariationModal(productId, variationId = null) {
                 <label>${tr('admin_provider_variation_id')}</label>
                 <input id="variation-provider-id" placeholder="offer_id" value="${escapeHtml(variation?.provider_variation_id || '')}" />
                 <label>${tr('admin_provider_price')}</label>
-                <input id="variation-provider-price" readonly value="${escapeHtml(variation?.provider_price ?? '')}" />
+                <input id="variation-provider-price" class="admin-readonly-input" readonly aria-readonly="true" value="${escapeHtml(variation?.provider_price ?? '')}" />
                 <label>${tr('admin_provider_currency')}</label>
-                <input id="variation-provider-currency" readonly value="${escapeHtml(variation?.provider_currency || '')}" />
+                <input id="variation-provider-currency" class="admin-readonly-input" readonly aria-readonly="true" value="${escapeHtml(variation?.provider_currency || '')}" />
                 <label>${tr('admin_stock_status')}</label>
                 <select id="variation-stock">
                     <option value="instock" ${variation?.stock_status === 'instock' ? 'selected' : ''}>instock</option>
