@@ -12429,3 +12429,132 @@ body > #kadi-scroll-bottom-spacer {
 .modal-error { padding: 10px 12px; margin-bottom: 12px; border-radius: var(--radius-md); border: 1px solid var(--neon-red); color: var(--neon-red); background: rgba(239,68,68,.1); }
 #admin-products { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0)); }
 @media (max-width: 460px) { .admin-catalog-row, .admin-variation-card { grid-template-columns: 1fr; } .admin-variation-prices { text-align: left; } .admin-actions-row { grid-template-columns: 1fr; } }
+
+/* PR35 mobile admin catalog variation cards */
+.admin-variation-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.admin-variation-image {
+    align-self: flex-start;
+}
+
+.admin-variation-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.admin-variation-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-height: 1.25;
+}
+
+.admin-variation-price {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 45%;
+    text-align: right;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+    color: var(--neon-green);
+}
+
+.admin-variation-meta,
+.admin-variation-finance {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    min-width: 0;
+}
+
+.admin-variation-row-item {
+    display: grid;
+    grid-template-columns: minmax(104px, max-content) minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.admin-variation-label {
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.admin-variation-value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--text-primary);
+}
+
+.admin-variation-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    min-width: 0;
+}
+
+.admin-variation-actions button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.admin-readonly-input[readonly] {
+    color: var(--text-secondary);
+    background: rgba(255,255,255,.04);
+    border-color: rgba(255,255,255,.08);
+    cursor: not-allowed;
+}
+
+#admin-products.admin-content,
+#admin-products-list {
+    padding-bottom: calc(132px + env(safe-area-inset-bottom, 0));
+}
+
+#admin-products .admin-variation-list {
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0));
+}
+
+.modal-sheet .admin-form {
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0));
+}
+
+@media (max-width: 460px) {
+    .admin-variation-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
+    }
+
+    .admin-variation-price {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 340px) {
+    .admin-variation-actions {
+        flex-direction: column;
+    }
+
+    .admin-variation-row-item {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+}
