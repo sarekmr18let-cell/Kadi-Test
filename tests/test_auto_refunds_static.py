@@ -98,3 +98,42 @@ def test_moogold_webhook_mixed_fulfillment_calls_review_path():
     assert 'has_unsuccessful = bool(statuses.intersection({"refunded", "cancelled", "failed"}))' in webhook
     assert 'order.status == "refunded" or (has_completed and has_unsuccessful)' in webhook
     assert 'send_refund_review_notification.delay' in webhook
+
+
+def test_backfill_notification_failure_is_recorded_not_raised():
+    assert "def maybe_send_refund_notification" in SCRIPT
+    assert "except Exception as exc" in SCRIPT
+    assert 'record_notification_error(row, exc)' in SCRIPT
+    assert 'row["notification_error"]' in SCRIPT
+    assert 'db.commit()' in SCRIPT
+    assert SCRIPT.index('db.commit()') < SCRIPT.index('maybe_send_refund_notification(row, AUTO_REFUND_TASK')
+
+
+def test_backfill_no_notify_skips_notifications():
+    assert 'parser.add_argument("--no-notify"' in SCRIPT
+    assert 'notify = not args.no_notify' in SCRIPT
+    assert 'row["notification_result"] = "skipped_no_notify"' in SCRIPT
+
+
+def test_backfill_notify_only_does_not_create_refund_transaction():
+    assert 'mode.add_argument("--notify-only"' in SCRIPT
+    notify_only_block = SCRIPT[SCRIPT.index('elif args.notify_only:'):]
+    assert 'refund_order_to_balance(' not in notify_only_block
+    assert 'existing_refund and eligible' in notify_only_block
+    assert 'row["apply_result"] = "already_refunded"' in notify_only_block
+    assert 'AUTO_REFUND_TASK' in notify_only_block
+
+
+def test_backfill_uses_project_celery_app_not_default_amqp_broker():
+    assert 'from app.celery_app import celery_app' in SCRIPT
+    assert 'celery_app.send_task' in SCRIPT
+    assert 'send_auto_refund_notification.delay' not in SCRIPT
+    assert 'send_refund_review_notification.delay' not in SCRIPT
+    assert 'amqp://localhost' not in SCRIPT
+
+
+def test_backfill_existing_refund_reports_already_refunded_on_apply():
+    apply_block = SCRIPT[SCRIPT.index('if args.apply and eligible:'):SCRIPT.index('elif args.apply:')]
+    assert 'refund_order_to_balance(db, order.id, reason)' in apply_block
+    assert 'row["apply_result"] = result.status' in apply_block
+    assert 'candidate = eligible and not existing_refund' in SCRIPT
