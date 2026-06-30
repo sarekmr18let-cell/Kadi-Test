@@ -252,7 +252,8 @@ def _load_order_for_fulfillment(db, order_id: int):
 
 def _fulfill_order_via_gamedrops(order_id: int) -> dict:
     from app.models.models import MooGoldFulfillment
-    from app.services.notifications import send_order_notification
+    from app.services.notifications import send_auto_refund_notification, send_order_notification, send_refund_review_notification
+    from app.services.refunds import refund_order_to_balance
 
     if not settings.PROVIDER_AUTO_FULFILL_ENABLED:
         return {"status": "skipped", "reason": "PROVIDER_AUTO_FULFILL_ENABLED=false", "order_id": order_id}
@@ -268,6 +269,7 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
         created_any = False
         failed_any = False
         skipped_any = False
+        refund_result = None
 
         for item in order.items:
             variation = item.variation
@@ -374,11 +376,13 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
                 order.moogold_order_id = joined_ids
 
         if failed_any and not created_any:
-            order.status = "paid"
+            order.status = "failed"
             order.provider = "gamedrops"
             order.provider_status = "failed"
             order.provider_response = {"items": result_summary}
             order.updated_at = _now()
+            refund_reason = "; ".join(str(item.get("reason") or item.get("status") or "provider failed") for item in result_summary)[:500]
+            refund_result = refund_order_to_balance(db, order.id, refund_reason or "provider create-order failure")
 
         db.commit()
 
@@ -386,6 +390,10 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
         send_order_notification.delay(order_id, "processing")
     if failed_any:
         send_order_notification.delay(order_id, "provider_failed")
+    if refund_result and refund_result.status == "refunded":
+        send_auto_refund_notification.delay(order_id, refund_result.amount, refund_result.reason or "provider create-order failure")
+    elif refund_result and refund_result.status == "partial_provider_success_needs_review":
+        send_refund_review_notification.delay(order_id, refund_result.reason or "provider create-order failure")
 
     return {
         "status": "ok",
@@ -616,12 +624,15 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
         return {"status": "skipped", "reason": "lock_not_acquired", "order_id": order_id}
 
     from app.models.models import MooGoldFulfillment, Order
-    from app.services.notifications import send_order_notification
+    from app.services.notifications import send_auto_refund_notification, send_order_notification, send_refund_review_notification
+    from app.services.refunds import refund_order_to_balance
 
     checked = 0
     updated = 0
     errors = 0
     notifications: list[int] = []
+    refund_notifications: list[dict[str, Any]] = []
+    review_notifications: list[dict[str, Any]] = []
     items: list[dict[str, Any]] = []
     lock_lost = False
 
@@ -655,6 +666,8 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
                     continue
 
                 previous_order_status = order.status
+                pending_refund_notification = None
+                pending_review_notification = None
                 try:
                     if not status_lock.extend():
                         lock_lost = True
@@ -695,10 +708,28 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
                         final_order_status = update_local_order_status_from_fulfillments(db, order.id)
                         if previous_order_status != "completed" and final_order_status == "completed":
                             notifications.append(order.id)
+                        if final_order_status in {"refunded", "cancelled"}:
+                            reason = raw_status or "provider refunded"
+                            refund_result = refund_order_to_balance(db, order.id, reason)
+                            if refund_result.status == "refunded":
+                                pending_refund_notification = {"order_id": order.id, "amount": refund_result.amount, "reason": reason}
+                            elif refund_result.status == "partial_provider_success_needs_review":
+                                pending_review_notification = {"order_id": order.id, "reason": reason}
+                        elif final_order_status in {"paid", "processing"} and mapped_status in {"refunded", "failed", "cancelled"}:
+                            reason = raw_status or mapped_status or "provider failed"
+                            refund_result = refund_order_to_balance(db, order.id, reason)
+                            if refund_result.status == "refunded":
+                                pending_refund_notification = {"order_id": order.id, "amount": refund_result.amount, "reason": reason}
+                            elif refund_result.status == "partial_provider_success_needs_review":
+                                pending_review_notification = {"order_id": order.id, "reason": reason}
                     else:
                         final_order_status = order.status
 
                     db.commit()
+                    if pending_refund_notification:
+                        refund_notifications.append(pending_refund_notification)
+                    if pending_review_notification:
+                        review_notifications.append(pending_review_notification)
                     items.append({
                         "fulfillment_id": fulfillment.id,
                         "order_id": fulfillment.order_id,
@@ -726,6 +757,10 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
 
         for notify_order_id in sorted(set(notifications)):
             send_order_notification.delay(notify_order_id, "completed")
+        for refund in refund_notifications:
+            send_auto_refund_notification.delay(refund["order_id"], refund["amount"], refund["reason"])
+        for review in review_notifications:
+            send_refund_review_notification.delay(review["order_id"], review["reason"])
 
         return {
             "status": "ok",
@@ -735,6 +770,8 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
             "errors": errors,
             "lock_lost": lock_lost,
             "completed_notifications": sorted(set(notifications)),
+            "refund_notifications": refund_notifications,
+            "review_notifications": review_notifications,
             "items": items,
         }
     finally:

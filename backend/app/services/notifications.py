@@ -316,3 +316,51 @@ def expire_balance_topups():
             topup.note = ((topup.note or "") + "\nExpired automatically.").strip()
         db.commit()
         return f"Expired {len(topups)} balance top-ups"
+
+
+def _format_uzs(amount: float) -> str:
+    return f"{int(round(float(amount or 0))):,}".replace(",", " ")
+
+
+@shared_task
+def send_auto_refund_notification(order_id: int, amount: float, reason: str):
+    """Notify user and admin after an automatic balance refund."""
+    from app.models.models import Order, User
+    from sqlalchemy import select
+
+    with SyncSessionLocal() as db:
+        order = db.execute(select(Order).where(Order.id == order_id)).scalar_one_or_none()
+        if not order:
+            return {"status": "not_found", "order_id": order_id}
+        user = db.execute(select(User).where(User.id == order.user_id)).scalar_one_or_none()
+        if not user:
+            return {"status": "user_not_found", "order_id": order_id}
+
+        amount_text = _format_uzs(amount)
+        user_text = f"Заказ #{order.id} не был выполнен поставщиком. Деньги возвращены на ваш баланс: {amount_text} UZS."
+        user_sent = send_telegram_message_sync(user.telegram_id, user_text)
+
+        admin_sent = False
+        admin_tg_id = settings.ADMIN_TG_ID
+        if admin_tg_id and str(admin_tg_id).strip():
+            try:
+                admin_text = f"Auto refund: order #{order.id}, amount {amount_text} UZS, reason: {escape_html(reason)}"
+                admin_sent = send_telegram_message_sync(int(str(admin_tg_id).strip()), admin_text)
+            except ValueError:
+                logger.error(f"Invalid ADMIN_TG_ID value: {admin_tg_id!r}")
+        return {"status": "sent", "order_id": order_id, "user_sent": user_sent, "admin_sent": admin_sent}
+
+
+@shared_task
+def send_refund_review_notification(order_id: int, reason: str):
+    """Notify admin when an order has mixed fulfillment statuses and needs manual review."""
+    admin_tg_id = settings.ADMIN_TG_ID
+    if not admin_tg_id or not str(admin_tg_id).strip():
+        return {"status": "admin_not_configured", "order_id": order_id}
+    try:
+        text = f"Refund needs review: order #{order_id}, reason: {escape_html(reason)}"
+        sent = send_telegram_message_sync(int(str(admin_tg_id).strip()), text)
+        return {"status": "sent", "order_id": order_id, "admin_sent": sent}
+    except ValueError:
+        logger.error(f"Invalid ADMIN_TG_ID value: {admin_tg_id!r}")
+        return {"status": "invalid_admin", "order_id": order_id}
