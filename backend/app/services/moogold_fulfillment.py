@@ -82,6 +82,133 @@ def _is_gamedrops_provider(value) -> bool:
     return str(value or "").strip().lower() in {"gamedrops", "gamesdrop"}
 
 
+
+GAMEDROPS_CIRCUIT_KEY = "provider:gamedrops:circuit_open"
+GAMEDROPS_CIRCUIT_ADMIN_DEDUPE_KEY = "dedupe:gamedrops_circuit_admin"
+GAMEDROPS_BALANCE_GUARD_ADMIN_DEDUPE_KEY = "dedupe:gamedrops_balance_guard_admin"
+
+
+def _redis_client():
+    import redis
+
+    return redis.Redis.from_url(settings.REDIS_URL)
+
+
+def _is_insufficient_balance_error(error: Any) -> bool:
+    text = str(error or "").lower()
+    return "insufficient partner balance" in text or ("insufficient" in text and "balance" in text)
+
+
+def _is_gamedrops_circuit_open() -> bool:
+    if not settings.GAMEDROPS_CIRCUIT_BREAKER_ENABLED:
+        return False
+    try:
+        return bool(_redis_client().exists(GAMEDROPS_CIRCUIT_KEY))
+    except Exception:
+        logger.warning("GameDrops circuit Redis check unavailable; continuing", exc_info=True)
+        return False
+
+
+def _open_gamedrops_circuit(reason: str) -> None:
+    if not settings.GAMEDROPS_CIRCUIT_BREAKER_ENABLED:
+        return
+    try:
+        _redis_client().set(
+            GAMEDROPS_CIRCUIT_KEY,
+            str(reason or "opened"),
+            ex=int(settings.GAMEDROPS_CIRCUIT_BREAKER_TTL_SECONDS),
+        )
+        logger.warning("gamedrops circuit opened reason=%s", reason)
+    except Exception:
+        logger.warning("Failed to open GameDrops circuit breaker in Redis", exc_info=True)
+
+
+def _normalize_admin_lang(code: Any) -> str:
+    normalized = str(code or "").strip().lower()
+    if normalized.startswith("uz"):
+        return "uz"
+    if normalized.startswith("en"):
+        return "en"
+    return "ru"
+
+
+def _build_gamedrops_circuit_admin_notification_text(language_code: Any = None) -> str:
+    texts = {
+        "ru": "⚠️ GameDrops поставлен на паузу\nПричина: недостаточно баланса у поставщика.\nНовые авто-выдачи временно остановлены на 30 минут.",
+        "en": "⚠️ GameDrops paused\nReason: insufficient provider balance.\nNew auto-fulfillments are paused for 30 minutes.",
+        "uz": "⚠️ GameDrops vaqtincha to‘xtatildi\nSabab: provayder balansida mablag‘ yetarli emas.\nYangi avtomatik yetkazishlar 30 daqiqaga to‘xtatildi.",
+    }
+    return texts[_normalize_admin_lang(language_code)]
+
+
+def _build_gamedrops_balance_guard_admin_notification_text(
+    user_balance_uzs: float,
+    user_balance_usd: float,
+    provider_balance_usd: float,
+    language_code: Any = None,
+) -> str:
+    user_balance_uzs_text = f"{user_balance_uzs:.2f}".rstrip("0").rstrip(".")
+    user_balance_usd_text = f"{user_balance_usd:.2f}"
+    provider_balance_usd_text = f"{provider_balance_usd:.2f}"
+    texts = {
+        "ru": (
+            "⚠️ Баланс поставщика ниже риска\n"
+            f"Баланс пользователей Kadi: {user_balance_uzs_text} UZS (~{user_balance_usd_text}$)\n"
+            f"Баланс GameDrops: {provider_balance_usd_text}$\n"
+            "Рекомендуется пополнить GameDrops, чтобы заказы не стояли."
+        ),
+        "en": (
+            "⚠️ Provider balance risk\n"
+            f"Kadi user balance: {user_balance_uzs_text} UZS (~{user_balance_usd_text}$)\n"
+            f"GameDrops balance: {provider_balance_usd_text}$\n"
+            "Please top up GameDrops to keep orders stable."
+        ),
+        "uz": (
+            "⚠️ Provayder balansi xavfi\n"
+            f"Kadi foydalanuvchilar balansi: {user_balance_uzs_text} UZS (~{user_balance_usd_text}$)\n"
+            f"GameDrops balansi: {provider_balance_usd_text}$\n"
+            "Buyurtmalar to‘xtab qolmasligi uchun GameDrops balansini to‘ldiring."
+        ),
+    }
+    return texts[_normalize_admin_lang(language_code)]
+
+
+def _send_admin_message_once(key: str, ttl_seconds: int, text_builder) -> bool:
+    if not _redis_set_once(key, ttl_seconds):
+        return False
+    try:
+        from app.services.notifications import send_telegram_message_sync
+
+        admin_tg_id = settings.ADMIN_TG_ID
+        if admin_tg_id and str(admin_tg_id).strip():
+            admin_tg_id_int = int(str(admin_tg_id).strip())
+            language_code = _get_admin_language_code(admin_tg_id_int)
+            send_telegram_message_sync(admin_tg_id_int, text_builder(language_code))
+            return True
+    except Exception:
+        logger.exception("Failed to send GameDrops admin notification")
+    return False
+
+
+def _send_gamedrops_circuit_admin_notification_once(reason: str) -> bool:
+    return _send_admin_message_once(
+        GAMEDROPS_CIRCUIT_ADMIN_DEDUPE_KEY,
+        int(settings.GAMEDROPS_CIRCUIT_BREAKER_TTL_SECONDS),
+        lambda language_code: _build_gamedrops_circuit_admin_notification_text(language_code),
+    )
+
+
+def _send_gamedrops_balance_guard_admin_notification_once(
+    user_balance_uzs: float, user_balance_usd: float, provider_balance_usd: float
+) -> bool:
+    return _send_admin_message_once(
+        GAMEDROPS_BALANCE_GUARD_ADMIN_DEDUPE_KEY,
+        int(settings.GAMEDROPS_BALANCE_WARNING_DEDUPE_TTL_SECONDS),
+        lambda language_code: _build_gamedrops_balance_guard_admin_notification_text(
+            user_balance_uzs, user_balance_usd, provider_balance_usd, language_code
+        ),
+    )
+
 def _generate_auth(payload: dict, path: str) -> tuple[int, str]:
     timestamp = int(time.time())
     payload_str = json.dumps(payload, separators=(",", ":"), sort_keys=True)
@@ -278,14 +405,53 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
             return {"status": "skipped", "reason": f"order_status={order.status}", "order_id": order_id}
         if str(order.provider_status or "").lower() in FINAL_PROVIDER_STATUSES:
             return {"status": "skipped", "reason": f"provider_status={order.provider_status}", "order_id": order_id}
+        if _is_gamedrops_circuit_open():
+            logger.warning("gamedrops circuit breaker open, skip provider call order_id=%s", order_id)
+            result_summary = []
+            for item in order.items:
+                transaction_id = f"{order.partner_order_id or order.order_number}-{item.id}-circuit-open"
+                fulfillment = db.execute(
+                    select(MooGoldFulfillment)
+                    .where(MooGoldFulfillment.partner_order_id == transaction_id)
+                    .with_for_update()
+                ).scalar_one_or_none()
+                if not fulfillment:
+                    fulfillment = MooGoldFulfillment(
+                        order_id=order.id,
+                        order_item_id=item.id,
+                        partner_order_id=transaction_id,
+                        status="failed",
+                    )
+                    db.add(fulfillment)
+                fulfillment.status = "failed"
+                fulfillment.error_message = "GameDrops circuit breaker is open"
+                fulfillment.updated_at = _now()
+                result_summary.append({"item_id": item.id, "status": "failed", "reason": "GameDrops circuit breaker is open"})
+            order.status = "failed"
+            order.provider = "gamedrops"
+            order.provider_status = "failed"
+            order.provider_response = {"items": result_summary or [{"status": "failed", "reason": "GameDrops circuit breaker is open"}]}
+            order.updated_at = _now()
+            refund_result = refund_order_to_balance(db, order.id, "GameDrops circuit breaker is open")
+            db.commit()
+            send_order_notification.delay(order_id, "provider_failed")
+            if refund_result and refund_result.status == "refunded":
+                send_auto_refund_notification.delay(order_id, refund_result.amount, refund_result.reason or "GameDrops circuit breaker is open")
+            elif refund_result and refund_result.status == "partial_provider_success_needs_review":
+                send_refund_review_notification.delay(order_id, refund_result.reason or "GameDrops circuit breaker is open")
+            return {"status": "skipped", "reason": "gamedrops_circuit_open", "order_id": order_id, "created_any": False}
+
 
         result_summary = []
         created_any = False
         failed_any = False
         skipped_any = False
         refund_result = None
+        stop_provider_calls = False
 
         for item in order.items:
+            if stop_provider_calls:
+                break
             variation = item.variation
             product = variation.product
             provider = getattr(variation, "provider", None) or getattr(product, "provider", None)
@@ -336,6 +502,15 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
                     result_summary.append({"item_id": item.id, "status": "failed", "reason": fulfillment.error_message})
                     continue
 
+                if _is_gamedrops_circuit_open():
+                    fulfillment.status = "failed"
+                    fulfillment.error_message = "GameDrops circuit breaker is open"
+                    failed_any = True
+                    stop_provider_calls = True
+                    logger.warning("gamedrops circuit breaker open, skip provider call order_id=%s", order.id)
+                    result_summary.append({"item_id": item.id, "status": "failed", "reason": fulfillment.error_message})
+                    break
+
                 request_payload = {
                     "provider": "gamedrops",
                     "offer_id": str(offer_id),
@@ -373,9 +548,15 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
                 except Exception as exc:
                     fulfillment.status = "failed"
                     fulfillment.error_message = str(exc)[:2000]
+                    if _is_insufficient_balance_error(exc):
+                        _open_gamedrops_circuit("insufficient_partner_balance")
+                        _send_gamedrops_circuit_admin_notification_once("insufficient_partner_balance")
+                        stop_provider_calls = True
                     failed_any = True
                     logger.exception("GameDrops fulfillment failed for local order %s item %s", order.id, item.id)
                     result_summary.append({"item_id": item.id, "status": "failed", "reason": str(exc)})
+                    if stop_provider_calls:
+                        break
 
         if created_any:
             order.status = "processing"
@@ -632,9 +813,7 @@ def _acquire_gamedrops_status_sync_lock(ttl_seconds: int = 120):
 
 def _redis_set_once(key: str, ttl_seconds: int) -> bool:
     try:
-        import redis
-
-        redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        redis_client = _redis_client()
         return bool(redis_client.set(key, "1", ex=ttl_seconds, nx=True))
     except Exception:
         logger.warning("Redis dedupe unavailable for key %s; continuing without dedupe", key, exc_info=True)
@@ -749,6 +928,11 @@ def rescue_paid_orders_without_fulfillment() -> dict:
 
     checked = len(order_ids)
     for order_id in order_ids:
+        if _is_gamedrops_circuit_open():
+            skipped += 1
+            logger.warning("rescue skip order_id=%s reason=gamedrops_circuit_open", order_id)
+            items.append({"order_id": order_id, "status": "skipped", "reason": "gamedrops_circuit_open"})
+            continue
         dedupe_key = f"dedupe:fulfillment_rescue_enqueue:{order_id}"
         if not _redis_set_once(dedupe_key, dedupe_ttl):
             skipped += 1
@@ -775,6 +959,98 @@ def rescue_paid_orders_without_fulfillment() -> dict:
     )
     return {"status": "ok", "checked": checked, "rescued": rescued, "skipped": skipped, "max_age_seconds": max_age_seconds, "items": items}
 
+
+
+def _extract_gamedrops_balance_usd(response: Any) -> Optional[float]:
+    if not isinstance(response, dict):
+        return None
+    candidates = [
+        response.get("balance"),
+        response.get("balanceUsd"),
+        response.get("balance_usd"),
+        response.get("amount"),
+    ]
+    data = response.get("data")
+    if isinstance(data, dict):
+        candidates.extend([data.get("balance"), data.get("balanceUsd"), data.get("balance_usd"), data.get("amount")])
+    for value in candidates:
+        if value is None:
+            continue
+        try:
+            return float(str(value).replace(",", "").strip())
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def get_gamedrops_balance() -> Optional[float]:
+    from app.services.gamedrops import GameDropsClient
+
+    async def _get():
+        client = GameDropsClient()
+        try:
+            response = await client.get_balance()
+            return _extract_gamedrops_balance_usd(response)
+        finally:
+            await client.close()
+
+    return asyncio.run(_get())
+
+
+def _get_total_user_balance_uzs(db) -> float:
+    from app.models.models import User
+
+    value = db.execute(select(func.coalesce(func.sum(User.balance), 0)).where(User.balance > 0)).scalar_one()
+    return float(value or 0)
+
+
+@shared_task(name="app.services.moogold_fulfillment.check_gamedrops_balance_guard")
+def check_gamedrops_balance_guard() -> dict:
+    if not settings.GAMEDROPS_BALANCE_GUARD_ENABLED:
+        return {"status": "skipped", "reason": "GAMEDROPS_BALANCE_GUARD_ENABLED=false"}
+    try:
+        provider_balance_usd = get_gamedrops_balance()
+    except Exception as exc:
+        logger.warning("gamedrops_balance_guard disabled_or_unavailable reason=balance_api_failed error=%s", exc, exc_info=True)
+        return {"status": "skipped", "reason": "gamedrops_balance_unavailable"}
+    if provider_balance_usd is None:
+        logger.warning("gamedrops_balance_guard disabled_or_unavailable reason=balance_api_unknown_response")
+        return {"status": "skipped", "reason": "gamedrops_balance_unavailable"}
+
+    with SyncSessionLocal() as db:
+        user_balance_uzs = _get_total_user_balance_uzs(db)
+    user_balance_usd = user_balance_uzs / float(settings.PROVIDER_BALANCE_USD_RATE or 12400.0)
+    logger.info(
+        "gamedrops_balance_guard provider_balance_usd=%s user_balance_uzs=%s user_balance_usd=%s status=ok",
+        provider_balance_usd,
+        user_balance_uzs,
+        user_balance_usd,
+    )
+
+    warnings: list[str] = []
+    min_balance = float(settings.GAMEDROPS_MIN_BALANCE_USD)
+    if provider_balance_usd <= min_balance:
+        warnings.append("provider_balance_low")
+        logger.warning("gamedrops_balance_guard warning reason=provider_balance_low")
+        if provider_balance_usd <= 0.01:
+            _open_gamedrops_circuit("provider_balance_zero")
+    if user_balance_usd > provider_balance_usd:
+        warnings.append("user_balance_gt_provider_balance")
+        logger.warning("gamedrops_balance_guard warning reason=user_balance_gt_provider_balance")
+
+    sent = False
+    if warnings:
+        sent = _send_gamedrops_balance_guard_admin_notification_once(
+            user_balance_uzs, user_balance_usd, provider_balance_usd
+        )
+    return {
+        "status": "ok",
+        "provider_balance_usd": provider_balance_usd,
+        "user_balance_uzs": user_balance_uzs,
+        "user_balance_usd": user_balance_usd,
+        "warnings": warnings,
+        "notification_sent": sent,
+    }
 
 @shared_task(name="app.services.moogold_fulfillment.sync_gamedrops_order_statuses")
 def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:

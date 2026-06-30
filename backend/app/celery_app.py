@@ -35,5 +35,11 @@ celery_app.conf.update(
             "task": "app.services.moogold_fulfillment.rescue_paid_orders_without_fulfillment",
             "schedule": 60.0,  # every minute
         },
+        **({
+            "check-gamedrops-balance-guard": {
+                "task": "app.services.moogold_fulfillment.check_gamedrops_balance_guard",
+                "schedule": float(settings.GAMEDROPS_BALANCE_GUARD_INTERVAL_SECONDS),
+            }
+        } if settings.GAMEDROPS_BALANCE_GUARD_ENABLED else {}),
     },
 )
