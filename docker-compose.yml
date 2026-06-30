@@ -91,6 +91,8 @@ services:
       - WALLET_TOPUP_MIN_AMOUNT=${WALLET_TOPUP_MIN_AMOUNT:-1000}
       - WALLET_TOPUP_MAX_AMOUNT=${WALLET_TOPUP_MAX_AMOUNT:-5000000}
       - WEBAPP_URL=${WEBAPP_URL:-https://www.kadi-store.uz}
+      - SUPPORT_USERNAME=${SUPPORT_USERNAME}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL}
     depends_on:
       - backend
     command: python main.py
