@@ -698,10 +698,12 @@ def _send_rescue_admin_notification_once(order_id: int) -> None:
         logger.exception("Failed to send fulfillment rescue admin notification for order %s", order_id)
 
 
-def _find_paid_orders_without_fulfillment(db, delay_seconds: int, limit: int = 100) -> list[int]:
+def _find_paid_orders_without_fulfillment(db, delay_seconds: int, max_age_seconds: int, limit: int = 100) -> list[int]:
     from app.models.models import MooGoldFulfillment, Order, OrderItem, Product, ProductVariation
 
-    cutoff = _now() - timedelta(seconds=delay_seconds)
+    now = _now()
+    cutoff = now - timedelta(seconds=delay_seconds)
+    oldest_allowed = now - timedelta(seconds=max_age_seconds)
     non_final_fulfillment_status = or_(
         MooGoldFulfillment.status == None,
         func.lower(MooGoldFulfillment.status).notin_(list(FINAL_FULFILLMENT_STATUSES)),
@@ -719,6 +721,7 @@ def _find_paid_orders_without_fulfillment(db, delay_seconds: int, limit: int = 1
         .where(
             Order.status == "paid",
             Order.created_at <= cutoff,
+            Order.created_at >= oldest_allowed,
             or_(Order.provider_status == None, func.lower(Order.provider_status).notin_(list(FINAL_PROVIDER_STATUSES))),
             or_(func.lower(ProductVariation.provider).in_(["gamedrops", "gamesdrop"]), func.lower(Product.provider).in_(["gamedrops", "gamesdrop"])),
             or_(
@@ -736,12 +739,13 @@ def _find_paid_orders_without_fulfillment(db, delay_seconds: int, limit: int = 1
 @shared_task(name="app.services.moogold_fulfillment.rescue_paid_orders_without_fulfillment")
 def rescue_paid_orders_without_fulfillment() -> dict:
     delay_seconds = int(settings.FULFILLMENT_RESCUE_DELAY_SECONDS)
+    max_age_seconds = int(settings.FULFILLMENT_RESCUE_MAX_AGE_SECONDS)
     dedupe_ttl = int(settings.FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS)
     checked = rescued = skipped = 0
     items: list[dict[str, Any]] = []
 
     with SyncSessionLocal() as db:
-        order_ids = _find_paid_orders_without_fulfillment(db, delay_seconds)
+        order_ids = _find_paid_orders_without_fulfillment(db, delay_seconds, max_age_seconds)
 
     checked = len(order_ids)
     for order_id in order_ids:
@@ -763,12 +767,13 @@ def rescue_paid_orders_without_fulfillment() -> dict:
             items.append({"order_id": order_id, "status": "skipped", "reason": str(exc)})
 
     logger.warning(
-        "rescued_paid_orders_without_fulfillment checked=%s rescued=%s skipped=%s",
+        "rescued_paid_orders_without_fulfillment checked=%s rescued=%s skipped=%s max_age_seconds=%s",
         checked,
         rescued,
         skipped,
+        max_age_seconds,
     )
-    return {"status": "ok", "checked": checked, "rescued": rescued, "skipped": skipped, "items": items}
+    return {"status": "ok", "checked": checked, "rescued": rescued, "skipped": skipped, "max_age_seconds": max_age_seconds, "items": items}
 
 
 @shared_task(name="app.services.moogold_fulfillment.sync_gamedrops_order_statuses")
