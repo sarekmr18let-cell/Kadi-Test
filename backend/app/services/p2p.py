@@ -4,6 +4,7 @@ import json
 import random
 import re
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -28,6 +29,7 @@ from app.services.notifications import send_telegram_message_sync
 PAYMENT_TTL_MINUTES = int(settings.P2P_PAYMENT_TTL_MINUTES or 5)
 UNIQUE_AMOUNT_MIN = 1
 UNIQUE_AMOUNT_MAX = 499
+TASHKENT_TZ = ZoneInfo("Asia/Tashkent")
 
 
 _AMOUNT_PATTERNS = [
@@ -49,6 +51,35 @@ def _now() -> _kadi_dt.datetime:
     # DB uses TIMESTAMP WITHOUT TIME ZONE.
     # Store UTC as naive datetime.
     return _kadi_dt.datetime.now(_kadi_dt.timezone.utc).replace(tzinfo=None)
+
+
+def _today_tashkent_utc_naive_bounds(now: Optional[_kadi_dt.datetime] = None) -> tuple[_kadi_dt.datetime, _kadi_dt.datetime]:
+    """Return today's Asia/Tashkent day bounds as UTC naive datetimes."""
+    current = now or _now()
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=_kadi_dt.timezone.utc)
+    tashkent_now = current.astimezone(TASHKENT_TZ)
+    start_tashkent = tashkent_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_tashkent = start_tashkent + _kadi_dt.timedelta(days=1)
+    return (
+        start_tashkent.astimezone(_kadi_dt.timezone.utc).replace(tzinfo=None),
+        end_tashkent.astimezone(_kadi_dt.timezone.utc).replace(tzinfo=None),
+    )
+
+
+def _pick_lowest_load_card(card_loads: list[tuple[P2PCard, float, float]]) -> Optional[P2PCard]:
+    """Pick the least-loaded card using stable production tie-breakers."""
+    if not card_loads:
+        return None
+    return min(
+        card_loads,
+        key=lambda item: (
+            float(item[1] or 0),
+            float(item[2] or 0),
+            item[0].sort_order or 0,
+            item[0].id or 0,
+        ),
+    )[0]
 
 def clean_card_number(card_number: str) -> str:
     return "".join(ch for ch in card_number if ch.isdigit())
@@ -239,19 +270,21 @@ async def get_active_topup_for_user(db: AsyncSession, user_id: int) -> Optional[
 
 
 async def pick_free_card(db: AsyncSession, amount: float) -> P2PCard:
-    """Pick a card that has no active order session and no active balance top-up.
+    """Pick the least-loaded card with no active or unresolved payment window.
 
     Business rule: one card = one active payment window. This lets us match by
     card + amount + time without forcing unique amounts.
     """
     await expire_old_p2p_sessions(db)
     await expire_old_balance_topups(db)
+    now = _now()
+    today_start, today_end = _today_tashkent_utc_naive_bounds(now)
 
     active_order_cards = (
         select(P2PPaymentSession.card_id)
         .where(
             P2PPaymentSession.status == "active",
-            P2PPaymentSession.expires_at >= _now(),
+            P2PPaymentSession.expires_at >= now,
         )
         .subquery()
     )
@@ -259,12 +292,19 @@ async def pick_free_card(db: AsyncSession, amount: float) -> P2PCard:
         select(BalanceTopUp.card_id)
         .where(
             BalanceTopUp.status == "pending",
-            BalanceTopUp.expires_at >= _now(),
+            BalanceTopUp.expires_at >= now,
+        )
+        .subquery()
+    )
+    needs_review_topup_cards = (
+        select(BalanceTopUp.card_id)
+        .where(
+            BalanceTopUp.status == "needs_review",
         )
         .subquery()
     )
 
-    query = (
+    available_cards_query = (
         select(P2PCard)
         .where(
             P2PCard.is_active == True,
@@ -272,11 +312,57 @@ async def pick_free_card(db: AsyncSession, amount: float) -> P2PCard:
             or_(P2PCard.max_amount == None, P2PCard.max_amount >= amount),
             P2PCard.id.not_in(select(active_order_cards.c.card_id)),
             P2PCard.id.not_in(select(active_topup_cards.c.card_id)),
+            P2PCard.id.not_in(select(needs_review_topup_cards.c.card_id)),
         )
-        .order_by(P2PCard.sort_order, P2PCard.id)
     )
-    result = await db.execute(query)
-    card = result.scalars().first()
+    result = await db.execute(available_cards_query)
+    available_cards = result.scalars().all()
+    if not available_cards:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No free P2P card is available for this amount. Add more cards or wait until a payment window expires.",
+        )
+
+    card_ids = [card.id for card in available_cards]
+    today_paid_rows = await db.execute(
+        select(BalanceTopUp.card_id, func.coalesce(func.sum(BalanceTopUp.amount), 0))
+        .where(
+            BalanceTopUp.card_id.in_(card_ids),
+            BalanceTopUp.status == "paid",
+            BalanceTopUp.paid_at >= today_start,
+            BalanceTopUp.paid_at < today_end,
+        )
+        .group_by(BalanceTopUp.card_id)
+    )
+    active_pending_rows = await db.execute(
+        select(BalanceTopUp.card_id, func.coalesce(func.sum(BalanceTopUp.amount), 0))
+        .where(
+            BalanceTopUp.card_id.in_(card_ids),
+            BalanceTopUp.status == "pending",
+            BalanceTopUp.expires_at >= now,
+        )
+        .group_by(BalanceTopUp.card_id)
+    )
+    lifetime_paid_rows = await db.execute(
+        select(BalanceTopUp.card_id, func.coalesce(func.sum(BalanceTopUp.amount), 0))
+        .where(
+            BalanceTopUp.card_id.in_(card_ids),
+            BalanceTopUp.status == "paid",
+        )
+        .group_by(BalanceTopUp.card_id)
+    )
+    today_paid_by_card = {card_id: float(total or 0) for card_id, total in today_paid_rows.all()}
+    active_pending_by_card = {card_id: float(total or 0) for card_id, total in active_pending_rows.all()}
+    lifetime_paid_by_card = {card_id: float(total or 0) for card_id, total in lifetime_paid_rows.all()}
+
+    card = _pick_lowest_load_card([
+        (
+            card,
+            today_paid_by_card.get(card.id, 0) + active_pending_by_card.get(card.id, 0),
+            lifetime_paid_by_card.get(card.id, 0),
+        )
+        for card in available_cards
+    ])
     if not card:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
