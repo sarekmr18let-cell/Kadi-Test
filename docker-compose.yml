@@ -58,6 +58,8 @@ services:
       - PAYSTARS_API_KEY=${PAYSTARS_API_KEY}
       - PAYSTARS_BASE_URL=${PAYSTARS_BASE_URL:-https://paystars.uz/api/v1}
       - PROVIDER_AUTO_FULFILL_ENABLED=${PROVIDER_AUTO_FULFILL_ENABLED:-false}
+      - FULFILLMENT_RESCUE_DELAY_SECONDS=${FULFILLMENT_RESCUE_DELAY_SECONDS:-90}
+      - FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS=${FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS:-300}
       - CALLBACK_BASE_URL=${CALLBACK_BASE_URL:-http://localhost:8000}
       - FRONTEND_URL=${FRONTEND_URL:-https://www.kadi-store.uz}
       - SUPPORT_USERNAME=${SUPPORT_USERNAME}
@@ -95,6 +97,7 @@ services:
       - SUPPORT_EMAIL=${SUPPORT_EMAIL}
     depends_on:
       - backend
+    restart: unless-stopped
     command: python main.py
 
   celery_worker:
@@ -119,9 +122,12 @@ services:
       - PAYSTARS_API_KEY=${PAYSTARS_API_KEY}
       - PAYSTARS_BASE_URL=${PAYSTARS_BASE_URL:-https://paystars.uz/api/v1}
       - PROVIDER_AUTO_FULFILL_ENABLED=${PROVIDER_AUTO_FULFILL_ENABLED:-false}
+      - FULFILLMENT_RESCUE_DELAY_SECONDS=${FULFILLMENT_RESCUE_DELAY_SECONDS:-90}
+      - FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS=${FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS:-300}
     depends_on:
       - redis
       - postgres
+    restart: unless-stopped
     command: celery -A app.celery_app worker --loglevel=info
 
   celery_beat:
@@ -146,9 +152,12 @@ services:
       - PAYSTARS_API_KEY=${PAYSTARS_API_KEY}
       - PAYSTARS_BASE_URL=${PAYSTARS_BASE_URL:-https://paystars.uz/api/v1}
       - PROVIDER_AUTO_FULFILL_ENABLED=${PROVIDER_AUTO_FULFILL_ENABLED:-false}
+      - FULFILLMENT_RESCUE_DELAY_SECONDS=${FULFILLMENT_RESCUE_DELAY_SECONDS:-90}
+      - FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS=${FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS:-300}
     depends_on:
       - redis
       - postgres
+    restart: unless-stopped
     command: celery -A app.celery_app beat --loglevel=info
 
   nginx:

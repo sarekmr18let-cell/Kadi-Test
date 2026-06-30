@@ -31,5 +31,9 @@ celery_app.conf.update(
             "task": "app.services.moogold_fulfillment.sync_gamedrops_order_statuses",
             "schedule": 30.0,  # every 30 seconds
         },
+        "rescue-paid-orders-without-fulfillment": {
+            "task": "app.services.moogold_fulfillment.rescue_paid_orders_without_fulfillment",
+            "schedule": 60.0,  # every minute
+        },
     },
 )
