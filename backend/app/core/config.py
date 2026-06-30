@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Provider safety
     PROVIDER_AUTO_FULFILL_ENABLED: bool = False
     FULFILLMENT_RESCUE_DELAY_SECONDS: int = 90
+    FULFILLMENT_RESCUE_MAX_AGE_SECONDS: int = 1800
     FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS: int = 300
 
     # P2P / wallet safety

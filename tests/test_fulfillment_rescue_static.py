@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FULFILLMENT_SOURCE = (ROOT / "backend/app/services/moogold_fulfillment.py").read_text()
 CELERY_SOURCE = (ROOT / "backend/app/celery_app.py").read_text()
 COMPOSE_SOURCE = (ROOT / "docker-compose.yml").read_text()
+CONFIG_SOURCE = (ROOT / "backend/app/core/config.py").read_text()
 MODULE = ast.parse(FULFILLMENT_SOURCE)
 
 
@@ -15,14 +16,24 @@ def function_source(name: str) -> str:
     raise AssertionError(f"function {name} not found")
 
 
-def test_rescue_query_selects_old_paid_gamedrops_orders_without_fulfillment():
+def test_rescue_query_selects_paid_gamedrops_orders_within_rescue_window():
     source = function_source("_find_paid_orders_without_fulfillment")
     assert 'Order.status == "paid"' in source
+    assert "cutoff = now - timedelta(seconds=delay_seconds)" in source
+    assert "oldest_allowed = now - timedelta(seconds=max_age_seconds)" in source
     assert "Order.created_at <= cutoff" in source
+    assert "Order.created_at >= oldest_allowed" in source
     assert "ProductVariation.provider" in source
     assert "Product.provider" in source
     assert '"gamedrops"' in source
     assert "MooGoldFulfillment.id == None" in source
+
+
+def test_rescue_query_skips_orders_younger_than_delay_and_older_than_max_age():
+    source = function_source("_find_paid_orders_without_fulfillment")
+    assert "Order.created_at <= cutoff" in source
+    assert "Order.created_at >= oldest_allowed" in source
+    assert source.index("Order.created_at <= cutoff") < source.index("Order.created_at >= oldest_allowed")
 
 
 def test_rescue_query_skips_delivered_refunded_cancelled_failed_provider_statuses():
@@ -56,7 +67,8 @@ def test_rescue_task_enqueues_fulfillment_once_with_redis_dedupe():
 def test_rescue_has_admin_notification_and_summary_logging():
     rescue_source = function_source("rescue_paid_orders_without_fulfillment")
     admin_source = function_source("_send_rescue_admin_notification_once")
-    assert "rescued_paid_orders_without_fulfillment checked=%s rescued=%s skipped=%s" in rescue_source
+    assert "rescued_paid_orders_without_fulfillment checked=%s rescued=%s skipped=%s max_age_seconds=%s" in rescue_source
+    assert "settings.FULFILLMENT_RESCUE_MAX_AGE_SECONDS" in rescue_source
     assert "rescue enqueue order_id=%s" in rescue_source
     assert "_get_admin_language_code(admin_tg_id_int)" in admin_source
     assert "_build_rescue_admin_notification_text(order_id, language_code)" in admin_source
@@ -101,6 +113,29 @@ def test_admin_rescue_notification_is_localized_and_falls_back_to_ru():
     assert "User.telegram_id == admin_tg_id" in loader
     assert "language_code = _get_admin_language_code(admin_tg_id_int)" in admin
     assert "Rescued paid order" not in builder
+
+
+def test_fulfillment_rescue_max_age_setting_exists():
+    assert "FULFILLMENT_RESCUE_MAX_AGE_SECONDS: int = 1800" in CONFIG_SOURCE
+
+
+def test_historical_orders_are_never_enqueued_by_rescue_task():
+    finder_source = function_source("_find_paid_orders_without_fulfillment")
+    rescue_source = function_source("rescue_paid_orders_without_fulfillment")
+    assert "Order.created_at >= oldest_allowed" in finder_source
+    assert "_find_paid_orders_without_fulfillment(db, delay_seconds, max_age_seconds)" in rescue_source
+    assert "fulfill_order_via_moogold.delay(order_id)" in rescue_source
+    assert rescue_source.index("_find_paid_orders_without_fulfillment") < rescue_source.index("fulfill_order_via_moogold.delay(order_id)")
+
+
+def test_docker_compose_passes_fulfillment_rescue_max_age_to_backend_worker_and_beat():
+    lines = COMPOSE_SOURCE.splitlines()
+    expected = "FULFILLMENT_RESCUE_MAX_AGE_SECONDS=${FULFILLMENT_RESCUE_MAX_AGE_SECONDS:-1800}"
+    for service in ["backend", "celery_worker", "celery_beat"]:
+        start = lines.index(f"  {service}:")
+        end = next((idx for idx in range(start + 1, len(lines)) if lines[idx].startswith("  ") and not lines[idx].startswith("    ")), len(lines))
+        block = "\n".join(lines[start:end])
+        assert expected in block
 
 
 def test_celery_beat_schedules_rescue_task():
