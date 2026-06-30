@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, status, Header, Depends
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
-from app.services.notifications import send_order_notification
+from app.services.notifications import send_auto_refund_notification, send_order_notification, send_refund_review_notification
 from app.core.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -146,12 +146,17 @@ async def moogold_callback(
         order.payment_receipt = details_str[:1000]
 
     order.updated_at = datetime.utcnow()
+    refund_result = None
     if order.status == "refunded":
-        await db.run_sync(lambda sync_session: refund_order_to_balance(sync_session, order.id, payload.message or payload.status, notify=True))
+        refund_result = await db.run_sync(lambda sync_session: refund_order_to_balance(sync_session, order.id, payload.message or payload.status))
 
     await db.commit()
 
     # Notify user/admin
     send_order_notification.delay(order.id, order.status)
+    if refund_result and refund_result.status == "refunded":
+        send_auto_refund_notification.delay(order.id, refund_result.amount, refund_result.reason or payload.status)
+    elif refund_result and refund_result.status == "partial_provider_success_needs_review":
+        send_refund_review_notification.delay(order.id, refund_result.reason or payload.status)
 
     return {"status": "success", "received": True, "order_id": order.id, "local_status": order.status}

@@ -73,7 +73,7 @@ def _mark_needs_review(order, reason: str) -> None:
     order.updated_at = datetime.utcnow()
 
 
-def refund_order_to_balance(db, order_id: int, reason: str, notify: bool = True) -> RefundResult:
+def refund_order_to_balance(db, order_id: int, reason: str) -> RefundResult:
     """Idempotently return a fully failed/refunded provider order to Kadi balance."""
     from app.models.models import MooGoldFulfillment, Order, Transaction, User
 
@@ -103,9 +103,6 @@ def refund_order_to_balance(db, order_id: int, reason: str, notify: bool = True)
         if safety_reason == "partial_provider_success_needs_review":
             _mark_needs_review(order, safety_reason)
             db.flush()
-            if notify:
-                from app.services.notifications import send_refund_review_notification
-                send_refund_review_notification.delay(order.id, reason)
         return RefundResult(status=safety_reason, order_id=order.id, reason=reason)
 
     amount = float(order.total_amount or 0)
@@ -125,9 +122,5 @@ def refund_order_to_balance(db, order_id: int, reason: str, notify: bool = True)
     )
     db.add(tx)
     db.flush()
-
-    if notify:
-        from app.services.notifications import send_auto_refund_notification
-        send_auto_refund_notification.delay(order.id, amount, reason)
 
     return RefundResult(status="refunded", order_id=order.id, amount=amount, reason=reason, transaction_id=tx.id)

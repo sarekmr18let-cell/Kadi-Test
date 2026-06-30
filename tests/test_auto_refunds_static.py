@@ -40,7 +40,7 @@ def test_multi_item_partial_completed_is_needs_review_not_full_refund():
     assert "statuses.intersection(COMPLETED_STATUSES)" in REFUNDS
     assert '"partial_provider_success_needs_review"' in REFUNDS
     assert 'order.provider_status = "needs_review"' in REFUNDS
-    assert "send_refund_review_notification.delay" in REFUNDS
+    assert "send_refund_review_notification.delay" in FULFILLMENT
 
 
 def test_wrong_price_failed_status_is_safely_recognized():
@@ -60,10 +60,16 @@ def test_p2p_topup_transactions_are_not_touched():
 def test_status_sync_triggers_refund_but_never_create_order():
     sync_start = FULFILLMENT.index("def sync_gamedrops_order_statuses")
     sync_source = FULFILLMENT[sync_start:]
-    assert "refund_order_to_balance(db, order.id, reason, notify=True)" in sync_source
+    assert "refund_order_to_balance(db, order.id, reason)" in sync_source
     assert "_get_gamedrops_order_status" in sync_source
     assert "create_gamedrops_order" not in sync_source
     assert "create_order(" not in sync_source
+
+
+def test_immediate_create_order_failure_triggers_safe_refund_after_commit():
+    assert "refund_result = refund_order_to_balance(db, order.id, refund_reason" in FULFILLMENT
+    assert "if refund_result and refund_result.status == \"refunded\":" in FULFILLMENT
+    assert FULFILLMENT.index("db.commit()") < FULFILLMENT.index("send_auto_refund_notification.delay(order_id")
 
 
 def test_notifications_and_backfill_script_exist():
@@ -72,3 +78,10 @@ def test_notifications_and_backfill_script_exist():
     assert "Auto refund: order" in NOTIFICATIONS
     assert "--dry-run" in SCRIPT
     assert "--apply" in SCRIPT
+
+
+def test_backfill_is_limited_to_gamedrops_candidates():
+    assert "gamedrops_order_filter" in SCRIPT
+    assert "ProductVariation.provider.in_" in SCRIPT
+    assert "Product.provider.in_" in SCRIPT
+    assert "join(Order, MooGoldFulfillment.order_id == Order.id)" in SCRIPT
