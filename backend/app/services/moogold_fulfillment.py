@@ -617,6 +617,7 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
 
     from app.models.models import MooGoldFulfillment, Order
     from app.services.notifications import send_order_notification
+    from app.services.refunds import refund_order_to_balance
 
     checked = 0
     updated = 0
@@ -695,6 +696,12 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
                         final_order_status = update_local_order_status_from_fulfillments(db, order.id)
                         if previous_order_status != "completed" and final_order_status == "completed":
                             notifications.append(order.id)
+                        if final_order_status == "refunded":
+                            reason = raw_status or "provider refunded"
+                            refund_order_to_balance(db, order.id, reason, notify=True)
+                        elif final_order_status in {"paid", "processing"} and mapped_status in {"refunded", "failed"}:
+                            reason = raw_status or mapped_status or "provider failed"
+                            refund_order_to_balance(db, order.id, reason, notify=True)
                     else:
                         final_order_status = order.status
 

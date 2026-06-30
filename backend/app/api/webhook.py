@@ -7,6 +7,7 @@ from app.core.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Order, MooGoldFulfillment, Transaction
+from app.services.refunds import refund_order_to_balance
 from app.core.config import settings
 import hmac
 import hashlib
@@ -145,6 +146,9 @@ async def moogold_callback(
         order.payment_receipt = details_str[:1000]
 
     order.updated_at = datetime.utcnow()
+    if order.status == "refunded":
+        await db.run_sync(lambda sync_session: refund_order_to_balance(sync_session, order.id, payload.message or payload.status, notify=True))
+
     await db.commit()
 
     # Notify user/admin
