@@ -322,6 +322,24 @@ def _format_uzs(amount: float) -> str:
     return f"{int(round(float(amount or 0))):,}".replace(",", " ")
 
 
+def _localized_auto_refund_text(lang: str) -> str:
+    normalized = _normalize_lang(lang)
+    texts = {
+        "ru": "Заказ #{order_id} не был выполнен поставщиком. Деньги возвращены на ваш баланс: {amount} UZS.",
+        "uz": "Buyurtma #{order_id} yetkazib beruvchi tomonidan bajarilmadi. Pul balansingizga qaytarildi: {amount} UZS.",
+        "en": "Order #{order_id} was not fulfilled by the provider. The money has been returned to your balance: {amount} UZS.",
+    }
+    return texts[normalized]
+
+
+def build_auto_refund_message(order, user, amount: float) -> str:
+    lang = _normalize_lang(getattr(user, "language_code", None))
+    return _localized_auto_refund_text(lang).format(
+        order_id=escape_html(getattr(order, "id", "")),
+        amount=escape_html(_format_uzs(amount)),
+    )
+
+
 @shared_task
 def send_auto_refund_notification(order_id: int, amount: float, reason: str):
     """Notify user and admin after an automatic balance refund."""
@@ -337,7 +355,7 @@ def send_auto_refund_notification(order_id: int, amount: float, reason: str):
             return {"status": "user_not_found", "order_id": order_id}
 
         amount_text = _format_uzs(amount)
-        user_text = f"Заказ #{order.id} не был выполнен поставщиком. Деньги возвращены на ваш баланс: {amount_text} UZS."
+        user_text = build_auto_refund_message(order, user, amount)
         user_sent = send_telegram_message_sync(user.telegram_id, user_text)
 
         admin_sent = False
