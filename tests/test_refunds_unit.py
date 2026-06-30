@@ -18,11 +18,6 @@ def fake_select(*args, **kwargs):
     return FakeSelect()
 
 
-sqlalchemy = ModuleType("sqlalchemy")
-sqlalchemy.select = fake_select
-sys.modules["sqlalchemy"] = sqlalchemy
-
-
 class Field:
     def __eq__(self, other):
         return True
@@ -54,24 +49,6 @@ class Transaction(Model):
 
 class MooGoldFulfillment(Model):
     pass
-
-
-app_module = ModuleType("app")
-models_pkg = ModuleType("app.models")
-models_module = ModuleType("app.models.models")
-models_module.MooGoldFulfillment = MooGoldFulfillment
-models_module.Order = Order
-models_module.Transaction = Transaction
-models_module.User = User
-sys.modules["app"] = app_module
-sys.modules["app.models"] = models_pkg
-sys.modules["app.models.models"] = models_module
-
-spec = importlib.util.spec_from_file_location("refunds_under_test", ROOT / "backend/app/services/refunds.py")
-refunds = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = refunds
-spec.loader.exec_module(refunds)
-refund_order_to_balance = refunds.refund_order_to_balance
 
 
 class FakeResult:
@@ -121,6 +98,32 @@ class FakeDB:
                 obj.id = idx
 
 
+def _install_refunds_module(monkeypatch):
+    sqlalchemy = ModuleType("sqlalchemy")
+    sqlalchemy.select = fake_select
+
+    app_module = ModuleType("app")
+    models_pkg = ModuleType("app.models")
+    models_module = ModuleType("app.models.models")
+    models_module.MooGoldFulfillment = MooGoldFulfillment
+    models_module.Order = Order
+    models_module.Transaction = Transaction
+    models_module.User = User
+
+    monkeypatch.setitem(sys.modules, "sqlalchemy", sqlalchemy)
+    monkeypatch.setitem(sys.modules, "app", app_module)
+    monkeypatch.setitem(sys.modules, "app.models", models_pkg)
+    monkeypatch.setitem(sys.modules, "app.models.models", models_module)
+
+    module_name = "refunds_under_test"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    spec = importlib.util.spec_from_file_location(module_name, ROOT / "backend/app/services/refunds.py")
+    refunds = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, module_name, refunds)
+    spec.loader.exec_module(refunds)
+    return refunds
+
+
 def make_order(status="failed", provider_status="failed", provider_response=None, total=30600):
     return Order(
         id=48,
@@ -143,12 +146,13 @@ def fulfillment(status):
     return SimpleNamespace(status=status)
 
 
-def test_refund_order_to_balance_credits_user_and_creates_refund_transaction():
+def test_refund_order_to_balance_credits_user_and_creates_refund_transaction(monkeypatch):
+    refunds = _install_refunds_module(monkeypatch)
     order = make_order(status="refunded", provider_status="refunded")
     user = make_user(balance=400)
     db = FakeDB(order, user, fulfillments=[fulfillment("refunded")])
 
-    result = refund_order_to_balance(db, order.id, "REFUND provider error")
+    result = refunds.refund_order_to_balance(db, order.id, "REFUND provider error")
 
     assert result.status == "refunded"
     assert user.balance == 31000
@@ -161,50 +165,87 @@ def test_refund_order_to_balance_credits_user_and_creates_refund_transaction():
     assert tx.order_id == order.id
 
 
-def test_second_call_or_existing_manual_refund_does_not_double_refund():
+def test_second_call_or_existing_manual_refund_does_not_double_refund(monkeypatch):
+    refunds = _install_refunds_module(monkeypatch)
     order = make_order(status="refunded", provider_status="refunded")
     user = make_user(balance=400)
     existing_refund = Transaction(user_id=user.id, order_id=order.id, type="refund", amount=30600, currency="UZS", status="completed", description="manual refund")
     db = FakeDB(order, user, fulfillments=[fulfillment("refunded")], existing_refund=existing_refund)
 
-    result = refund_order_to_balance(db, order.id, "REFUND provider error")
+    result = refunds.refund_order_to_balance(db, order.id, "REFUND provider error")
 
     assert result.status == "already_refunded"
     assert user.balance == 400
     assert db.added == []
 
 
-def test_all_fulfillments_refunded_get_full_refund():
+def test_all_fulfillments_refunded_get_full_refund(monkeypatch):
+    refunds = _install_refunds_module(monkeypatch)
     order = make_order(status="processing", provider_status="refunded")
     user = make_user(balance=0)
     db = FakeDB(order, user, fulfillments=[fulfillment("refunded"), fulfillment("refunded")])
 
-    result = refund_order_to_balance(db, order.id, "REFUND")
+    result = refunds.refund_order_to_balance(db, order.id, "REFUND")
 
     assert result.status == "refunded"
     assert user.balance == 30600
 
 
-def test_all_fulfillments_failed_get_full_refund_for_provider_error():
+def test_all_fulfillments_failed_get_full_refund_for_provider_error(monkeypatch):
+    refunds = _install_refunds_module(monkeypatch)
     order = make_order(status="failed", provider_status="failed")
     user = make_user(balance=10)
     db = FakeDB(order, user, fulfillments=[fulfillment("failed"), fulfillment("failed")])
 
-    result = refund_order_to_balance(db, order.id, "WRONG_PRICE")
+    result = refunds.refund_order_to_balance(db, order.id, "WRONG_PRICE")
 
     assert result.status == "refunded"
     assert user.balance == 30610
 
 
-def test_completed_plus_refunded_does_not_full_refund_and_marks_review():
+def test_all_fulfillments_cancelled_get_full_refund(monkeypatch):
+    refunds = _install_refunds_module(monkeypatch)
+    order = make_order(status="cancelled", provider_status="cancelled")
+    user = make_user(balance=20)
+    db = FakeDB(order, user, fulfillments=[fulfillment("cancelled"), fulfillment("refunded")])
+
+    result = refunds.refund_order_to_balance(db, order.id, "CANCELLED")
+
+    assert result.status == "refunded"
+    assert user.balance == 30620
+
+
+def test_completed_plus_refunded_does_not_full_refund_and_marks_review(monkeypatch):
+    refunds = _install_refunds_module(monkeypatch)
     order = make_order(status="processing", provider_status="refunded")
     user = make_user(balance=10)
     db = FakeDB(order, user, fulfillments=[fulfillment("completed"), fulfillment("refunded")])
 
-    result = refund_order_to_balance(db, order.id, "REFUND")
+    result = refunds.refund_order_to_balance(db, order.id, "REFUND")
 
     assert result.status == "partial_provider_success_needs_review"
     assert user.balance == 10
     assert db.added == []
     assert order.provider_status == "needs_review"
     assert order.provider_response["refund_review_reason"] == "partial_provider_success_needs_review"
+
+
+def test_completed_plus_cancelled_does_not_full_refund_and_marks_review(monkeypatch):
+    refunds = _install_refunds_module(monkeypatch)
+    order = make_order(status="processing", provider_status="cancelled")
+    user = make_user(balance=10)
+    db = FakeDB(order, user, fulfillments=[fulfillment("completed"), fulfillment("cancelled")])
+
+    result = refunds.refund_order_to_balance(db, order.id, "CANCELLED")
+
+    assert result.status == "partial_provider_success_needs_review"
+    assert user.balance == 10
+    assert db.added == []
+    assert order.provider_status == "needs_review"
+
+
+def test_tests_do_not_replace_global_sqlalchemy_module():
+    source = Path(__file__).read_text()
+    forbidden = 'sys.modules' + '["sqlalchemy"] ='
+    assert forbidden not in source
+    assert "monkeypatch.setitem(sys.modules, \"sqlalchemy\"" in source

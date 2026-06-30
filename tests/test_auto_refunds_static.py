@@ -85,3 +85,16 @@ def test_backfill_is_limited_to_gamedrops_candidates():
     assert "ProductVariation.provider.in_" in SCRIPT
     assert "Product.provider.in_" in SCRIPT
     assert "join(Order, MooGoldFulfillment.order_id == Order.id)" in SCRIPT
+
+
+def test_gamedrops_sync_handles_cancelled_for_refund_or_review():
+    assert 'final_order_status in {"refunded", "cancelled"}' in FULFILLMENT
+    assert 'mapped_status in {"refunded", "failed", "cancelled"}' in FULFILLMENT
+
+
+def test_moogold_webhook_mixed_fulfillment_calls_review_path():
+    webhook = (ROOT / "backend/app/api/webhook.py").read_text()
+    assert 'has_completed = bool(statuses.intersection({"completed"}))' in webhook
+    assert 'has_unsuccessful = bool(statuses.intersection({"refunded", "cancelled", "failed"}))' in webhook
+    assert 'order.status == "refunded" or (has_completed and has_unsuccessful)' in webhook
+    assert 'send_refund_review_notification.delay' in webhook

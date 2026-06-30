@@ -147,7 +147,9 @@ async def moogold_callback(
 
     order.updated_at = datetime.utcnow()
     refund_result = None
-    if order.status == "refunded":
+    has_completed = bool(statuses.intersection({"completed"}))
+    has_unsuccessful = bool(statuses.intersection({"refunded", "cancelled", "failed"}))
+    if order.status == "refunded" or (has_completed and has_unsuccessful):
         refund_result = await db.run_sync(lambda sync_session: refund_order_to_balance(sync_session, order.id, payload.message or payload.status))
 
     await db.commit()

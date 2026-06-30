@@ -708,14 +708,14 @@ def sync_gamedrops_order_statuses(order_id: int | None = None) -> dict:
                         final_order_status = update_local_order_status_from_fulfillments(db, order.id)
                         if previous_order_status != "completed" and final_order_status == "completed":
                             notifications.append(order.id)
-                        if final_order_status == "refunded":
+                        if final_order_status in {"refunded", "cancelled"}:
                             reason = raw_status or "provider refunded"
                             refund_result = refund_order_to_balance(db, order.id, reason)
                             if refund_result.status == "refunded":
                                 pending_refund_notification = {"order_id": order.id, "amount": refund_result.amount, "reason": reason}
                             elif refund_result.status == "partial_provider_success_needs_review":
                                 pending_review_notification = {"order_id": order.id, "reason": reason}
-                        elif final_order_status in {"paid", "processing"} and mapped_status in {"refunded", "failed"}:
+                        elif final_order_status in {"paid", "processing"} and mapped_status in {"refunded", "failed", "cancelled"}:
                             reason = raw_status or mapped_status or "provider failed"
                             refund_result = refund_order_to_balance(db, order.id, reason)
                             if refund_result.status == "refunded":
