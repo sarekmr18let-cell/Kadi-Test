@@ -5,17 +5,21 @@ import hmac
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 import httpx
 from celery import shared_task
-from sqlalchemy import create_engine, select, func
+from sqlalchemy import create_engine, select, func, or_
 from sqlalchemy.orm import joinedload, sessionmaker
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+FINAL_ORDER_STATUSES = {"delivered", "completed", "refunded", "cancelled", "failed"}
+FINAL_PROVIDER_STATUSES = {"delivered", "completed", "refunded", "cancelled", "failed"}
+FINAL_FULFILLMENT_STATUSES = {"completed", "refunded", "cancelled", "failed"}
 
 SYNC_DATABASE_URL = settings.DATABASE_URL.replace("+asyncpg", "")
 sync_engine = create_engine(SYNC_DATABASE_URL)
@@ -251,7 +255,7 @@ def _load_order_for_fulfillment(db, order_id: int):
 
 
 def _fulfill_order_via_gamedrops(order_id: int) -> dict:
-    from app.models.models import MooGoldFulfillment
+    from app.models.models import MooGoldFulfillment, Order
     from app.services.notifications import send_auto_refund_notification, send_order_notification, send_refund_review_notification
     from app.services.refunds import refund_order_to_balance
 
@@ -259,11 +263,21 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
         return {"status": "skipped", "reason": "PROVIDER_AUTO_FULFILL_ENABLED=false", "order_id": order_id}
 
     with SyncSessionLocal() as db:
+        locked_order = db.execute(
+            select(Order)
+            .where(Order.id == order_id)
+            .with_for_update()
+        ).scalar_one_or_none()
+        if not locked_order:
+            return {"status": "not_found", "order_id": order_id}
+        db.execute(select(MooGoldFulfillment).where(MooGoldFulfillment.order_id == order_id).with_for_update()).scalars().all()
         order = _load_order_for_fulfillment(db, order_id)
         if not order:
             return {"status": "not_found", "order_id": order_id}
-        if order.status not in {"paid", "processing"}:
+        if order.status in FINAL_ORDER_STATUSES or order.status not in {"paid", "processing"}:
             return {"status": "skipped", "reason": f"order_status={order.status}", "order_id": order_id}
+        if str(order.provider_status or "").lower() in FINAL_PROVIDER_STATUSES:
+            return {"status": "skipped", "reason": f"provider_status={order.provider_status}", "order_id": order_id}
 
         result_summary = []
         created_any = False
@@ -283,10 +297,15 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
             for copy_no in range(1, int(item.quantity or 1) + 1):
                 transaction_id = f"{order.partner_order_id or order.order_number}-{item.id}-{copy_no}"
                 existing = db.execute(
-                    select(MooGoldFulfillment).where(MooGoldFulfillment.partner_order_id == transaction_id)
+                    select(MooGoldFulfillment)
+                    .where(MooGoldFulfillment.partner_order_id == transaction_id)
+                    .with_for_update()
                 ).scalar_one_or_none()
-                if existing and (existing.status == "completed" or (existing.status == "processing" and existing.moogold_order_id)):
+                if existing and existing.moogold_order_id:
                     result_summary.append({"item_id": item.id, "status": "exists", "fulfillment_id": existing.id})
+                    continue
+                if existing and existing.status in FINAL_FULFILLMENT_STATUSES:
+                    result_summary.append({"item_id": item.id, "status": "final", "fulfillment_id": existing.id, "fulfillment_status": existing.status})
                     continue
 
                 fulfillment = existing or MooGoldFulfillment(
@@ -609,6 +628,147 @@ def _acquire_gamedrops_status_sync_lock(ttl_seconds: int = 120):
     except Exception:
         logger.exception("Failed to acquire GameDrops status sync Redis lock")
         return None
+
+
+def _redis_set_once(key: str, ttl_seconds: int) -> bool:
+    try:
+        import redis
+
+        redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        return bool(redis_client.set(key, "1", ex=ttl_seconds, nx=True))
+    except Exception:
+        logger.warning("Redis dedupe unavailable for key %s; continuing without dedupe", key, exc_info=True)
+        return True
+
+
+def _normalize_rescue_admin_lang(code: Any) -> str:
+    normalized = str(code or "").strip().lower()
+    if normalized.startswith("uz"):
+        return "uz"
+    if normalized.startswith("en"):
+        return "en"
+    return "ru"
+
+
+def _build_rescue_admin_notification_text(order_id: int, language_code: Any = None) -> str:
+    texts = {
+        "ru": (
+            "⚠️ Авто-спасатель заказа\n"
+            f"Заказ #{order_id} был оплачен, но выдача не стартовала.\n"
+            "Задача выдачи повторно поставлена в очередь."
+        ),
+        "en": (
+            "⚠️ Order rescue\n"
+            f"Order #{order_id} was paid, but fulfillment did not start.\n"
+            "Fulfillment task has been re-queued."
+        ),
+        "uz": (
+            "⚠️ Buyurtma qutqarildi\n"
+            f"Buyurtma #{order_id} to‘langan, lekin yetkazish boshlanmagan.\n"
+            "Yetkazish vazifasi qayta navbatga qo‘yildi."
+        ),
+    }
+    return texts[_normalize_rescue_admin_lang(language_code)]
+
+
+def _get_admin_language_code(admin_tg_id: int) -> Optional[str]:
+    from app.models.models import User
+
+    with SyncSessionLocal() as db:
+        admin = db.execute(select(User).where(User.telegram_id == admin_tg_id)).scalar_one_or_none()
+        return getattr(admin, "language_code", None) if admin else None
+
+
+def _send_rescue_admin_notification_once(order_id: int) -> None:
+    key = f"dedupe:fulfillment_rescue_admin:{order_id}"
+    if not _redis_set_once(key, settings.FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS):
+        return
+    try:
+        from app.services.notifications import send_telegram_message_sync
+
+        admin_tg_id = settings.ADMIN_TG_ID
+        if admin_tg_id and str(admin_tg_id).strip():
+            admin_tg_id_int = int(str(admin_tg_id).strip())
+            language_code = _get_admin_language_code(admin_tg_id_int)
+            send_telegram_message_sync(
+                admin_tg_id_int,
+                _build_rescue_admin_notification_text(order_id, language_code),
+            )
+    except Exception:
+        logger.exception("Failed to send fulfillment rescue admin notification for order %s", order_id)
+
+
+def _find_paid_orders_without_fulfillment(db, delay_seconds: int, limit: int = 100) -> list[int]:
+    from app.models.models import MooGoldFulfillment, Order, OrderItem, Product, ProductVariation
+
+    cutoff = _now() - timedelta(seconds=delay_seconds)
+    non_final_fulfillment_status = or_(
+        MooGoldFulfillment.status == None,
+        func.lower(MooGoldFulfillment.status).notin_(list(FINAL_FULFILLMENT_STATUSES)),
+    )
+    missing_provider_order_id = or_(
+        MooGoldFulfillment.moogold_order_id == None,
+        MooGoldFulfillment.moogold_order_id == "",
+    )
+    query = (
+        select(Order.id)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .join(ProductVariation, ProductVariation.id == OrderItem.variation_id)
+        .join(Product, Product.id == ProductVariation.product_id)
+        .outerjoin(MooGoldFulfillment, MooGoldFulfillment.order_item_id == OrderItem.id)
+        .where(
+            Order.status == "paid",
+            Order.created_at <= cutoff,
+            or_(Order.provider_status == None, func.lower(Order.provider_status).notin_(list(FINAL_PROVIDER_STATUSES))),
+            or_(func.lower(ProductVariation.provider).in_(["gamedrops", "gamesdrop"]), func.lower(Product.provider).in_(["gamedrops", "gamesdrop"])),
+            or_(
+                MooGoldFulfillment.id == None,
+                missing_provider_order_id & non_final_fulfillment_status,
+            ),
+        )
+        .distinct()
+        .order_by(Order.id.asc())
+        .limit(limit)
+    )
+    return [int(order_id) for order_id in db.execute(query).scalars().all()]
+
+
+@shared_task(name="app.services.moogold_fulfillment.rescue_paid_orders_without_fulfillment")
+def rescue_paid_orders_without_fulfillment() -> dict:
+    delay_seconds = int(settings.FULFILLMENT_RESCUE_DELAY_SECONDS)
+    dedupe_ttl = int(settings.FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS)
+    checked = rescued = skipped = 0
+    items: list[dict[str, Any]] = []
+
+    with SyncSessionLocal() as db:
+        order_ids = _find_paid_orders_without_fulfillment(db, delay_seconds)
+
+    checked = len(order_ids)
+    for order_id in order_ids:
+        dedupe_key = f"dedupe:fulfillment_rescue_enqueue:{order_id}"
+        if not _redis_set_once(dedupe_key, dedupe_ttl):
+            skipped += 1
+            logger.info("rescue skip order_id=%s reason=dedupe_ttl", order_id)
+            items.append({"order_id": order_id, "status": "skipped", "reason": "dedupe_ttl"})
+            continue
+        try:
+            fulfill_order_via_moogold.delay(order_id)
+            rescued += 1
+            logger.warning("rescue enqueue order_id=%s", order_id)
+            _send_rescue_admin_notification_once(order_id)
+            items.append({"order_id": order_id, "status": "enqueued"})
+        except Exception as exc:
+            skipped += 1
+            logger.exception("rescue skip order_id=%s reason=enqueue_failed", order_id)
+            items.append({"order_id": order_id, "status": "skipped", "reason": str(exc)})
+
+    logger.warning(
+        "rescued_paid_orders_without_fulfillment checked=%s rescued=%s skipped=%s",
+        checked,
+        rescued,
+        skipped,
+    )
+    return {"status": "ok", "checked": checked, "rescued": rescued, "skipped": skipped, "items": items}
 
 
 @shared_task(name="app.services.moogold_fulfillment.sync_gamedrops_order_statuses")

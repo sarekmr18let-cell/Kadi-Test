@@ -41,6 +41,8 @@ class Settings(BaseSettings):
 
     # Provider safety
     PROVIDER_AUTO_FULFILL_ENABLED: bool = False
+    FULFILLMENT_RESCUE_DELAY_SECONDS: int = 90
+    FULFILLMENT_RESCUE_DEDUPE_TTL_SECONDS: int = 300
 
     # P2P / wallet safety
     P2P_TEST_MODE: bool = False  # True = admin can run safe parser/process tests
