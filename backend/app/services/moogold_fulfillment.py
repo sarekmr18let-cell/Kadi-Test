@@ -447,8 +447,11 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
         failed_any = False
         skipped_any = False
         refund_result = None
+        stop_provider_calls = False
 
         for item in order.items:
+            if stop_provider_calls:
+                break
             variation = item.variation
             product = variation.product
             provider = getattr(variation, "provider", None) or getattr(product, "provider", None)
@@ -499,6 +502,15 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
                     result_summary.append({"item_id": item.id, "status": "failed", "reason": fulfillment.error_message})
                     continue
 
+                if _is_gamedrops_circuit_open():
+                    fulfillment.status = "failed"
+                    fulfillment.error_message = "GameDrops circuit breaker is open"
+                    failed_any = True
+                    stop_provider_calls = True
+                    logger.warning("gamedrops circuit breaker open, skip provider call order_id=%s", order.id)
+                    result_summary.append({"item_id": item.id, "status": "failed", "reason": fulfillment.error_message})
+                    break
+
                 request_payload = {
                     "provider": "gamedrops",
                     "offer_id": str(offer_id),
@@ -539,9 +551,12 @@ def _fulfill_order_via_gamedrops(order_id: int) -> dict:
                     if _is_insufficient_balance_error(exc):
                         _open_gamedrops_circuit("insufficient_partner_balance")
                         _send_gamedrops_circuit_admin_notification_once("insufficient_partner_balance")
+                        stop_provider_calls = True
                     failed_any = True
                     logger.exception("GameDrops fulfillment failed for local order %s item %s", order.id, item.id)
                     result_summary.append({"item_id": item.id, "status": "failed", "reason": str(exc)})
+                    if stop_provider_calls:
+                        break
 
         if created_any:
             order.status = "processing"
